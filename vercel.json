@@ -1,0 +1,6 @@
+{
+  "env": {
+    "NEXT_PUBLIC_API_URL": "https://your-api-url.vercel.app",
+    "NEXT_PUBLIC_APP_NAME": "Clockify Bulk Editor"
+  }
+}

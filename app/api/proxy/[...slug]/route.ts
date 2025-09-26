@@ -19,13 +19,14 @@ const timeEntryPayloadSchema = z.object({
 })
 
 
-export async function GET(req: NextRequest, { params }: { params: { slug: string[] } }) {
+export async function GET(req: NextRequest, context: { params: { slug: string[] } }) {
   try {
     const { searchParams } = new URL(req.url)
     const apiKey = searchParams.get("apiKey")
     apiKeySchema.parse({ apiKey })
     const clockify = new ClockifyAPI()
     clockify.setApiKey(apiKey!)
+    const params = await context.params
     const [resource, ...rest] = params.slug
     if (resource === "workspaces") {
       const data = await clockify.getWorkspaces()
@@ -56,13 +57,14 @@ export async function GET(req: NextRequest, { params }: { params: { slug: string
 }
 
 
-export async function POST(req: NextRequest, { params }: { params: { slug: string[] } }) {
+export async function POST(req: NextRequest, context: { params: { slug: string[] } }) {
   try {
     const body = await req.json()
     const { apiKey, ...payload } = body
     apiKeySchema.parse({ apiKey })
     const clockify = new ClockifyAPI()
     clockify.setApiKey(apiKey)
+    const params = await context.params
     const [resource, ...rest] = params.slug
     if (resource === "time-entries") {
       const [workspaceId] = rest
@@ -83,13 +85,14 @@ export async function POST(req: NextRequest, { params }: { params: { slug: strin
 }
 
 
-export async function PUT(req: NextRequest, { params }: { params: { slug: string[] } }) {
+export async function PUT(req: NextRequest, context: { params: { slug: string[] } }) {
   try {
     const body = await req.json()
     const { apiKey, ...payload } = body
     apiKeySchema.parse({ apiKey })
     const clockify = new ClockifyAPI()
     clockify.setApiKey(apiKey)
+    const params = await context.params
     const [resource, ...rest] = params.slug
     if (resource === "time-entries") {
       const [workspaceId, entryId] = rest

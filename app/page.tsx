@@ -1,73 +1,84 @@
-
 "use client"
+
 import { useEffect, useRef, useState } from "react"
+import { useRouter } from "next/navigation"
 import { useClockifyStore } from "../lib/store"
+import { Sun, Moon } from "lucide-react"
 import { Input } from "../components/ui/input"
 import { Button } from "../components/ui/button"
 import { Select } from "../components/ui/select"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../components/ui/table"
-import { DateRangePicker, DateRangeValue } from "../components/DateRangePicker"
-
+import { DateRangePicker } from "../components/DateRangePicker"
 import { BulkUploadDialog } from "../components/BulkUploadDialog"
+import { Skeleton } from "../components/ui/skeleton"
+import { Toast } from "../components/ui/toast"
 
-type Workspace = { id: string; name: string }
-type Project = { id: string; name: string }
-type Task = { id: string; name: string }
-type TimeEntry = {
-  id: string
-  description?: string
-  start: string
-  end?: string
-  projectId?: string
-  projectName?: string
-  taskId?: string
-  taskName?: string
-  tags?: string[]
-  billable?: boolean
-  [key: string]: any
-}
+const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "Clockify Bulk Editor"
 
 export default function Home() {
-  const [bulkDialogOpen, setBulkDialogOpen] = useState(false)
-  const apiKey = useClockifyStore(s => s.apiKey)
-  const setApiKey = useClockifyStore(s => s.setApiKey)
-  const workspaces = useClockifyStore(s => s.workspaces)
-  const setWorkspaces = useClockifyStore(s => s.setWorkspaces)
-  const projects = useClockifyStore(s => s.projects)
-  const setProjects = useClockifyStore(s => s.setProjects)
-  const tasksMap = useClockifyStore(s => s.tasks)
-  const setTasks = useClockifyStore(s => s.setTasks)
-  const timeEntries = useClockifyStore(s => s.timeEntries)
-  const setTimeEntries = useClockifyStore(s => s.setTimeEntries)
-  const updateTimeEntry = useClockifyStore(s => s.updateTimeEntry)
-  const optimisticUpdate = useClockifyStore(s => s.optimisticUpdate)
-  const optimisticTask = useClockifyStore(s => s.optimisticTask)
+  const router = useRouter();
+  // Theme
+  const [theme, setTheme] = useState(() => (typeof window !== "undefined" && window.localStorage.getItem("theme")) || "light")
+  useEffect(() => { document.documentElement.classList.toggle("dark", theme === "dark"); window.localStorage.setItem("theme", theme) }, [theme])
+
+  // Toast
+  const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null)
+
+  // Zustand store
+  const {
+    apiKey, setApiKey,
+    workspaces, setWorkspaces,
+    projects, setProjects,
+    tasks, setTasks,
+    timeEntries, setTimeEntries,
+    updateTimeEntry, optimisticUpdate, optimisticTask
+  } = useClockifyStore()
+
+  // Local state
+  const [apiKeyInput, setApiKeyInput] = useState("")
   const [workspaceId, setWorkspaceId] = useState("")
   const [projectId, setProjectId] = useState("")
-  const [dateRange, setDateRange] = useState<DateRangeValue>({
-    startDate: new Date(new Date().setDate(new Date().getDate() - 7)),
-    endDate: new Date()
-  })
-  const [editing, setEditing] = useState<Record<string, Partial<TimeEntry>>>({})
-  const [saving, setSaving] = useState<string | null>(null)
-  const [bulkSaving, setBulkSaving] = useState(false)
+  const [dateRange, setDateRange] = useState<null | { startDate: Date; endDate: Date }>(null)
+  const [showDatePicker, setShowDatePicker] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [editing, setEditing] = useState<Record<string, any>>({})
+  const [bulkDialogOpen, setBulkDialogOpen] = useState(false)
+  const [modifiedRows, setModifiedRows] = useState<Set<string>>(new Set())
+  const [activeMenu, setActiveMenu] = useState<'dashboard' | 'settings'>('dashboard')
 
-  // Load API key from localStorage
+
+  // Load API key and set initial dateRange on client
   useEffect(() => {
-    const stored = localStorage.getItem("clockifyApiKey")
-    if (stored) setApiKey(stored)
+    if (typeof window !== "undefined") {
+      const stored = window.localStorage.getItem("clockify_api_key")
+      if (stored) {
+        setApiKey(stored)
+        setApiKeyInput(stored)
+      }
+      // Set dateRange to today on client only
+      const today = new Date()
+      setDateRange({ startDate: today, endDate: today })
+    }
   }, [setApiKey])
-  useEffect(() => {
-    if (apiKey) localStorage.setItem("clockifyApiKey", apiKey)
-  }, [apiKey])
+
+  // Save API key to localStorage
+  const handleSaveApiKey = () => {
+    if (!apiKeyInput || apiKeyInput.length < 10) {
+      setToast({ type: "error", message: "Please enter a valid API key." })
+      return
+    }
+    setApiKey(apiKeyInput)
+    if (typeof window !== "undefined") window.localStorage.setItem("clockify_api_key", apiKeyInput)
+    setToast({ type: "success", message: "API key saved" })
+  }
 
   // Fetch workspaces
   useEffect(() => {
     if (!apiKey) return
     fetch(`/api/proxy/workspaces?apiKey=${apiKey}`)
       .then(r => r.json())
-      .then(setWorkspaces)
-      .catch(() => setWorkspaces([]))
+      .then(data => setWorkspaces(data))
+      .catch(() => setToast({ type: "error", message: "Failed to load workspaces" }))
   }, [apiKey, setWorkspaces])
 
   // Fetch projects when workspace changes
@@ -75,225 +86,248 @@ export default function Home() {
     if (!apiKey || !workspaceId) return
     fetch(`/api/proxy/projects/${workspaceId}?apiKey=${apiKey}`)
       .then(r => r.json())
-      .then(setProjects)
-      .catch(() => setProjects([]))
+      .then(data => setProjects(data))
+      .catch(() => setToast({ type: "error", message: "Failed to load projects" }))
   }, [apiKey, workspaceId, setProjects])
 
-  // Fetch tasks when workspace or project changes
-  useEffect(() => {
-    if (!apiKey || !workspaceId || !projectId) return
-    fetch(`/api/proxy/tasks/${workspaceId}/${projectId}?apiKey=${apiKey}`)
-      .then(r => r.json())
-      .then(tasks => setTasks(projectId, tasks))
-      .catch(() => setTasks(projectId, []))
-  }, [apiKey, workspaceId, projectId, setTasks])
-
-  // Fetch entries
-  const [loading, setLoading] = useState(false)
-  const fetchEntries = async () => {
-    setLoading(true)
-    setTimeEntries([])
-    try {
-      const start = dateRange.startDate.toISOString()
-      const end = dateRange.endDate.toISOString()
-      const url = `/api/proxy/time-entries/${workspaceId}?apiKey=${apiKey}&projectId=${projectId}&start=${start}&end=${end}`
-      const data = await fetch(url).then(r => r.json())
-      setTimeEntries(data)
-    } catch {
-      setTimeEntries([])
+  // Fetch time entries
+  const fetchEntries = () => {
+    if (!apiKey) {
+      setToast({ type: "error", message: "API key required." });
+      return;
     }
-    setLoading(false)
+    if (!workspaceId) {
+      setToast({ type: "error", message: "Please select a workspace." });
+      return;
+    }
+    if (!dateRange) {
+      setToast({ type: "error", message: "Please select a date range." });
+      return;
+    }
+    setLoading(true)
+    const start = dateRange.startDate.toISOString()
+    const end = dateRange.endDate.toISOString()
+    fetch(`/api/proxy/time-entries/${workspaceId}?apiKey=${apiKey}&projectId=${projectId}&start=${start}&end=${end}`)
+      .then(r => r.json())
+      .then(data => { setTimeEntries(Array.isArray(data) ? data : []); setLoading(false) })
+      .catch(() => { setTimeEntries([]); setToast({ type: "error", message: "Failed to load entries" }); setLoading(false) })
   }
 
-  // Handle inline edit
+  // Inline edit handlers
   const handleEdit = (id: string, field: string, value: any) => {
     setEditing(e => ({ ...e, [id]: { ...e[id], [field]: value } }))
-    optimisticUpdate(id, { [field]: value })
+    setModifiedRows(s => new Set(s).add(id))
   }
-
-  // Save single row
-  const saveRow = async (entry: TimeEntry) => {
-    setSaving(entry.id)
-    const update = { ...entry, ...editing[entry.id] }
-    optimisticUpdate(entry.id, update)
-    await fetch(`/api/proxy/time-entries/${workspaceId}/${entry.id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ apiKey, ...update })
-    })
-    setEditing(e => { const { [entry.id]: _, ...rest } = e; return rest })
-    setSaving(null)
-    fetchEntries()
-  }
-
-  // Bulk save
-  const bulkSave = async () => {
-    setBulkSaving(true)
-    const updates = timeEntries.filter(e => editing[e.id]).map(e => ({ ...e, ...editing[e.id] }))
-    updates.forEach(u => optimisticUpdate(u.id, u))
-    if (updates.length === 0) return setBulkSaving(false)
-    await Promise.all(updates.map(async (update) => {
-      await fetch(`/api/proxy/time-entries/${workspaceId}/${update.id}`, {
+  const handleSaveRow = async (entry: any) => {
+    setToast(null)
+    optimisticUpdate(entry.id, editing[entry.id])
+    try {
+      const res = await fetch(`/api/proxy/time-entries/${workspaceId}/${entry.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey, ...update })
+        body: JSON.stringify({ apiKey, ...editing[entry.id] })
       })
-    }))
-    setEditing({})
-    setBulkSaving(false)
-    fetchEntries()
+      if (!res.ok) throw new Error()
+      setToast({ type: "success", message: "Saved" })
+      setModifiedRows(s => { const n = new Set(s); n.delete(entry.id); return n })
+    } catch {
+      setToast({ type: "error", message: "Save failed" })
+    }
+  }
+  const handleBulkSave = async () => {
+    setToast(null)
+    if (Array.isArray(timeEntries)) {
+      for (const id of modifiedRows) {
+        const entry = timeEntries.find((e: any) => e.id === id)
+        if (entry) await handleSaveRow(entry)
+      }
+    }
+    setToast({ type: "success", message: "Bulk save complete" })
+    setModifiedRows(new Set())
   }
 
+  // UI
   return (
-    <div className="max-w-6xl mx-auto py-8 space-y-8">
+    <div className={"min-h-screen flex flex-col bg-background text-foreground " + (theme === 'dark' ? 'dark' : '')}>
+      {/* Top navbar */}
+      <header className="w-full flex items-center justify-between px-6 py-4 border-b border-border bg-card">
+        <div className="font-bold text-lg">{APP_NAME}</div>
+        <div className="flex items-center gap-2">
+          <button
+            className="p-2 rounded-full border border-gray-300 bg-white dark:bg-gray-800 dark:text-white"
+            onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
+            aria-label="Toggle dark mode"
+          >
+            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+        </div>
+      </header>
+      {/* Sidebar with navigation */}
+      <div className="flex flex-1">
+        <aside className="w-48 border-r border-border bg-sidebar p-4 hidden md:block">
+          <div className="font-semibold mb-2">Menu</div>
+          <ul className="space-y-2 text-sm">
+            <li>
+              <button
+                className={`w-full text-left px-2 py-1 rounded ${activeMenu === 'dashboard' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
+                onClick={() => setActiveMenu('dashboard')}
+              >Dashboard</button>
+            </li>
+            <li>
+              <button
+                className={`w-full text-left px-2 py-1 rounded ${activeMenu === 'settings' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
+                onClick={() => setActiveMenu('settings')}
+              >Settings</button>
+            </li>
+          </ul>
+        </aside>
+        <main className="flex-1 p-6">
+          {/* API Key input */}
+          <div className="flex flex-col md:flex-row gap-4 items-center mb-6">
+            <Input
+              type="password"
+              placeholder="Clockify API Key"
+              value={apiKeyInput}
+              onChange={e => setApiKeyInput(e.target.value)}
+              className="max-w-xs"
+            />
+            <Button onClick={handleSaveApiKey}>Save API Key</Button>
+          </div>
+          {/* Workspace/project/date pickers */}
+          <div className="flex flex-wrap gap-4 mb-6 items-end">
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-medium">Workspace</label>
+              <Select value={workspaceId} onChange={e => setWorkspaceId(e.target.value)} className="min-w-[180px]">
+                <option value="">Select Workspace</option>
+                {Array.isArray(workspaces) ? workspaces.map(w => <option key={w.id} value={w.id}>{w.name}</option>) : null}
+              </Select>
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-medium">Project</label>
+              <Select value={projectId} onChange={e => setProjectId(e.target.value)} className="min-w-[180px]">
+                <option value="">All Projects</option>
+                {Array.isArray(projects) ? projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>) : null}
+              </Select>
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-medium">Date Range</label>
+              <Button variant="outline" onClick={() => setShowDatePicker(v => !v)}>
+                {dateRange ? `${dateRange.startDate.toLocaleDateString()} - ${dateRange.endDate.toLocaleDateString()}` : 'Pick Date Range'}
+              </Button>
+              {showDatePicker && (
+                <div className="absolute z-20 mt-2 bg-white dark:bg-gray-900 rounded shadow-lg border p-2">
+                  <DateRangePicker value={dateRange || { startDate: new Date(), endDate: new Date() }} onChange={val => { setDateRange(val); setShowDatePicker(false); }} />
+                </div>
+              )}
+            </div>
+            <Button onClick={fetchEntries}>Fetch Entries</Button>
+            <Button variant="outline" onClick={() => setBulkDialogOpen(true)}>Bulk Upload</Button>
+          </div>
+          {/* Table */}
+          <div className="overflow-x-auto">
+            {loading ? (
+              <Skeleton className="h-32 w-full" />
+            ) : (
+                Array.isArray(timeEntries) && timeEntries.length > 0 ? (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Description</TableHead>
+                        <TableHead>Start</TableHead>
+                        <TableHead>End</TableHead>
+                        <TableHead>Project</TableHead>
+                        <TableHead>Task</TableHead>
+                        <TableHead>Tags</TableHead>
+                        <TableHead>Billable</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {timeEntries.map(entry => (
+                        <TableRow key={entry.id} className={modifiedRows.has(entry.id) ? "bg-yellow-50 dark:bg-yellow-900/30" : ""}>
+                          <TableCell>
+                            <Input
+                              value={editing[entry.id]?.description ?? entry.description ?? ""}
+                              onChange={e => handleEdit(entry.id, "description", e.target.value)}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="datetime-local"
+                              value={editing[entry.id]?.start ?? entry.start?.slice(0, 16) ?? ""}
+                              onChange={e => handleEdit(entry.id, "start", e.target.value)}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="datetime-local"
+                              value={editing[entry.id]?.end ?? entry.end?.slice(0, 16) ?? ""}
+                              onChange={e => handleEdit(entry.id, "end", e.target.value)}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Select
+                              value={editing[entry.id]?.projectId ?? entry.projectId ?? ""}
+                              onChange={e => handleEdit(entry.id, "projectId", e.target.value)}
+                            >
+                              <option value="">None</option>
+                            {Array.isArray(projects) ? projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>) : null}
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={editing[entry.id]?.taskName ?? entry.taskName ?? ""}
+                            onChange={e => handleEdit(entry.id, "taskName", e.target.value)}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={editing[entry.id]?.tags?.join(", ") ?? (entry.tags?.join(", ") ?? "")}
+                            onChange={e => handleEdit(entry.id, "tags", e.target.value.split(",").map((t: string) => t.trim()).filter(Boolean))}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            value={editing[entry.id]?.billable ?? entry.billable ? "true" : "false"}
+                            onChange={e => handleEdit(entry.id, "billable", e.target.value === "true")}
+                          >
+                            <option value="false">No</option>
+                            <option value="true">Yes</option>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Button size="sm" onClick={() => handleSaveRow(entry)} disabled={!modifiedRows.has(entry.id)}>Save</Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    </TableBody>
+                  </Table>
+                ) : (
+                  <div className="text-center text-muted-foreground py-8">No entries found.</div>
+                )
+            )}
+          </div>
+          {Array.isArray(timeEntries) && timeEntries.length > 0 && (
+            <div className="flex justify-end mt-4">
+              <Button onClick={handleBulkSave} disabled={modifiedRows.size === 0}>Bulk Save All</Button>
+            </div>
+          )}
+        </main>
+      </div>
+      {/* Bulk Upload Dialog */}
       <BulkUploadDialog
         open={bulkDialogOpen}
         onClose={() => setBulkDialogOpen(false)}
         workspaceId={workspaceId}
         apiKey={apiKey}
-        onSuccess={fetchEntries}
+        onSuccess={() => { setBulkDialogOpen(false); fetchEntries() }}
       />
-      <div className="flex flex-wrap gap-4 items-end">
-        <Button onClick={() => setBulkDialogOpen(true)} disabled={!workspaceId || !apiKey}>
-          Bulk Upload
-        </Button>
-        <div>
-          <label className="block text-sm mb-1">API Key</label>
-          <Input
-            type="password"
-            value={apiKey}
-            onChange={e => setApiKey(e.target.value)}
-            placeholder="Clockify API Key"
-            className="w-64"
-          />
-        </div>
-        <div>
-          <label className="block text-sm mb-1">Workspace</label>
-          <Select value={workspaceId} onChange={e => setWorkspaceId(e.target.value)} className="w-48">
-            <option value="">Select workspace</option>
-            {workspaces.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-          </Select>
-        </div>
-        <div>
-          <label className="block text-sm mb-1">Project</label>
-          <Select value={projectId} onChange={e => setProjectId(e.target.value)} className="w-48">
-            <option value="">Select project</option>
-            {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-          </Select>
-        </div>
-        <div>
-          <label className="block text-sm mb-1">Date Range</label>
-          <DateRangePicker value={dateRange} onChange={setDateRange} />
-        </div>
-        <Button onClick={fetchEntries} disabled={!workspaceId || !projectId || !apiKey || loading}>
-          {loading ? "Loading..." : "Fetch Entries"}
-        </Button>
-        <Button onClick={bulkSave} disabled={bulkSaving || Object.keys(editing).length === 0}>
-          {bulkSaving ? "Saving..." : "Bulk Save"}
-        </Button>
-      </div>
-
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Description</TableHead>
-              <TableHead>Start</TableHead>
-              <TableHead>End</TableHead>
-              <TableHead>Project</TableHead>
-              <TableHead>Task</TableHead>
-              <TableHead>Tags</TableHead>
-              <TableHead>Billable</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell colSpan={8}><span className="h-8 w-full block animate-pulse bg-gray-200 rounded" /></TableCell>
-              </TableRow>
-            ) : timeEntries.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={8} className="text-center">No entries</TableCell>
-              </TableRow>
-            ) : timeEntries.map(entry => {
-              const edit = editing[entry.id] || {}
-              return (
-                <TableRow key={entry.id}>
-                  <TableCell>
-                    <Input
-                      value={edit.description ?? entry.description ?? ""}
-                      onChange={e => handleEdit(entry.id, "description", e.target.value)}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="datetime-local"
-                      value={edit.start ?? entry.start?.slice(0, 16)}
-                      onChange={e => handleEdit(entry.id, "start", e.target.value)}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="datetime-local"
-                      value={edit.end ?? entry.end?.slice(0, 16)}
-                      onChange={e => handleEdit(entry.id, "end", e.target.value)}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Select
-                      value={edit.projectId ?? entry.projectId ?? ""}
-                      onChange={e => handleEdit(entry.id, "projectId", e.target.value)}
-                    >
-                      <option value="">Select</option>
-                      {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                    </Select>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Select
-                        value={edit.taskId ?? entry.taskId ?? ""}
-                        onChange={e => handleEdit(entry.id, "taskId", e.target.value)}
-                        className="w-32"
-                      >
-                        <option value="">Select</option>
-                        {(tasksMap[entry.projectId || projectId] || []).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                      </Select>
-                      <Input
-                        placeholder="New task name"
-                        value={edit.taskName ?? ""}
-                        onChange={e => handleEdit(entry.id, "taskName", e.target.value)}
-                        className="w-32"
-                      />
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      value={edit.tags?.join(",") ?? entry.tags?.join(",") ?? ""}
-                      onChange={e => handleEdit(entry.id, "tags", e.target.value.split(","))}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Select
-                      value={String(edit.billable ?? entry.billable ?? "")}
-                      onChange={e => handleEdit(entry.id, "billable", e.target.value === "true")}
-                    >
-                      <option value="">-</option>
-                      <option value="true">Yes</option>
-                      <option value="false">No</option>
-                    </Select>
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      onClick={() => saveRow(entry)}
-                      disabled={saving === entry.id || !editing[entry.id]}
-                    >
-                      {saving === entry.id ? "Saving..." : "Save"}
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              )
-            })}
-          </TableBody>
-        </Table>
-      </div>
+      {/* Toast */}
+      {toast && (
+        <Toast open={!!toast} onClose={() => setToast(null)} duration={3000} className={toast.type === "success" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
+          {toast.message}
+        </Toast>
+      )}
+    </div>
+  )
+}
