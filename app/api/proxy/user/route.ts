@@ -1,0 +1,22 @@
+import { NextRequest, NextResponse } from "next/server"
+import { z } from "zod"
+
+const apiKeySchema = z.object({ apiKey: z.string().min(10) })
+
+// Get current user info from Clockify
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url)
+    const apiKey = searchParams.get("apiKey")
+    apiKeySchema.parse({ apiKey })
+    // https://api.clockify.me/api/v1/user
+    const res = await fetch("https://api.clockify.me/api/v1/user", {
+      headers: { "X-Api-Key": apiKey! }
+    })
+    if (!res.ok) throw new Error("Failed to fetch user info")
+    const data = await res.json()
+    return NextResponse.json(data)
+  } catch (e: unknown) {
+    return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 400 })
+  }
+}

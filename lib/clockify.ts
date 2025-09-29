@@ -57,23 +57,25 @@ export class ClockifyAPI {
   return (res.data as { id: string }).id
   }
 
-  async getTimeEntries(workspaceId: string, projectId?: string, start?: string, end?: string) {
-  const params: Record<string, string> = {}
-  if (projectId) params.project = projectId
-  if (start) params.start = start
-  if (end) params.end = end
-  return (await this.axiosInstance!.get(`/workspaces/${workspaceId}/time-entries`, { params })).data as TimeEntry[]
+  async getTimeEntries(workspaceId: string, userId: string, projectId?: string, start?: string, end?: string) {
+    const params: Record<string, string> = {}
+    if (projectId) params.project = projectId
+    if (start) params.start = start
+    if (end) params.end = end
+    // Official endpoint: /workspaces/{workspaceId}/user/{userId}/time-entries
+    return (await this.axiosInstance!.get(`/workspaces/${workspaceId}/user/${userId}/time-entries`, { params })).data as TimeEntry[]
   }
 
-  async updateTimeEntry(workspaceId: string, entryId: string, data: Partial<TimeEntry>) {
-  return (await this.axiosInstance!.put(`/workspaces/${workspaceId}/time-entries/${entryId}`, data)).data as TimeEntry
+  async updateTimeEntry(workspaceId: string, userId: string, entryId: string, data: Partial<TimeEntry>) {
+    // Official endpoint: /workspaces/{workspaceId}/user/{userId}/time-entries/{entryId}
+    return (await this.axiosInstance!.put(`/workspaces/${workspaceId}/user/${userId}/time-entries/${entryId}`, data)).data as TimeEntry
   }
 
-  async createTimeEntry(workspaceId: string, data: TimeEntryPayload) {
-  const payload = { ...data }
+  async createTimeEntry(workspaceId: string, userId: string, data: TimeEntryPayload) {
+    const payload = { ...data }
     if (!payload.taskId && payload.taskName && payload.projectId) {
       const tasks = await this.getTasks(workspaceId, payload.projectId)
-  const task = (tasks as { id: string; name: string }[]).find((t) => t.name === payload.taskName)
+      const task = (tasks as { id: string; name: string }[]).find((t) => t.name === payload.taskName)
       if (!task) {
         const taskId = await this.createTask(workspaceId, payload.projectId, payload.taskName)
         payload.taskId = taskId
@@ -82,14 +84,13 @@ export class ClockifyAPI {
       }
     }
     delete payload.taskName
-  return (await this.axiosInstance!.post(`/workspaces/${workspaceId}/time-entries`, payload)).data as TimeEntry
+    // Official endpoint: /workspaces/{workspaceId}/user/{userId}/time-entries
+    return (await this.axiosInstance!.post(`/workspaces/${workspaceId}/user/${userId}/time-entries`, payload)).data as TimeEntry
   }
 
-  async bulkUpdateTimeEntries(workspaceId: string, entries: TimeEntryPayload[]) {
-    const results = []
-    for (const entry of entries) {
-      results.push(await this.createTimeEntry(workspaceId, entry))
-    }
-    return results
+  async bulkUpdateTimeEntries(workspaceId: string, userId: string, entries: TimeEntryPayload[]) {
+    // Official endpoint: PUT /workspaces/{workspaceId}/user/{userId}/time-entries
+    // The payload is an array of time entry objects
+    return (await this.axiosInstance!.put(`/workspaces/${workspaceId}/user/${userId}/time-entries`, entries)).data as TimeEntry[]
   }
 }

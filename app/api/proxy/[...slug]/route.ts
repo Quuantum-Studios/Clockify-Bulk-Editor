@@ -43,11 +43,12 @@ export async function GET(req: NextRequest, context: { params: { slug: string[] 
       return NextResponse.json(data)
     }
     if (resource === "time-entries") {
-      const [workspaceId] = rest
+      const [workspaceId, userId] = rest
+      if (!userId) return NextResponse.json({ error: "userId required" }, { status: 400 })
       const projectId = searchParams.get("projectId") || undefined
       const start = searchParams.get("start") || undefined
       const end = searchParams.get("end") || undefined
-      const data = await clockify.getTimeEntries(workspaceId, projectId, start, end)
+      const data = await clockify.getTimeEntries(workspaceId, userId, projectId, start, end)
       return NextResponse.json(data)
     }
     return NextResponse.json({ error: "Not found" }, { status: 404 })
@@ -67,9 +68,10 @@ export async function POST(req: NextRequest, context: { params: { slug: string[]
     const params = await context.params
     const [resource, ...rest] = params.slug
     if (resource === "time-entries") {
-      const [workspaceId] = rest
+      const [workspaceId, userId] = rest
+      if (!userId) return NextResponse.json({ error: "userId required" }, { status: 400 })
       const entry = timeEntryPayloadSchema.parse(payload)
-      const data = await clockify.createTimeEntry(workspaceId, entry)
+      const data = await clockify.createTimeEntry(workspaceId, userId, entry)
       return NextResponse.json(data)
     }
     if (resource === "tasks") {
@@ -95,8 +97,9 @@ export async function PUT(req: NextRequest, context: { params: { slug: string[] 
     const params = await context.params
     const [resource, ...rest] = params.slug
     if (resource === "time-entries") {
-      const [workspaceId, entryId] = rest
-      const data = await clockify.updateTimeEntry(workspaceId, entryId, payload)
+      const [workspaceId, userId, entryId] = rest
+      if (!userId) return NextResponse.json({ error: "userId required" }, { status: 400 })
+      const data = await clockify.updateTimeEntry(workspaceId, userId, entryId, payload)
       return NextResponse.json(data)
     }
     return NextResponse.json({ error: "Not found" }, { status: 404 })

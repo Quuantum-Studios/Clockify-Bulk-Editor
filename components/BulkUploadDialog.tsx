@@ -1,21 +1,24 @@
 "use client"
 import { useRef, useState } from "react"
 import Papa from "papaparse"
-import { Dialog } from "./ui/dialog"
+import { Sheet } from "./ui/sheet"
 import { Button } from "./ui/button"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "./ui/table"
 // import { Input } from "./ui/input"
 import { Toast } from "./ui/toast"
 
-export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, onSuccess }: {
+interface BulkUploadDialogProps {
   open: boolean
   onClose: () => void
   workspaceId: string
   apiKey: string
+  userId: string
   onSuccess: () => void
-}) {
+}
+
+export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, onSuccess }: BulkUploadDialogProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [rows, setRows] = useState<Record<string, string>[]>([])
+  const [rows, setRows] = useState<Record<string, string | boolean | undefined>[]>([])
   const [parsing, setParsing] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null)
@@ -50,13 +53,17 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, onSuccess
       setToast({ type: "error", message: "No data to upload. Please select a CSV file." })
       return;
     }
+    if (!userId) {
+      setToast({ type: "error", message: "User ID not loaded." })
+      return;
+    }
     setUploading(true)
     setToast(null)
     try {
       const res = await fetch(`/api/proxy/time-entries/${workspaceId}/bulk`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey, entries: rows })
+        body: JSON.stringify({ apiKey, userId, entries: rows })
       })
       const data = await res.json()
       if (res.ok) {
@@ -72,9 +79,13 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, onSuccess
     setUploading(false)
   }
 
+  if (!open) return null;
   return (
-    <Dialog open={open} onClose={onClose}>
-      <div className="p-6 bg-background rounded-lg w-[95vw] max-w-2xl flex flex-col gap-4">
+    <Sheet onClick={onClose}>
+      <div
+        className="bg-background rounded-lg w-[95vw] max-w-2xl flex flex-col gap-4 p-6 shadow-xl relative"
+        onClick={e => e.stopPropagation()}
+      >
         <h2 className="text-lg font-semibold mb-2">Bulk Upload CSV</h2>
         <div className="flex flex-col md:flex-row gap-4 items-center">
           <input
@@ -121,6 +132,6 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, onSuccess
           </Toast>
         )}
       </div>
-    </Dialog>
+    </Sheet>
   )
 }

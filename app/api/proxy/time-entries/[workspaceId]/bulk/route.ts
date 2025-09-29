@@ -18,14 +18,15 @@ const entrySchema = z.object({
 export async function POST(req: NextRequest, { params }: { params: { workspaceId: string } }) {
   try {
     const body = await req.json()
-    const { apiKey, entries } = body
+    const { apiKey, userId, entries } = body
     apiKeySchema.parse({ apiKey })
+    if (!userId) throw new Error("userId required")
     if (!Array.isArray(entries)) throw new Error("Entries must be an array")
     const clockify = new ClockifyAPI()
     clockify.setApiKey(apiKey)
     const workspaceId = params.workspaceId
-    const parsedEntries = entries.map((e: any) => entrySchema.parse(e))
-    const results = await clockify.bulkUpdateTimeEntries(workspaceId, parsedEntries)
+    const parsedEntries = entries.map((e: unknown) => entrySchema.parse(e))
+    const results = await clockify.bulkUpdateTimeEntries(workspaceId, userId, parsedEntries)
     return NextResponse.json({ success: true, results })
   } catch (e: unknown) {
     return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 400 })

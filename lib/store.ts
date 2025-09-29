@@ -33,9 +33,20 @@ type State = {
   optimisticTask: (projectId: string, task: Task) => void
 }
 
+// Hydrate apiKey from localStorage if available
+let initialApiKey = ""
+if (typeof window !== "undefined") {
+  initialApiKey = window.localStorage.getItem("clockify_api_key") || ""
+}
+
 export const useClockifyStore = create<State>((set, get) => ({
-  apiKey: "",
-  setApiKey: (apiKey) => set({ apiKey }),
+  apiKey: initialApiKey,
+  setApiKey: (apiKey) => {
+    set({ apiKey })
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("clockify_api_key", apiKey)
+    }
+  },
   workspaces: [],
   setWorkspaces: (w) => set({ workspaces: w }),
   projects: [],
