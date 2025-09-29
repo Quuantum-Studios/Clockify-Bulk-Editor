@@ -32,6 +32,16 @@ export class ClockifyAPI {
   private axiosInstance: ReturnType<typeof axios.create> | null = null
   private baseUrl = "https://api.clockify.me/api/v1"
 
+  async getTags(workspaceId: string) {
+    // Returns array of { id, name }
+    return (await this.axiosInstance!.get(`/workspaces/${workspaceId}/tags`)).data as { id: string; name: string }[];
+  }
+
+  async createTag(workspaceId: string, name: string) {
+    // Returns { id, name }
+    return (await this.axiosInstance!.post(`/workspaces/${workspaceId}/tags`, { name })).data as { id: string; name: string };
+  }
+
   setApiKey(apiKey: string) {
     this.apiKey = apiKey
     this.axiosInstance = axios.create({
@@ -66,9 +76,25 @@ export class ClockifyAPI {
     return (await this.axiosInstance!.get(`/workspaces/${workspaceId}/user/${userId}/time-entries`, { params })).data as TimeEntry[]
   }
 
-  async updateTimeEntry(workspaceId: string, userId: string, entryId: string, data: Partial<TimeEntry>) {
+  async updateTimeEntry(workspaceId: string, userId: string, entryId: string, data: Partial<TimeEntry> & { tags?: string[] }) {
+    // If tags are provided as labels, resolve to tag IDs, create if missing
+    let tagIds = undefined;
+    if (data.tags && Array.isArray(data.tags)) {
+      const allTags = await this.getTags(workspaceId);
+      tagIds = [];
+      for (const label of data.tags) {
+        let tag = allTags.find(t => t.name === label);
+        if (!tag) {
+          tag = await this.createTag(workspaceId, label);
+        }
+        tagIds.push(tag.id);
+      }
+    }
+    const payload = { ...data };
+    if (tagIds) payload.tagIds = tagIds;
+    delete payload.tags;
     // Official endpoint: /workspaces/{workspaceId}/user/{userId}/time-entries/{entryId}
-    return (await this.axiosInstance!.put(`/workspaces/${workspaceId}/user/${userId}/time-entries/${entryId}`, data)).data as TimeEntry
+    return (await this.axiosInstance!.put(`/workspaces/${workspaceId}/user/${userId}/time-entries/${entryId}`, payload)).data as TimeEntry;
   }
 
   async createTimeEntry(workspaceId: string, userId: string, data: TimeEntryPayload) {

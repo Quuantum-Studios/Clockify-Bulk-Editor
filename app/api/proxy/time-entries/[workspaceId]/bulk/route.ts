@@ -26,7 +26,9 @@ export async function POST(req: NextRequest, { params }: { params: { workspaceId
     clockify.setApiKey(apiKey)
     const workspaceId = params.workspaceId
     const parsedEntries = entries.map((e: unknown) => entrySchema.parse(e))
+    console.log(`[API] BULK PUT time-entries for workspaceId=${workspaceId}, userId=${userId}, entries=`, parsedEntries)
     const results = await clockify.bulkUpdateTimeEntries(workspaceId, userId, parsedEntries)
+    console.log("[API] BULK Response:", results)
     return NextResponse.json({ success: true, results })
   } catch (e: unknown) {
     return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 400 })

@@ -173,63 +173,88 @@ export default function DashboardPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {timeEntries.map(entry => (
-                    <TableRow key={entry.id} className={modifiedRows.has(entry.id) ? "bg-yellow-50 dark:bg-yellow-900/30" : ""}>
-                      <TableCell>
-                        <Input
-                          value={editing[entry.id]?.description ?? entry.description ?? ""}
-                          onChange={e => handleEdit(entry.id, "description", e.target.value)}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="datetime-local"
-                          value={editing[entry.id]?.start ?? entry.start?.slice(0, 16) ?? ""}
-                          onChange={e => handleEdit(entry.id, "start", e.target.value)}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          type="datetime-local"
-                          value={editing[entry.id]?.end ?? entry.end?.slice(0, 16) ?? ""}
-                          onChange={e => handleEdit(entry.id, "end", e.target.value)}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Select
-                          value={editing[entry.id]?.projectId ?? entry.projectId ?? ""}
-                          onChange={e => handleEdit(entry.id, "projectId", e.target.value)}
-                        >
-                          <option value="">None</option>
-                        {Array.isArray(projects) ? projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>) : null}
-                      </Select>
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        value={editing[entry.id]?.taskName ?? entry.taskName ?? ""}
-                        onChange={e => handleEdit(entry.id, "taskName", e.target.value)}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        value={editing[entry.id]?.tags?.join(", ") ?? (entry.tags?.join(", ") ?? "")}
-                        onChange={e => handleEdit(entry.id, "tags", e.target.value.split(",").map((t: string) => t.trim()).filter(Boolean))}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Select
-                        value={editing[entry.id]?.billable ?? entry.billable ? "true" : "false"}
-                        onChange={e => handleEdit(entry.id, "billable", e.target.value === "true")}
-                      >
-                        <option value="false">No</option>
-                        <option value="true">Yes</option>
-                      </Select>
-                    </TableCell>
-                    <TableCell>
-                      <Button size="sm" onClick={() => handleSaveRow(entry)} disabled={!modifiedRows.has(entry.id)}>Save</Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                  {timeEntries.map(entry => {
+                    // Find project and task names for display
+                    const project = Array.isArray(projects) ? projects.find(p => p.id === (editing[entry.id]?.projectId ?? entry.projectId)) : undefined;
+                    // If you have tasks per project, you can fetch from store.tasks[projectId] if needed
+                    const taskName = editing[entry.id]?.taskName ?? entry.taskName ?? "";
+                    // Support both tags (array of strings) and tagIds (array of ids or null)
+                    const tags = editing[entry.id]?.tags ?? entry.tags ?? entry.tagIds ?? [];
+                    return (
+                      <TableRow key={entry.id} className={modifiedRows.has(entry.id) ? "bg-yellow-50 dark:bg-yellow-900/30" : ""}>
+                        <TableCell>
+                          <Input
+                            value={editing[entry.id]?.description !== undefined ? String(editing[entry.id]?.description) : (entry.description ?? "")}
+                            onChange={e => handleEdit(entry.id, "description", e.target.value)}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="datetime-local"
+                            value={
+                              editing[entry.id]?.start
+                                ? (typeof editing[entry.id]?.start === "string" ? editing[entry.id]?.start.slice(0, 16) : "")
+                                : (entry.timeInterval?.start
+                                  ? new Date(entry.timeInterval.start).toISOString().slice(0, 16)
+                                  : (entry.start ? new Date(entry.start).toISOString().slice(0, 16) : "")
+                                )
+                            }
+                            onChange={e => handleEdit(entry.id, "start", e.target.value)}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="datetime-local"
+                            value={
+                              editing[entry.id]?.end
+                                ? (typeof editing[entry.id]?.end === "string" ? editing[entry.id]?.end.slice(0, 16) : "")
+                                : (entry.timeInterval?.end
+                                  ? new Date(entry.timeInterval.end).toISOString().slice(0, 16)
+                                  : (entry.end ? new Date(entry.end).toISOString().slice(0, 16) : "")
+                                )
+                            }
+                            onChange={e => handleEdit(entry.id, "end", e.target.value)}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            value={editing[entry.id]?.projectId ?? entry.projectId ?? ""}
+                            onChange={e => handleEdit(entry.id, "projectId", e.target.value)}
+                          >
+                            <option value="">None</option>
+                            {Array.isArray(projects) ? projects.map(p => (
+                              <option key={p.id} value={p.id}>{p.name}</option>
+                            )) : null}
+                          </Select>
+                          {project && <div className="text-xs text-muted-foreground mt-1">{project.name}</div>}
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={taskName}
+                            onChange={e => handleEdit(entry.id, "taskName", e.target.value)}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={Array.isArray(tags) ? tags.join(", ") : (typeof tags === "string" ? tags : "")}
+                            onChange={e => handleEdit(entry.id, "tags", e.target.value.split(",").map((t: string) => t.trim()).filter(Boolean))}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Select
+                            value={editing[entry.id]?.billable !== undefined ? String(editing[entry.id]?.billable) : (entry.billable ? "true" : "false")}
+                            onChange={e => handleEdit(entry.id, "billable", e.target.value === "true")}
+                          >
+                            <option value="false">No</option>
+                            <option value="true">Yes</option>
+                          </Select>
+                        </TableCell>
+                        <TableCell>
+                          <Button size="sm" onClick={() => handleSaveRow(entry)} disabled={!modifiedRows.has(entry.id)}>Save</Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             ) : (
