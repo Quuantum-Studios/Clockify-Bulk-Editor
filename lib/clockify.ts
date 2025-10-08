@@ -1,5 +1,5 @@
 import axios from "axios"
-
+import { requestLogger, responseLogger, errorLogger } from 'axios-logger';
 
 export interface TimeEntry {
   id: string
@@ -39,7 +39,9 @@ export class ClockifyAPI {
 
   async createTag(workspaceId: string, name: string) {
     // Returns { id, name }
-    return (await this.axiosInstance!.post(`/workspaces/${workspaceId}/tags`, { name })).data as { id: string; name: string };
+    const res = (await this.axiosInstance!.post(`/workspaces/${workspaceId}/tags`, { name })).data as { id: string; name: string };
+    console.log("created tag:", res);
+    return res;
   }
 
   setApiKey(apiKey: string) {
@@ -48,6 +50,8 @@ export class ClockifyAPI {
       baseURL: this.baseUrl,
       headers: { "X-Api-Key": apiKey }
     })
+    this.axiosInstance.interceptors.request.use(requestLogger);
+    this.axiosInstance.interceptors.response.use(responseLogger, errorLogger);
   }
 
   async getWorkspaces() {
@@ -78,23 +82,62 @@ export class ClockifyAPI {
 
   async updateTimeEntry(workspaceId: string, userId: string, entryId: string, data: Partial<TimeEntry> & { tags?: string[] }) {
     // If tags are provided as labels, resolve to tag IDs, create if missing
+    console.log('Starting to update entry', entryId);
     let tagIds = undefined;
     if (data.tags && Array.isArray(data.tags)) {
       const allTags = await this.getTags(workspaceId);
+      console.log('All tags', allTags);
       tagIds = [];
       for (const label of data.tags) {
         let tag = allTags.find(t => t.name === label);
         if (!tag) {
+          console.log('Creating tag', label);
           tag = await this.createTag(workspaceId, label);
         }
         tagIds.push(tag.id);
       }
     }
-    const payload = { ...data };
+    const allowedKeys = new Set([
+      'description',
+      'projectId',
+      'taskId',
+      'start',
+      'end',
+      'billable',
+      'tagIds'
+    ]);
+    const normalizeDate = (value: unknown): string | undefined => {
+      if (!value || typeof value !== 'string') return undefined;
+      if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) {
+        return new Date(value).toISOString();
+      }
+      if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(value)) return value;
+      const d = new Date(value);
+      return isNaN(d.getTime()) ? undefined : d.toISOString();
+    };
+    const payload: Record<string, unknown> = {};
+    const startFromTimeInterval = (data as any)?.timeInterval?.start as string | undefined;
+    const endFromTimeInterval = (data as any)?.timeInterval?.end as string | undefined;
+    const start = normalizeDate((data as any).start ?? startFromTimeInterval);
+    const end = normalizeDate((data as any).end ?? endFromTimeInterval);
+    if (start) payload.start = start;
+    if (end) payload.end = end;
+    for (const [key, value] of Object.entries(data)) {
+      if (!allowedKeys.has(key)) continue;
+      if (key === 'start' || key === 'end') continue;
+      if (value !== undefined) payload[key] = value;
+    }
     if (tagIds) payload.tagIds = tagIds;
-    delete payload.tags;
-    // Official endpoint: /workspaces/{workspaceId}/user/{userId}/time-entries/{entryId}
-    return (await this.axiosInstance!.put(`/workspaces/${workspaceId}/user/${userId}/time-entries/${entryId}`, payload)).data as TimeEntry;
+    console.log('Payload to update entry', payload);
+    try {
+      const res = (await this.axiosInstance!.put(`/workspaces/${workspaceId}/time-entries/${entryId}`, payload));
+      console.log("Updated time entry:", res);
+      return res.data as TimeEntry;
+    } catch (error: unknown) {
+      console.error("Clockify API Error:", (error as any).response?.data || (error as Error).message);
+      const errorMessage = (error as any).response?.data?.message || (error as any).response?.data || (error as Error).message || "Unknown error occurred";
+      throw new Error(`Clockify API Error: ${errorMessage}`);
+    }
   }
 
   async createTimeEntry(workspaceId: string, userId: string, data: TimeEntryPayload) {
@@ -110,13 +153,25 @@ export class ClockifyAPI {
       }
     }
     delete payload.taskName
-    // Official endpoint: /workspaces/{workspaceId}/user/{userId}/time-entries
-    return (await this.axiosInstance!.post(`/workspaces/${workspaceId}/user/${userId}/time-entries`, payload)).data as TimeEntry
+    try {
+      // Official endpoint: /workspaces/{workspaceId}/user/{userId}/time-entries
+      return (await this.axiosInstance!.post(`/workspaces/${workspaceId}/user/${userId}/time-entries`, payload)).data as TimeEntry
+    } catch (error: unknown) {
+      console.error("Clockify API Error:", (error as any).response?.data || (error as Error).message);
+      const errorMessage = (error as any).response?.data?.message || (error as any).response?.data || (error as Error).message || "Unknown error occurred";
+      throw new Error(`Clockify API Error: ${errorMessage}`);
+    }
   }
 
   async bulkUpdateTimeEntries(workspaceId: string, userId: string, entries: TimeEntryPayload[]) {
-    // Official endpoint: PUT /workspaces/{workspaceId}/user/{userId}/time-entries
-    // The payload is an array of time entry objects
-    return (await this.axiosInstance!.put(`/workspaces/${workspaceId}/user/${userId}/time-entries`, entries)).data as TimeEntry[]
+    try {
+      // Official endpoint: PUT /workspaces/{workspaceId}/user/{userId}/time-entries
+      // The payload is an array of time entry objects
+      return (await this.axiosInstance!.put(`/workspaces/${workspaceId}/user/${userId}/time-entries`, entries)).data as TimeEntry[]
+    } catch (error: unknown) {
+      console.error("Clockify API Error:", (error as any).response?.data || (error as Error).message);
+      const errorMessage = (error as any).response?.data?.message || (error as any).response?.data || (error as Error).message || "Unknown error occurred";
+      throw new Error(`Clockify API Error: ${errorMessage}`);
+    }
   }
 }

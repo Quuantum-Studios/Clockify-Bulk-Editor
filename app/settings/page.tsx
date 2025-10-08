@@ -37,7 +37,7 @@ export default function SettingsPage() {
         <Button onClick={handleSaveApiKey}>Save API Key</Button>
       </div>
       {toast && (
-        <Toast open={!!toast} onClose={() => setToast(null)} duration={3000} className={toast.type === "success" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
+        <Toast open={!!toast} onClose={() => setToast(null)} duration={4000} className={toast.type === "success" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
           {toast.message}
         </Toast>
       )}

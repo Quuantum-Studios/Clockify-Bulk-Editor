@@ -61,7 +61,10 @@ export async function GET(req: NextRequest, context: { params: { slug: string[] 
     }
     return NextResponse.json({ error: "Not found" }, { status: 404 })
   } catch (e: unknown) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 400 })
+    console.error("[API] Error in GET:", e);
+    const errorMessage = e instanceof Error ? e.message : String(e);
+    const statusCode = errorMessage.includes('Clockify API Error') ? 400 : 500;
+    return NextResponse.json({ error: errorMessage }, { status: statusCode })
   }
 }
 
@@ -94,7 +97,10 @@ export async function POST(req: NextRequest, context: { params: { slug: string[]
     }
     return NextResponse.json({ error: "Not found" }, { status: 404 })
   } catch (e: unknown) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 400 })
+    console.error("[API] Error in POST:", e);
+    const errorMessage = e instanceof Error ? e.message : String(e);
+    const statusCode = errorMessage.includes('Clockify API Error') ? 400 : 500;
+    return NextResponse.json({ error: errorMessage }, { status: statusCode })
   }
 }
 
@@ -118,6 +124,9 @@ export async function PUT(req: NextRequest, context: { params: { slug: string[] 
     }
     return NextResponse.json({ error: "Not found" }, { status: 404 })
   } catch (e: unknown) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 400 })
+    console.error("[API] Error in PUT:", e);
+    const errorMessage = e instanceof Error ? e.message : String(e);
+    const statusCode = errorMessage.includes('Clockify API Error') ? 400 : 500;
+    return NextResponse.json({ error: errorMessage }, { status: statusCode })
   }
 }

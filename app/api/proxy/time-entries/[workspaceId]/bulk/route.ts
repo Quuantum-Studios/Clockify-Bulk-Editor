@@ -31,6 +31,9 @@ export async function POST(req: NextRequest, { params }: { params: { workspaceId
     console.log("[API] BULK Response:", results)
     return NextResponse.json({ success: true, results })
   } catch (e: unknown) {
-    return NextResponse.json({ error: e instanceof Error ? e.message : String(e) }, { status: 400 })
+    console.error("[API] Error in BULK POST:", e);
+    const errorMessage = e instanceof Error ? e.message : String(e);
+    const statusCode = errorMessage.includes('Clockify API Error') ? 400 : 500;
+    return NextResponse.json({ error: errorMessage }, { status: statusCode })
   }
 }
