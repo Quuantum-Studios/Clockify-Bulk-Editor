@@ -18,6 +18,7 @@ export function DateRangePicker({ value, onChange }: { value: DateRangeValue; on
       }}
       moveRangeOnFirstSelection={false}
       showSelectionPreview={true}
+      showDateDisplay={false}
       months={1}
       direction="horizontal"
       rangeColors={["#6366f1"]}
