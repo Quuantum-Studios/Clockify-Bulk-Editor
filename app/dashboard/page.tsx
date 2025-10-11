@@ -12,6 +12,7 @@ import { Toast } from "../../components/ui/toast"
 import { Input } from "../../components/ui/input"
 
 import { ClockifyAPI } from "../../lib/clockify"
+import type { Task, TimeEntry } from "../../lib/store"
 
 export default function DashboardPage() {
   const {
@@ -21,6 +22,7 @@ export default function DashboardPage() {
     timeEntries, setTimeEntries,
     optimisticUpdate
   } = useClockifyStore()
+  const { optimisticTask } = useClockifyStore()
   const [workspaceId, setWorkspaceId] = useState("")
   const [projectId, setProjectId] = useState("")
   const [userId, setUserId] = useState("")
@@ -33,6 +35,53 @@ export default function DashboardPage() {
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null)
   const [tags, setTags] = useState<{ id: string; name: string }[]>([])
   const tagsFetchedRef = useRef(false)
+  const [createTaskState, setCreateTaskState] = useState<Record<string, { showCreate: boolean; name: string; loading: boolean }>>({})
+  const [savingRows, setSavingRows] = useState<Set<string>>(new Set())
+
+  const toggleCreateTaskUI = (entryId: string, show?: boolean) => {
+    setCreateTaskState(prev => ({ ...prev, [entryId]: { ...(prev[entryId] || { showCreate: false, name: "", loading: false }), showCreate: typeof show === 'boolean' ? show : !((prev[entryId] || {}).showCreate) } }))
+  }
+
+  const setCreateTaskName = (entryId: string, name: string) => {
+    setCreateTaskState(prev => ({ ...prev, [entryId]: { ...(prev[entryId] || { showCreate: false, name: "", loading: false }), name } }))
+  }
+
+  const createTaskForEntry = async (entryId: string, projectIdArg?: string) => {
+    const state = createTaskState[entryId] || { name: "", loading: false }
+    const name = state.name?.trim()
+    const projectIdToUse = projectIdArg || (editing[entryId]?.projectId as string) || (timeEntries.find(e => e.id === entryId)?.projectId)
+    if (!name) { setToast({ type: "error", message: "Task name required" }); return }
+    if (!workspaceId || !apiKey) { setToast({ type: "error", message: "Workspace and API key required" }); return }
+    if (!projectIdToUse) { setToast({ type: "error", message: "Please select a project before creating a task" }); return }
+    setCreateTaskState(prev => ({ ...prev, [entryId]: { ...(prev[entryId] || { showCreate: true, name }), loading: true } }))
+    try {
+      const api = new ClockifyAPI()
+      api.setApiKey(apiKey)
+      const taskId = await api.createTask(workspaceId, projectIdToUse, name)
+      const newTask: Task = { id: taskId, name, projectId: projectIdToUse }
+      // add optimistic and refresh tasks for the project
+      optimisticTask(projectIdToUse, newTask)
+      try {
+        const refreshed = await api.getTasks(workspaceId, projectIdToUse)
+        setTasks(projectIdToUse, refreshed)
+      } catch {
+        // ignore refresh errors
+      }
+      // set the edited values on the entry
+      handleEdit(entryId, "taskId", taskId)
+      handleEdit(entryId, "taskName", name)
+      setModifiedRows(s => new Set(s).add(entryId))
+      toggleCreateTaskUI(entryId, false)
+      setToast({ type: "success", message: "Task created" })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      setToast({ type: "error", message: `Failed to create task: ${msg}` })
+    } finally {
+      setCreateTaskState(prev => ({ ...prev, [entryId]: { ...(prev[entryId] || { showCreate: false, name: "" }), loading: false } }))
+    }
+  }
+
+  // NOTE: removed global overlay loader; using inline spinners per-control instead
   useEffect(() => {
     if (!apiKey) return;
     fetch(`/api/proxy/user?apiKey=${apiKey}`)
@@ -52,8 +101,22 @@ export default function DashboardPage() {
       const savedEnd = window.localStorage.getItem("clockify_selected_end")
       if (savedWs) setWorkspaceId(savedWs)
       if (savedPr) setProjectId(savedPr)
-      if (savedStart && savedEnd) setDateRange({ startDate: new Date(savedStart), endDate: new Date(savedEnd) })
-    } catch {}
+
+      // Parse saved dates if present and valid, otherwise fall back to today as a sensible default
+      if (savedStart && savedEnd) {
+        const parsedStart = new Date(savedStart)
+        const parsedEnd = new Date(savedEnd)
+        if (!isNaN(parsedStart.getTime()) && !isNaN(parsedEnd.getTime())) {
+          setDateRange({ startDate: parsedStart, endDate: parsedEnd })
+        } else {
+          const today = new Date()
+          setDateRange({ startDate: today, endDate: today })
+        }
+      } else {
+        const today = new Date()
+        setDateRange({ startDate: today, endDate: today })
+      }
+    } catch { }
   }, [])
 
   useEffect(() => {
@@ -96,19 +159,34 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!apiKey || !workspaceId) return
-    fetch(`/api/proxy/projects/${workspaceId}?apiKey=${apiKey}`)
-      .then(async r => {
-        if (!r.ok) {
-          const errorData = await r.json().catch(() => ({}));
-          throw new Error(errorData.error || `HTTP ${r.status}: Failed to load projects`);
+
+    const fetchProjectsAndTasks = async () => {
+      try {
+        const response = await fetch(`/api/proxy/projects/${workspaceId}?apiKey=${apiKey}`)
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `HTTP ${response.status}: Failed to load projects`);
         }
-        return r.json();
-      })
-      .then(data => setProjects(data))
-      .catch((error) => {
+        const projectsData = await response.json()
+        setProjects(projectsData)
+
+        // Fetch tasks for each project
+        for (const project of projectsData) {
+          try {
+            const api = new ClockifyAPI();
+            api.setApiKey(apiKey);
+            const projectTasks = await api.getTasks(workspaceId, project.id);
+            setTasks(project.id, projectTasks);
+          } catch {
+            // Ignore errors for individual projects
+          }
+        }
+      } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Failed to load projects";
         setToast({ type: "error", message: errorMessage })
-      })
+      }
+    }
+
     const fetchTags = async () => {
       try {
         const api = new ClockifyAPI();
@@ -120,24 +198,10 @@ export default function DashboardPage() {
         setTags([]);
       }
     };
+
+    fetchProjectsAndTasks();
     fetchTags();
-    
-    const fetchTasksForProjects = async () => {
-      if (Array.isArray(projects)) {
-        for (const project of projects) {
-          try {
-            const api = new ClockifyAPI();
-            api.setApiKey(apiKey);
-            const projectTasks = await api.getTasks(workspaceId, project.id);
-            setTasks(project.id, projectTasks);
-          } catch {
-            // Ignore errors for individual projects
-          }
-        }
-      }
-    };
-    fetchTasksForProjects();
-  }, [apiKey, workspaceId, setProjects, projects, setTasks])
+  }, [apiKey, workspaceId, setProjects, setTasks])
 
   const fetchEntries = () => {
     if (!apiKey) {
@@ -209,7 +273,12 @@ export default function DashboardPage() {
     return newTag
   }
   const handleSaveRow = async (entry: typeof timeEntries[number]) => {
+    setSavingRows(s => new Set(s).add(entry.id))
     setToast(null)
+    // Declare allowedKeys once at the top
+    const allowedKeys = new Set([
+      'description', 'projectId', 'taskId', 'taskName', 'start', 'end', 'billable', 'tagIds', 'tags', 'userId'
+    ]);
     const original = entry as Record<string, unknown>;
     let patch: Record<string, unknown> = { ...(editing[entry.id] || {}) };
     const normalizeDate = (value: unknown): string | undefined => {
@@ -235,6 +304,7 @@ export default function DashboardPage() {
     
     if (patch.start && patch.end && patch.start >= patch.end) {
       setToast({ type: "error", message: `Start time must be before end time` });
+        setSavingRows(s => { const n = new Set(s); n.delete(entry.id); return n })
       return;
     }
     if (patch.tags && Array.isArray(patch.tags) && workspaceId && apiKey) {
@@ -254,11 +324,9 @@ export default function DashboardPage() {
         setTags([...tags, ...newTags]);
       }
       const { tags: _omitTags, ...rest } = patch;
+      void _omitTags;
       patch = { ...rest, tagIds };
     }
-    const allowedKeys = new Set([
-      'description', 'projectId', 'taskId', 'taskName', 'start', 'end', 'billable', 'tagIds', 'tags'
-    ]);
     const minimalPatch: Record<string, unknown> = {};
     const entryAny = entry as unknown as { timeInterval?: { start?: string; end?: string }; start?: string; end?: string; _isNew?: boolean };
     const currentStart = entryAny.timeInterval?.start ?? entryAny.start;
@@ -266,7 +334,12 @@ export default function DashboardPage() {
     for (const [k, v] of Object.entries(patch)) {
       if (!allowedKeys.has(k)) continue;
       const current = (k === 'start') ? currentStart : (k === 'end') ? currentEnd : (original as Record<string, unknown>)[k];
-      if (JSON.stringify(v) !== JSON.stringify(current)) minimalPatch[k] = v;
+      if (
+        JSON.stringify(v) !== JSON.stringify(current) &&
+        v !== null && v !== undefined
+      ) {
+        minimalPatch[k] = v;
+      }
     }
     if (entryAny._isNew) {
       const createPayload: Record<string, unknown> = {}
@@ -293,19 +366,40 @@ export default function DashboardPage() {
         setToast({ type: "success", message: "Saved" })
         setModifiedRows(s => { const n = new Set(s); n.delete(entry.id); return n })
         fetchEntries()
+        setSavingRows(s => { const n = new Set(s); n.delete(entry.id); return n })
         return
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Save failed";
         setToast({ type: "error", message: errorMessage })
+        setSavingRows(s => { const n = new Set(s); n.delete(entry.id); return n })
         return
       }
     }
-    optimisticUpdate(entry.id, minimalPatch)
+    // Merge edits into the full entry data
+    const mergedEntry: Record<string, unknown> = {};
+    const edits = editing[entry.id] || {};
+    for (const k of allowedKeys) {
+      // Special handling for start/end: prefer edited value, otherwise use timeInterval if present, otherwise original
+      if (k === 'start') {
+        const v = (edits.start !== undefined) ? edits.start : (entryAny.timeInterval?.start ?? entryAny.start ?? original.start);
+        if (v !== undefined && v !== null && v !== "") mergedEntry.start = v
+        continue
+      }
+      if (k === 'end') {
+        const v = (edits.end !== undefined) ? edits.end : (entryAny.timeInterval?.end ?? entryAny.end ?? original.end);
+        if (v !== undefined && v !== null && v !== "") mergedEntry.end = v
+        continue
+      }
+      // Other keys: prefer edited value, else original
+      const v = (edits[k] !== undefined) ? edits[k] : original[k];
+      if (v !== undefined && v !== null) mergedEntry[k] = v;
+    }
+    optimisticUpdate(entry.id, mergedEntry);
     try {
       const res = await fetch(`/api/proxy/time-entries/${workspaceId}/${userId}/${entry.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey, ...minimalPatch })
+        body: JSON.stringify({ apiKey, ...mergedEntry })
       })
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
@@ -321,6 +415,8 @@ export default function DashboardPage() {
       console.log("Caught error in handleSaveRow:", error);
       const errorMessage = error instanceof Error ? error.message : "Save failed";
       setToast({ type: "error", message: errorMessage })
+    } finally {
+      setSavingRows(s => { const n = new Set(s); n.delete(entry.id); return n })
     }
   }
   const handleBulkSave = async () => {
@@ -335,16 +431,11 @@ export default function DashboardPage() {
     setModifiedRows(new Set())
   }
 
-  // Set initial date range on mount
-  useEffect(() => {
-    if (!dateRange) {
-      const today = new Date()
-      setDateRange({ startDate: today, endDate: today })
-    }
-  }, [dateRange])
+  // dateRange is initialized from localStorage in the mount effect above
 
   return (
     <div>
+      {/* inline spinners are rendered per-control instead of a global overlay */}
       {/* Workspace/project/date pickers */}
       <div className="relative flex flex-wrap gap-4 mb-6 items-end">
         {/* Workspace Dropdown */}
@@ -370,7 +461,7 @@ export default function DashboardPage() {
             <DateRangePicker value={dateRange || { startDate: new Date(), endDate: new Date() }} onChange={val => { setDateRange(val); }} />
           </div>
         )}
-        <Button onClick={fetchEntries} type="button">Fetch Entries</Button>
+        <Button onClick={fetchEntries} type="button">{loading ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Fetch Entries'}</Button>
         <Button onClick={addNewRow} type="button">Add Row</Button>
         <Button onClick={() => setBulkDialogOpen(true)} type="button">Bulk Upload</Button>
       </div>
@@ -403,9 +494,10 @@ export default function DashboardPage() {
                     
                     // Get task name from taskId if taskName is not available
                     let resolvedTaskName = taskName;
-                    if (!resolvedTaskName && (entry as any).taskId) {
-                      const projectTasks = tasks[entry.projectId || ""] || [];
-                      const task = projectTasks.find((t: any) => t.id === (entry as any).taskId);
+                    const entryTyped = entry as TimeEntry;
+                    if (!resolvedTaskName && entryTyped.taskId) {
+                      const projectTasks = (tasks[entryTyped.projectId || ""] || []) as Task[];
+                      const task = projectTasks.find((t) => t.id === entryTyped.taskId);
                       resolvedTaskName = task?.name || "";
                     }
                     let tagLabels: string[] = [];
@@ -465,10 +557,42 @@ export default function DashboardPage() {
                           {/* {project && <div className="text-xs text-muted-foreground mt-1">{project.name}</div>} */}
                         </TableCell>
                         <TableCell>
-                          <Input
-                            value={resolvedTaskName}
-                            onChange={e => handleEdit(entry.id, "taskName", e.target.value)}
-                          />
+                          {(() => {
+                            const projectIdForRow = String(editingEntry.projectId ?? entry.projectId ?? "")
+                            const projectTaskList = (tasks && tasks[projectIdForRow] || []) as Task[]
+                            const selectedTaskId = (editingEntry.taskId !== undefined ? (editingEntry.taskId as string) : (entry as TimeEntry).taskId) || ""
+                            const createState = createTaskState[entry.id] || { showCreate: false, name: "", loading: false }
+                            return (
+                              <div>
+                                <Select
+                                  value={selectedTaskId}
+                                  onChange={e => {
+                                    const v = e.target.value
+                                    if (v === "__create_new__") {
+                                      toggleCreateTaskUI(entry.id, true)
+                                    } else {
+                                      handleEdit(entry.id, "taskId", v)
+                                      const t = projectTaskList.find((tt) => tt.id === v)
+                                      handleEdit(entry.id, "taskName", t ? t.name : "")
+                                    }
+                                  }}
+                                >
+                                  <option value="">None</option>
+                                  {Array.isArray(projectTaskList) && projectTaskList.map((t) => (
+                                    <option key={t.id} value={t.id}>{t.name}</option>
+                                  ))}
+                                  <option value="__create_new__">Create new...</option>
+                                </Select>
+                                {createState.showCreate && (
+                                  <div className="mt-2 flex gap-2">
+                                    <Input value={createState.name} onChange={e => setCreateTaskName(entry.id, e.target.value)} placeholder="New task name" />
+                                    <Button onClick={() => createTaskForEntry(entry.id, projectIdForRow)} disabled={createState.loading}>{createState.loading ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Create'}</Button>
+                                    <Button className="bg-transparent text-sm" onClick={() => toggleCreateTaskUI(entry.id, false)}>Cancel</Button>
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })()}
                         </TableCell>
                         <TableCell>
                           <TagCloud
@@ -488,7 +612,7 @@ export default function DashboardPage() {
                           </Select>
                         </TableCell>
                         <TableCell>
-                          <Button onClick={() => handleSaveRow(entry)} disabled={!modifiedRows.has(entry.id)}>Save</Button>
+                          <Button onClick={() => handleSaveRow(entry)} disabled={!modifiedRows.has(entry.id)}>{savingRows.has(entry.id) ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Save'}</Button>
                         </TableCell>
                       </TableRow>
                     );
@@ -502,7 +626,7 @@ export default function DashboardPage() {
       </div>
       {Array.isArray(timeEntries) && timeEntries.length > 0 && (
         <div className="flex justify-end mt-4">
-          <Button onClick={handleBulkSave} disabled={modifiedRows.size === 0}>Bulk Save All</Button>
+          <Button onClick={handleBulkSave} disabled={modifiedRows.size === 0}>{/* show spinner if any rows saving */savingRows.size > 0 ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Bulk Save All'}</Button>
         </div>
       )}
       {/* Bulk Upload Dialog */}
