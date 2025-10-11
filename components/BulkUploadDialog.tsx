@@ -60,10 +60,39 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
     setUploading(true)
     setToast(null)
     try {
+      const normalized = rows.map(r => {
+        const out: Record<string, unknown> = {}
+        for (const [k, v] of Object.entries(r)) {
+          // normalize empty strings to undefined
+          if (v === "" || v === undefined) {
+            out[k] = undefined
+            continue
+          }
+          if (k === 'tags' && typeof v === 'string') {
+            const s = v.trim()
+            if (!s) {
+              out[k] = undefined
+            } else if (s.startsWith('[') && s.endsWith(']')) {
+              try { out[k] = JSON.parse(s) } catch { out[k] = s }
+            } else {
+              // Support comma, semicolon or pipe as separators for multiple tags
+              out[k] = s.split(/[,;|]\s*/).filter(Boolean)
+            }
+            continue
+          }
+          if (k === 'billable' && typeof v === 'string') {
+            out[k] = v.toLowerCase() === 'true'
+            continue
+          }
+          out[k] = v
+        }
+        return out
+      })
+
       const res = await fetch(`/api/proxy/time-entries/${workspaceId}/bulk`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey, userId, entries: rows })
+        body: JSON.stringify({ apiKey, userId, entries: normalized })
       })
       const data = await res.json()
       if (res.ok) {
@@ -96,7 +125,17 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
             onChange={handleFile}
             disabled={parsing || uploading}
           />
-          <span className="text-xs text-muted-foreground">Only .csv files are supported</span>
+          <div className="flex flex-col md:flex-row items-center gap-3">
+            <span className="text-xs text-muted-foreground">Only .csv files are supported</span>
+            <a
+              href="/sample-bulk-upload.csv"
+              download
+              className="text-xs text-primary underline"
+              aria-label="Download sample CSV file"
+            >
+              Download sample CSV
+            </a>
+          </div>
         </div>
         {rows.length > 0 && (
           <div className="overflow-x-auto max-h-64 mb-2 border rounded">
