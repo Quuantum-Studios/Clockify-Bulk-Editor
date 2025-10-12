@@ -259,6 +259,35 @@ export default function DashboardPage() {
     setModifiedRows(s => new Set(s).add(tempId))
   }
 
+  // Populate entries returned from BulkUploadDialog for manual review
+  const populateEntriesForReview = (entries: Record<string, unknown>[]) => {
+    const toAdd: TimeEntry[] = entries.map((e, idx) => {
+      const tempId = `bulk-${Date.now()}-${idx}`
+      const t: TimeEntry & { _isNew?: boolean } = {
+        id: tempId,
+        description: (e.description as string) || "",
+        start: (e.start as string) || new Date().toISOString(),
+        end: (e.end as string) || undefined,
+        projectId: (e.projectId as string) || undefined,
+        projectName: (e.projectName as string) || undefined,
+        taskId: (e.taskId as string) || undefined,
+        taskName: (e.taskName as string) || undefined,
+        tags: (e.tags as string[]) || undefined,
+        billable: (typeof e.billable === 'boolean') ? e.billable as boolean : undefined,
+        _isNew: true
+      }
+      return t
+    })
+    setTimeEntries(prev => [...toAdd, ...prev])
+    // mark them as modified so user can bulk save all or individually
+    setModifiedRows(s => {
+      const n = new Set(s)
+      for (const t of toAdd) n.add(t.id)
+      return n
+    })
+    setBulkDialogOpen(false)
+  }
+
   const handleEdit = (id: string, field: string, value: unknown) => {
     setEditing(e => ({ ...e, [id]: { ...e[id], [field]: value } }))
     setModifiedRows(s => new Set(s).add(id))
@@ -419,6 +448,15 @@ export default function DashboardPage() {
       setSavingRows(s => { const n = new Set(s); n.delete(entry.id); return n })
     }
   }
+  const undoEdits = (id: string) => {
+    setEditing(prev => { const copy = { ...prev }; delete copy[id]; return copy })
+    setModifiedRows(prev => { const n = new Set(prev); n.delete(id); return n })
+  }
+
+  const removeRow = (id: string) => {
+    setTimeEntries(prev => prev.filter(e => e.id !== id))
+    setModifiedRows(prev => { const n = new Set(prev); n.delete(id); return n })
+  }
   const handleBulkSave = async () => {
     setToast(null)
     if (Array.isArray(timeEntries)) {
@@ -508,8 +546,15 @@ export default function DashboardPage() {
                     } else if ((entry as unknown as { tagIds?: string[] }).tagIds && Array.isArray((entry as unknown as { tagIds?: string[] }).tagIds) && tags.length > 0) {
                       tagLabels = ((entry as unknown as { tagIds?: string[] }).tagIds || []).map((id: string) => tags.find(t => t.id === id)?.name || id);
                     }
+                    const rowStart = (editing[entry.id]?.start as string | undefined) ?? tiStart ?? entry.start
+                    const rowEnd = (editing[entry.id]?.end as string | undefined) ?? tiEnd ?? entry.end
+                    const hasStart = !!rowStart
+                    const startDate = rowStart ? new Date(rowStart) : null
+                    const endDate = rowEnd ? new Date(rowEnd) : null
+                    const timeError = startDate && endDate ? startDate.getTime() >= endDate.getTime() : false
+                    const rowHasErrors = !hasStart || timeError
                     return (
-                      <TableRow key={entry.id} className={modifiedRows.has(entry.id) ? "bg-yellow-50 dark:bg-yellow-900/30" : ""}>
+                      <TableRow key={entry.id} className={`${modifiedRows.has(entry.id) ? "bg-yellow-50 dark:bg-yellow-900/30" : ""} ${rowHasErrors ? "border border-red-200" : ""}`}>
                         <TableCell>
                           <Input
                             value={editingEntry.description !== undefined ? String(editingEntry.description) : (entry.description ?? "")}
@@ -611,8 +656,15 @@ export default function DashboardPage() {
                             <option value="true">Yes</option>
                           </Select>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="flex gap-2">
                           <Button onClick={() => handleSaveRow(entry)} disabled={!modifiedRows.has(entry.id)}>{savingRows.has(entry.id) ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Save'}</Button>
+                          <Button className="bg-transparent text-sm" onClick={() => undoEdits(entry.id)}>Undo</Button>
+                          {((entry as unknown as { _isNew?: boolean })._isNew) && <Button className="bg-transparent text-sm text-red-600" onClick={() => removeRow(entry.id)}>Remove</Button>}
+                          {rowHasErrors && (
+                            <span className="ml-2 inline-block align-middle text-sm text-red-600" title={`${!hasStart ? 'Start time is missing.' : ''}${timeError ? ' Start must be before End.' : ''}`}>
+                              ⚠️
+                            </span>
+                          )}
                         </TableCell>
                       </TableRow>
                     );
@@ -637,6 +689,7 @@ export default function DashboardPage() {
         apiKey={apiKey}
         userId={userId}
         onSuccess={() => { setBulkDialogOpen(false); fetchEntries() }}
+        onPopulate={populateEntriesForReview}
       />
       {/* Toast */}
       {toast && (
