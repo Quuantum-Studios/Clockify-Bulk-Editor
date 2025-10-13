@@ -4,7 +4,6 @@ import Papa from "papaparse"
 import { Sheet } from "./ui/sheet"
 import { Button } from "./ui/button"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "./ui/table"
-// import { Input } from "./ui/input"
 import { Toast } from "./ui/toast"
 
 interface BulkUploadDialogProps {
@@ -23,6 +22,9 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
   const [rows, setRows] = useState<CSVRow[]>([])
   const [parsing, setParsing] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [verifyingProjects, setVerifyingProjects] = useState(false)
+  const [verifyingAllTasks, setVerifyingAllTasks] = useState(false)
+  const [verifyingTags, setVerifyingTags] = useState(false)
   const [step, setStep] = useState<1|2|3|4>(1)
   const [projectCheck, setProjectCheck] = useState<{ existing: { id: string; name: string }[]; missing: string[] } | null>(null)
   const [projectsMap, setProjectsMap] = useState<Record<string, string | undefined>>({})
@@ -40,16 +42,19 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
       setToast({ type: "error", message: "Please upload a CSV file." })
       return
     }
+    console.log('[BulkUploadDialog] handleFile: selected', file.name)
     setParsing(true)
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
       complete: (result: unknown) => {
         const parsed = (result as { data: CSVRow[] }).data
+        console.log('[BulkUploadDialog] handleFile: parsed rows', parsed.length)
         setRows(parsed)
         setParsing(false)
       },
       error: () => {
+        console.error('[BulkUploadDialog] handleFile: parse error')
         setToast({ type: "error", message: "Failed to parse CSV" })
         setParsing(false)
       }
@@ -61,19 +66,24 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
       setToast({ type: "error", message: "No data to upload. Please select a CSV file." })
       return;
     }
+    console.log('[BulkUploadDialog] handleUpload: starting')
     setUploading(true)
     setToast(null)
     try {
       const normalized = getNormalizedEntries()
+      console.log('[BulkUploadDialog] handleUpload: normalized entries', normalized)
 
       // If caller provided onPopulate, return normalized entries for manual review instead of creating them
       if (typeof onPopulate === 'function') {
         try {
+          console.log('[BulkUploadDialog] handleUpload: calling onPopulate')
           onPopulate(normalized)
+          console.log('[BulkUploadDialog] handleUpload: onPopulate returned')
           setToast({ type: "success", message: "Entries added to dashboard for review" })
           setRows([])
           onClose()
         } catch (e) {
+          console.error('[BulkUploadDialog] handleUpload: onPopulate error', e)
           setToast({ type: "error", message: (e as Error).message || "Failed to populate entries" })
         }
         setUploading(false)
@@ -90,6 +100,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
           body: JSON.stringify({ apiKey, userId, entries: normalized })
         })
         const data = await res.json()
+        console.log('[BulkUploadDialog] handleUpload: upload response', res.status, data)
         if (res.ok) {
           setToast({ type: "success", message: "Bulk upload successful" })
           setRows([])
@@ -99,6 +110,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
         }
       }
     } catch {
+      console.error('[BulkUploadDialog] handleUpload: unexpected error')
       setToast({ type: "error", message: "Bulk upload failed" })
     }
     setUploading(false)
@@ -132,16 +144,14 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
     })
   }
 
-  // Helpers to extract unique names from parsed CSV
   const extractProjectNames = (data: CSVRow[]) => {
     const names = new Set<string>()
     for (const r of data) {
-      const v = (r['projectName'] ?? r['projectId'] ?? '')
+      const v = (r['projectName'] ?? '')
       if (typeof v === 'string' && v.trim()) names.add(v.trim())
     }
     return Array.from(names)
   }
-  // (we derive tasks per project dynamically when needed)
   const extractTagNames = (data: CSVRow[]) => {
     const set = new Set<string>()
     for (const r of data) {
@@ -156,16 +166,29 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
 
   // API calls for checks
   const verifyProjects = async () => {
-    const projectNames = extractProjectNames(rows)
-    const res = await fetch(`/api/proxy/workspaces/${workspaceId}/projects/check`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apiKey, projectNames }) })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.error || 'Project check failed')
-    const existing: { id: string; name: string }[] = (data.existing || []).map((p: { id: string; name: string }) => ({ id: p.id, name: p.name }))
-    const map: Record<string, string | undefined> = {}
-    for (const p of existing) map[p.name.toLowerCase().trim()] = p.id
-    setProjectsMap(map)
-    setProjectCheck({ existing, missing: data.missing || [] })
-    return data
+    try {
+      setVerifyingProjects(true)
+      const projectNames = extractProjectNames(rows)
+      console.log('[BulkUploadDialog] verifyProjects: checking', projectNames)
+      const res = await fetch(`/api/proxy/workspaces/${workspaceId}/projects/check`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apiKey, projectNames }) })
+      const data = await res.json()
+      if (!res.ok) {
+        console.error('[BulkUploadDialog] verifyProjects: error response', data)
+        throw new Error(data.error || 'Project check failed')
+      }
+      const existing: { id: string; name: string }[] = (data.existing || []).map((p: { id: string; name: string }) => ({ id: p.id, name: p.name }))
+      const map: Record<string, string | undefined> = {}
+      for (const p of existing) map[p.name.toLowerCase().trim()] = p.id
+      setProjectsMap(map)
+      setProjectCheck({ existing, missing: data.missing || [] })
+      console.log('[BulkUploadDialog] verifyProjects: result', { existing: existing.length, missing: data.missing || [] })
+      return data
+    } catch (e) {
+      console.error('[BulkUploadDialog] verifyProjects: caught', e)
+      throw e
+    } finally {
+      setVerifyingProjects(false)
+    }
   }
 
   const reverifyProjects = async () => {
@@ -174,13 +197,36 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
   }
 
   const verifyTasksForProject = async (projectNameOrId: string, projectId?: string) => {
-    const tasks = rows.filter(r => ((r.projectName ?? r.projectId ?? '') || '__no_project__').toString().trim() === (projectNameOrId || '__no_project__')).map(r => (r.taskName ?? '').toString()).filter(Boolean)
-    const taskNames = Array.from(new Set(tasks))
-    const res = await fetch(`/api/proxy/workspaces/${workspaceId}/tasks/check`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apiKey, projectId, taskNames }) })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.error || 'Task check failed')
-    setTaskCheck(prev => ({ ...prev, [projectNameOrId]: { existing: (data.existing || []).map((t: { id: string; name: string }) => t.name), missing: data.missing || [] } }))
-    return data
+    try {
+      setVerifyingAllTasks(true)
+      console.log('[BulkUploadDialog] verifyTasksForProject: checking', projectNameOrId, 'projectId', projectId)
+
+      const tasks = rows
+        .filter(r => {
+          const rowProjName = (r.projectName ?? '').toString().trim()
+          const rowProjId = (r.projectId ?? '').toString().trim()
+          const target = (projectNameOrId || '').toString().trim()
+          if (target === '') return (rowProjName === '' && rowProjId === '')
+          return rowProjName === target || rowProjId === target
+        })
+        .map(r => (r.taskName ?? '').toString())
+        .filter(Boolean)
+      const taskNames = Array.from(new Set(tasks))
+      const res = await fetch(`/api/proxy/workspaces/${workspaceId}/tasks/check`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apiKey, projectId, taskNames }) })
+      const data = await res.json()
+      if (!res.ok) {
+        console.error('[BulkUploadDialog] verifyTasksForProject: error', data)
+        throw new Error(data.error || 'Task check failed')
+      }
+      setTaskCheck(prev => ({ ...prev, [projectNameOrId]: { existing: (data.existing || []).map((t: { id: string; name: string }) => t.name), missing: data.missing || [] } }))
+      console.log('[BulkUploadDialog] verifyTasksForProject: result', projectNameOrId, data)
+      return data
+    } catch (e) {
+      console.error('[BulkUploadDialog] verifyTasksForProject: caught', e)
+      throw e
+    } finally {
+      setVerifyingAllTasks(false)
+    }
   }
 
   const createTasksForProject = async (projectId: string, projectKey: string) => {
@@ -199,23 +245,29 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
     for (const [projectKey, check] of Object.entries(taskCheck)) {
       const missing = check.missing || []
       if (!missing.length) continue
-      const projectId = projectsMap[projectKey.toLowerCase().trim()]
+
+      let projectId = projectsMap[projectKey.toLowerCase().trim()]
       if (!projectId) {
-        // try to fetch project id
-        try {
-          const projectRes = await fetch(`/api/proxy/workspaces/${workspaceId}/projects/check`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apiKey, projectNames: [projectKey] }) })
-          const pd = await projectRes.json()
-          if (pd.existing && pd.existing[0]) {
-            const id = pd.existing[0].id
-            // update map
-            setProjectsMap(prev => ({ ...prev, [projectKey.toLowerCase().trim()]: id }))
-            await createTasksForProject(id, projectKey)
-            continue
-          }
-        } catch { /* ignore */ }
+
+        if (typeof projectKey === 'string' && projectKey.length > 8 && /[0-9a-fA-F-]/.test(projectKey)) {
+          projectId = projectKey
+        } else {
+          try {
+            const projectRes = await fetch(`/api/proxy/workspaces/${workspaceId}/projects/check`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apiKey, projectNames: [projectKey] }) })
+            const pd = await projectRes.json()
+            if (projectRes.ok && pd.existing && pd.existing[0]) {
+              projectId = pd.existing[0].id
+              setProjectsMap(prev => ({ ...prev, [projectKey.toLowerCase().trim()]: projectId }))
+            }
+          } catch { /* ignore */ }
+        }
+      }
+
+      if (!projectId) {
         skipped.push(projectKey)
         continue
       }
+
       await createTasksForProject(projectId, projectKey)
     }
     if (skipped.length) throw new Error(`Could not resolve project IDs for: ${skipped.join(', ')}`)
@@ -235,12 +287,25 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
   }
 
   const verifyTags = async () => {
-    const tagNames = extractTagNames(rows)
-    const res = await fetch(`/api/proxy/workspaces/${workspaceId}/tags/check`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apiKey, tagNames }) })
-    const data = await res.json()
-    if (!res.ok) throw new Error(data.error || 'Tag check failed')
-    setTagCheck({ existing: (data.existing || []).map((t: { id: string; name: string }) => t.name), missing: data.missing || [] })
-    return data
+    try {
+      setVerifyingTags(true)
+      const tagNames = extractTagNames(rows)
+      console.log('[BulkUploadDialog] verifyTags: checking', tagNames)
+      const res = await fetch(`/api/proxy/workspaces/${workspaceId}/tags/check`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apiKey, tagNames }) })
+      const data = await res.json()
+      if (!res.ok) {
+        console.error('[BulkUploadDialog] verifyTags: error', data)
+        throw new Error(data.error || 'Tag check failed')
+      }
+      setTagCheck({ existing: (data.existing || []).map((t: { id: string; name: string }) => t.name), missing: data.missing || [] })
+      console.log('[BulkUploadDialog] verifyTags: result', data)
+      return data
+    } catch (e) {
+      console.error('[BulkUploadDialog] verifyTags: caught', e)
+      throw e
+    } finally {
+      setVerifyingTags(false)
+    }
   }
 
   const createTags = async () => {
@@ -262,14 +327,14 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
     if (step === 1) {
       return (
         <div className="flex gap-2 justify-end mt-2">
-          <Button onClick={async () => { try { await verifyProjects(); setStep(2) } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } }} disabled={rows.length === 0}>Next: Verify Projects</Button>
+          <Button onClick={async () => { try { await verifyProjects(); setStep(2) } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } }} disabled={rows.length === 0}>{verifyingProjects ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Next: Verify Projects'}</Button>
         </div>
       )
     }
     if (step === 2) {
       return (
         <div className="flex gap-2 justify-end mt-2">
-          <Button onClick={reverifyProjects}>Reverify</Button>
+          <Button onClick={reverifyProjects}>{verifyingProjects ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Reverify'}</Button>
           <Button onClick={async () => { if (!projectCheck && typeof onPopulate !== 'function') { setToast({ type: 'error', message: 'Run verification first' }); return } if (projectCheck && projectCheck.missing.length > 0 && typeof onPopulate !== 'function') { setToast({ type: 'error', message: 'Please create missing projects first' }); return } setStep(3) }} disabled={typeof onPopulate === 'function' ? false : (!projectCheck || projectCheck.missing.length > 0)}>Proceed to Tasks</Button>
         </div>
       )
@@ -286,7 +351,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
                 await verifyTasksForProject(p, projectId)
               }
             } catch (e) { setToast({ type: 'error', message: (e as Error).message }) }
-          }}>Verify Tasks</Button>
+          }}>{verifyingAllTasks ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Verify Tasks'}</Button>
           <Button onClick={async () => {
             // allow proceeding only when tasks have been checked and no missing tasks remain
             if (Object.keys(taskCheck).length === 0 && typeof onPopulate !== 'function') {
@@ -309,7 +374,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
       return (
         <div className="flex gap-2 justify-end mt-2">
           <Button onClick={() => setStep(3)}>Back</Button>
-          <Button onClick={async () => { try { await verifyTags(); } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } }}>{tagCheck && tagCheck.missing.length ? 'Refresh Tags' : 'Verify Tags'}</Button>
+          <Button onClick={async () => { try { await verifyTags(); } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } }}>{verifyingTags ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : (tagCheck && tagCheck.missing.length ? 'Refresh Tags' : 'Verify Tags')}</Button>
           <Button onClick={handleUpload} disabled={finalDisabled}>{uploading ? 'Uploading...' : (typeof onPopulate === 'function' ? 'Populate to Dashboard' : 'Proceed to Upload')}</Button>
         </div>
       )
@@ -454,7 +519,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
                       <TableCell>{String(e.description ?? '')}</TableCell>
                       <TableCell>{String(e.start ?? '')}</TableCell>
                       <TableCell>{String(e.end ?? '')}</TableCell>
-                      <TableCell>{projectsMap[(String(e.projectName || e.projectId || '')).toLowerCase().trim()] || ''}</TableCell>
+                      <TableCell>{String((e.projectId ?? projectsMap[(String(e.projectName || '')).toLowerCase().trim()]) || '')}</TableCell>
                       <TableCell>{String(e.taskName ?? '')}</TableCell>
                       <TableCell>{Array.isArray(e.tags) ? (e.tags as string[]).join(', ') : String(e.tags ?? '')}</TableCell>
                     </TableRow>

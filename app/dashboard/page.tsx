@@ -15,14 +15,22 @@ import { ClockifyAPI } from "../../lib/clockify"
 import type { Task, TimeEntry } from "../../lib/store"
 
 export default function DashboardPage() {
-  const {
-    apiKey, workspaces, setWorkspaces,
-    projects, setProjects,
-    tasks, setTasks,
-    timeEntries, setTimeEntries,
-    optimisticUpdate
-  } = useClockifyStore()
-  const { optimisticTask } = useClockifyStore()
+  const apiKey = useClockifyStore(state => state.apiKey)
+  const workspaces = useClockifyStore(state => state.workspaces)
+  const setWorkspaces = useClockifyStore(state => state.setWorkspaces)
+  const projects = useClockifyStore(state => state.projects)
+  const setProjects = useClockifyStore(state => state.setProjects)
+  const tasks = useClockifyStore(state => state.tasks)
+  const setTasks = useClockifyStore(state => state.setTasks)
+  const timeEntries = useClockifyStore(state => state.timeEntries)
+  const setTimeEntries = useClockifyStore(state => state.setTimeEntries)
+  const optimisticUpdate = useClockifyStore(state => state.optimisticUpdate)
+  const optimisticTask = useClockifyStore(state => state.optimisticTask)
+  try {
+    console.log('[Dashboard] render: timeEntries length', Array.isArray(timeEntries) ? timeEntries.length : typeof timeEntries)
+    console.log('[Dashboard] render: timeEntries value ->', timeEntries)
+    try { console.log('[Dashboard] render: direct store timeEntries length', Array.isArray(useClockifyStore.getState().timeEntries) ? useClockifyStore.getState().timeEntries.length : typeof useClockifyStore.getState().timeEntries) } catch (e) { console.error(e) }
+  } catch (err) { console.error('[Dashboard] render log error', err) }
   const [workspaceId, setWorkspaceId] = useState("")
   const [projectId, setProjectId] = useState("")
   const [userId, setUserId] = useState("")
@@ -261,6 +269,14 @@ export default function DashboardPage() {
 
   // Populate entries returned from BulkUploadDialog for manual review
   const populateEntriesForReview = (entries: Record<string, unknown>[]) => {
+    console.log('[Dashboard] populateEntriesForReview: received entries', entries?.length)
+    if (entries && entries.length > 0) console.log('[Dashboard] populateEntriesForReview first', entries[0])
+    try {
+      console.log('[Dashboard] populateEntriesForReview called, entries:', entries.length, entries)
+    } catch (err) {
+      console.error('[Dashboard] populateEntriesForReview: logging error', err)
+    }
+
     const toAdd: TimeEntry[] = entries.map((e, idx) => {
       const tempId = `bulk-${Date.now()}-${idx}`
       const t: TimeEntry & { _isNew?: boolean } = {
@@ -278,7 +294,22 @@ export default function DashboardPage() {
       }
       return t
     })
-    setTimeEntries(prev => [...toAdd, ...prev])
+    console.log('[Dashboard] populateEntriesForReview: toAdd count', toAdd.length)
+    setTimeEntries(prev => {
+      try {
+        console.log('[Dashboard] populateEntriesForReview: prev length', Array.isArray(prev) ? prev.length : 0)
+      } catch (err) { console.error('[Dashboard] populateEntriesForReview: prev log error', err) }
+      const next = [...toAdd, ...prev]
+      try {
+        console.log('[Dashboard] populateEntriesForReview: next length', next.length)
+      } catch (err) { console.error('[Dashboard] populateEntriesForReview: next log error', err) }
+      return next
+    })
+    try {
+      const store = useClockifyStore.getState()
+      console.log('[Dashboard] populateEntriesForReview: store timeEntries length', Array.isArray(store.timeEntries) ? store.timeEntries.length : typeof store.timeEntries)
+    } catch (err) { console.error('[Dashboard] populateEntriesForReview: store inspect error', err) }
+    console.log('[Dashboard] populateEntriesForReview: updated timeEntries with', toAdd.length, 'items')
     // mark them as modified so user can bulk save all or individually
     setModifiedRows(s => {
       const n = new Set(s)
