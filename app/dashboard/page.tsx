@@ -630,8 +630,8 @@ export default function DashboardPage() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Description</TableHead>
-                    <TableHead>Start</TableHead>
-                    <TableHead>End</TableHead>
+                    <TableHead>Start(UTC)</TableHead>
+                    <TableHead>End(UTC)</TableHead>
                     <TableHead>Project</TableHead>
                     <TableHead>Task</TableHead>
                     <TableHead>Tags</TableHead>

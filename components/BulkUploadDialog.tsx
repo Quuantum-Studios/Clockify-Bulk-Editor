@@ -319,6 +319,42 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
   }
 
   if (!open) return null;
+  const stepTitles = ['Upload', 'Projects', 'Tasks', 'Tags & Preview']
+  const stepDescriptions: Record<number, string> = {
+    1: 'Select a CSV file. The file must have headers matching Clockify fields (description, start, end, projectName, taskName, tags, billable).',
+    2: 'Verify that referenced projects exist in the workspace. Missing projects must be created before continuing.',
+    3: 'Verify tasks for each project. You can create any missing tasks automatically here.',
+    4: 'Verify tags, review a preview of the first 10 entries, then upload or populate the dashboard.'
+  }
+
+  const progressPercent = Math.round(((step - 1) / (stepTitles.length - 1)) * 100)
+
+  const renderStepper = () => (
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-3">
+        {stepTitles.map((title, i) => {
+          const idx = i + 1
+          const completed = idx < step
+          const active = idx === step
+          return (
+            <div key={title} className="flex items-center gap-3">
+              <div className={"flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium " + (completed ? 'bg-green-600 text-white' : active ? 'bg-primary text-white' : 'bg-muted text-muted-foreground')}>
+                {completed ? '✓' : idx}
+              </div>
+              <div className="hidden md:block text-sm " aria-current={active ? 'step' : undefined}>
+                <div className={active ? 'font-semibold' : 'text-muted-foreground'}>{title}</div>
+              </div>
+              {i < stepTitles.length - 1 && <div className="w-6 h-px bg-border" />}
+            </div>
+          )
+        })}
+      </div>
+      <div className="w-full bg-border rounded h-1 overflow-hidden">
+        <div className="h-1 bg-primary" style={{ width: `${progressPercent}%` }} />
+      </div>
+      <div className="text-sm text-muted-foreground">{stepDescriptions[step]}</div>
+    </div>
+  )
   // Step UI rendering helpers
   const allTasksMissingCount = Object.values(taskCheck).reduce((acc, v) => acc + (v?.missing?.length || 0), 0)
   const allTasksOK = Object.values(taskCheck).length > 0 && allTasksMissingCount === 0
@@ -385,32 +421,44 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
   return (
     <Sheet onClick={onClose}>
       <div
-        className="bg-background rounded-lg w-[95vw] max-w-2xl flex flex-col gap-4 p-6 shadow-xl relative"
+        className="bg-background rounded-lg w-[98vw] max-w-4xl flex flex-col gap-4 p-6 shadow-xl relative"
         onClick={e => e.stopPropagation()}
       >
-        <h2 className="text-lg font-semibold mb-2">Bulk Upload CSV</h2>
-        <div className="flex flex-col md:flex-row gap-4 items-center">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".csv"
-            className="mb-2 md:mb-0"
-            onChange={handleFile}
-            disabled={parsing || uploading}
-          />
-          <div className="flex flex-col md:flex-row items-center gap-3">
-            <span className="text-xs text-muted-foreground">Only .csv files are supported</span>
-            <a
-              href="/sample-bulk-upload.csv"
-              download
-              className="text-xs text-primary underline"
-              aria-label="Download sample CSV file"
-            >
-              Download sample CSV
-            </a>
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold mb-1">Bulk Upload CSV</h2>
+            <div className="text-sm text-muted-foreground">A guided, step-by-step assistant to verify and upload many time entries at once.</div>
           </div>
+          <div className="md:w-1/2">{renderStepper()}</div>
         </div>
-        {rows.length > 0 && (
+
+        <div className="pt-2">
+          {step === 1 && (
+            <div className="flex flex-col md:flex-row gap-4 items-center">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv"
+                className="mb-2 md:mb-0"
+                onChange={handleFile}
+                disabled={parsing || uploading}
+                aria-label="Upload CSV file"
+              />
+              <div className="flex flex-col md:flex-row items-center gap-3">
+                <span className="text-xs text-muted-foreground">Only .csv files are supported</span>
+                <a
+                  href="/sample-bulk-upload.csv"
+                  download
+                  className="text-xs text-primary underline"
+                  aria-label="Download sample CSV file"
+                >
+                  Download sample CSV
+                </a>
+              </div>
+            </div>
+          )}
+        </div>
+        {rows.length > 0 && step === 1 && (
           <div className="overflow-x-auto max-h-64 mb-2 border rounded">
             <Table>
               <TableHeader>
@@ -433,7 +481,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
           </div>
         )}
         {/* Step controls */}
-        {renderStepControls()}
+        <div className="mt-2">{renderStepControls()}</div>
 
         {/* Step detail panels */}
         {step === 2 && projectCheck && (
