@@ -4,13 +4,14 @@ import { ClockifyAPI } from "../../../../../../../lib/clockify"
 
 const bodySchema = z.object({ apiKey: z.string().min(1), projectId: z.string().min(1), taskNames: z.array(z.string()).min(1) })
 
-export async function POST(req: NextRequest, { params }: { params: { workspaceId: string } }) {
+export async function POST(req: NextRequest, context: { params: { workspaceId: string } }) {
   try {
     const body = await req.json()
     bodySchema.parse(body)
     const { apiKey, projectId, taskNames } = body
     const clockify = new ClockifyAPI()
     clockify.setApiKey(apiKey)
+    const params = await context.params
     const workspaceId = params.workspaceId
     const created: { id: string; name: string }[] = []
     for (const name of taskNames) {

@@ -268,7 +268,7 @@ export default function DashboardPage() {
   }
 
   // Populate entries returned from BulkUploadDialog for manual review
-  const populateEntriesForReview = (entries: Record<string, unknown>[]) => {
+  const populateEntriesForReview = async (entries: Record<string, unknown>[]) => {
     console.log('[Dashboard] populateEntriesForReview: received entries', entries?.length)
     if (entries && entries.length > 0) console.log('[Dashboard] populateEntriesForReview first', entries[0])
     try {
@@ -279,15 +279,30 @@ export default function DashboardPage() {
 
     const toAdd: TimeEntry[] = entries.map((e, idx) => {
       const tempId = `bulk-${Date.now()}-${idx}`
+      const incomingProjectName = (e.projectName as string) || undefined
+      const incomingTaskName = (e.taskName as string) || undefined
+      // try to resolve projectId from supplied value or project name
+      let resolvedProjectId = (e.projectId as string) || undefined
+      if (!resolvedProjectId && incomingProjectName && Array.isArray(projects)) {
+        const found = projects.find((p: { id: string; name: string }) => p.name.toLowerCase().trim() === incomingProjectName.toLowerCase().trim())
+        if (found) resolvedProjectId = found.id
+      }
+      // try to resolve taskId from supplied value or task name (requires project)
+      let resolvedTaskId = (e.taskId as string) || undefined
+      if (!resolvedTaskId && incomingTaskName && resolvedProjectId) {
+        const projectTasks = (tasks && tasks[resolvedProjectId]) || []
+        const foundT = (projectTasks as Task[]).find(tk => tk.name.toLowerCase().trim() === incomingTaskName.toLowerCase().trim())
+        if (foundT) resolvedTaskId = foundT.id
+      }
       const t: TimeEntry & { _isNew?: boolean } = {
         id: tempId,
         description: (e.description as string) || "",
         start: (e.start as string) || new Date().toISOString(),
         end: (e.end as string) || undefined,
-        projectId: (e.projectId as string) || undefined,
-        projectName: (e.projectName as string) || undefined,
-        taskId: (e.taskId as string) || undefined,
-        taskName: (e.taskName as string) || undefined,
+        projectId: resolvedProjectId,
+        projectName: incomingProjectName,
+        taskId: resolvedTaskId,
+        taskName: incomingTaskName,
         tags: (e.tags as string[]) || undefined,
         billable: (typeof e.billable === 'boolean') ? e.billable as boolean : undefined,
         _isNew: true
@@ -295,16 +310,34 @@ export default function DashboardPage() {
       return t
     })
     console.log('[Dashboard] populateEntriesForReview: toAdd count', toAdd.length)
-    setTimeEntries(prev => {
-      try {
-        console.log('[Dashboard] populateEntriesForReview: prev length', Array.isArray(prev) ? prev.length : 0)
-      } catch (err) { console.error('[Dashboard] populateEntriesForReview: prev log error', err) }
-      const next = [...toAdd, ...prev]
-      try {
-        console.log('[Dashboard] populateEntriesForReview: next length', next.length)
-      } catch (err) { console.error('[Dashboard] populateEntriesForReview: next log error', err) }
-      return next
-    })
+    try {
+      console.log('[Dashboard] populateEntriesForReview: prev length', Array.isArray(timeEntries) ? timeEntries.length : 0)
+    } catch (err) { console.error('[Dashboard] populateEntriesForReview: prev log error', err) }
+    const next = [...toAdd, ...(Array.isArray(timeEntries) ? timeEntries : [])]
+    try {
+      console.log('[Dashboard] populateEntriesForReview: next length', next.length)
+    } catch (err) { console.error('[Dashboard] populateEntriesForReview: next log error', err) }
+    setTimeEntries(next)
+    // prefetch tasks for resolved projects so the task dropdowns can show the correct task lists
+    try {
+      if (apiKey && workspaceId) {
+        const api = new ClockifyAPI()
+        api.setApiKey(apiKey)
+        const projectIdsToFetch = Array.from(new Set(toAdd.map(t => t.projectId).filter(Boolean))) as string[]
+        for (const pid of projectIdsToFetch) {
+          // if we already have tasks for this project, skip
+          if (tasks && tasks[pid] && Array.isArray(tasks[pid]) && tasks[pid].length > 0) continue
+          try {
+            const projectTasks = await api.getTasks(workspaceId, pid)
+            setTasks(pid, projectTasks)
+          } catch {
+            // ignore per-project task fetch errors
+          }
+        }
+      }
+    } catch {
+      // ignore prefetch errors
+    }
     try {
       const store = useClockifyStore.getState()
       console.log('[Dashboard] populateEntriesForReview: store timeEntries length', Array.isArray(store.timeEntries) ? store.timeEntries.length : typeof store.timeEntries)
@@ -335,9 +368,9 @@ export default function DashboardPage() {
   const handleSaveRow = async (entry: typeof timeEntries[number]) => {
     setSavingRows(s => new Set(s).add(entry.id))
     setToast(null)
-    // Declare allowedKeys once at the top
+    // Declare allowedKeys once at the top (do NOT send userId in the request body)
     const allowedKeys = new Set([
-      'description', 'projectId', 'taskId', 'taskName', 'start', 'end', 'billable', 'tagIds', 'tags', 'userId'
+      'description', 'projectId', 'taskId', 'taskName', 'start', 'end', 'billable', 'tagIds', 'tags'
     ]);
     const original = entry as Record<string, unknown>;
     let patch: Record<string, unknown> = { ...(editing[entry.id] || {}) };
@@ -367,6 +400,7 @@ export default function DashboardPage() {
         setSavingRows(s => { const n = new Set(s); n.delete(entry.id); return n })
       return;
     }
+    let tagIdsFromPatch: string[] | undefined = undefined;
     if (patch.tags && Array.isArray(patch.tags) && workspaceId && apiKey) {
       const api = new ClockifyAPI();
       api.setApiKey(apiKey);
@@ -386,6 +420,7 @@ export default function DashboardPage() {
       const { tags: _omitTags, ...rest } = patch;
       void _omitTags;
       patch = { ...rest, tagIds };
+      tagIdsFromPatch = tagIds;
     }
     const minimalPatch: Record<string, unknown> = {};
     const entryAny = entry as unknown as { timeInterval?: { start?: string; end?: string }; start?: string; end?: string; _isNew?: boolean };
@@ -412,6 +447,10 @@ export default function DashboardPage() {
         const s = normalizeDate((merged as Record<string, unknown>).start)
         if (s) createPayload.start = s
       }
+      // Ensure required/expected fields for the Clockify API
+      if (createPayload.billable === undefined) createPayload.billable = false
+      if (!createPayload.type) createPayload.type = 'REGULAR'
+      // If tags were provided as names they were converted into tagIds earlier
       try {
         const res = await fetch(`/api/proxy/time-entries/${workspaceId}/${userId}`, {
           method: "POST",
@@ -435,23 +474,39 @@ export default function DashboardPage() {
         return
       }
     }
-    // Merge edits into the full entry data
+    // Merge edits into the full entry data, but use normalized values (dates, tagIds)
     const mergedEntry: Record<string, unknown> = {};
-    const edits = editing[entry.id] || {};
+    const editsRaw = editing[entry.id] || {};
+    // Start with a copy and normalize any transformed values we computed above
+    const normalizedEdits: Record<string, unknown> = { ...editsRaw };
+    // If tags were converted earlier, prefer tagIds
+    if (tagIdsFromPatch) {
+      normalizedEdits.tagIds = tagIdsFromPatch;
+      delete normalizedEdits.tags;
+    }
+    // Normalize start/end values if present in edits
+    if (normalizedEdits.start !== undefined) {
+      const ns = normalizeDate(normalizedEdits.start);
+      if (ns) normalizedEdits.start = ns; else delete normalizedEdits.start;
+    }
+    if (normalizedEdits.end !== undefined) {
+      const ne = normalizeDate(normalizedEdits.end);
+      if (ne) normalizedEdits.end = ne; else delete normalizedEdits.end;
+    }
     for (const k of allowedKeys) {
       // Special handling for start/end: prefer edited value, otherwise use timeInterval if present, otherwise original
       if (k === 'start') {
-        const v = (edits.start !== undefined) ? edits.start : (entryAny.timeInterval?.start ?? entryAny.start ?? original.start);
+        const v = (normalizedEdits.start !== undefined) ? normalizedEdits.start : (entryAny.timeInterval?.start ?? entryAny.start ?? original.start);
         if (v !== undefined && v !== null && v !== "") mergedEntry.start = v
         continue
       }
       if (k === 'end') {
-        const v = (edits.end !== undefined) ? edits.end : (entryAny.timeInterval?.end ?? entryAny.end ?? original.end);
+        const v = (normalizedEdits.end !== undefined) ? normalizedEdits.end : (entryAny.timeInterval?.end ?? entryAny.end ?? original.end);
         if (v !== undefined && v !== null && v !== "") mergedEntry.end = v
         continue
       }
       // Other keys: prefer edited value, else original
-      const v = (edits[k] !== undefined) ? edits[k] : original[k];
+      const v = (normalizedEdits[k] !== undefined) ? normalizedEdits[k] : original[k];
       if (v !== undefined && v !== null) mergedEntry[k] = v;
     }
     optimisticUpdate(entry.id, mergedEntry);
@@ -485,8 +540,39 @@ export default function DashboardPage() {
   }
 
   const removeRow = (id: string) => {
-    setTimeEntries(prev => prev.filter(e => e.id !== id))
+    setTimeEntries((Array.isArray(timeEntries) ? timeEntries : []).filter(e => e.id !== id))
     setModifiedRows(prev => { const n = new Set(prev); n.delete(id); return n })
+  }
+
+  const handleDeleteRow = async (entry: typeof timeEntries[number]) => {
+    // If it's a locally-created new row, just remove it
+    if ((entry as unknown as { _isNew?: boolean })._isNew) {
+      removeRow(entry.id)
+      setToast({ type: "success", message: "Removed" })
+      return
+    }
+    if (!workspaceId || !userId || !apiKey) { setToast({ type: "error", message: "Workspace, user and API key required to delete" }); return }
+    if (!confirm("Delete this time entry? This action cannot be undone.")) return
+    setSavingRows(s => new Set(s).add(entry.id))
+    try {
+      const res = await fetch(`/api/proxy/time-entries/${workspaceId}/${userId}/${entry.id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey })
+      })
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        const finalErrorMessage = errorData.error || `HTTP ${res.status}: Delete failed`;
+        throw new Error(finalErrorMessage);
+      }
+      removeRow(entry.id)
+      setToast({ type: "success", message: "Deleted" })
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Delete failed";
+      setToast({ type: "error", message: errorMessage })
+    } finally {
+      setSavingRows(s => { const n = new Set(s); n.delete(entry.id); return n })
+    }
   }
   const handleBulkSave = async () => {
     setToast(null)
@@ -691,6 +777,7 @@ export default function DashboardPage() {
                           <Button onClick={() => handleSaveRow(entry)} disabled={!modifiedRows.has(entry.id)}>{savingRows.has(entry.id) ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Save'}</Button>
                           <Button className="bg-transparent text-sm" onClick={() => undoEdits(entry.id)}>Undo</Button>
                           {((entry as unknown as { _isNew?: boolean })._isNew) && <Button className="bg-transparent text-sm text-red-600" onClick={() => removeRow(entry.id)}>Remove</Button>}
+                          <Button className="bg-transparent text-sm text-red-600" onClick={() => handleDeleteRow(entry)} disabled={savingRows.has(entry.id)}>{savingRows.has(entry.id) ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Delete'}</Button>
                           {rowHasErrors && (
                             <span className="ml-2 inline-block align-middle text-sm text-red-600" title={`${!hasStart ? 'Start time is missing.' : ''}${timeError ? ' Start must be before End.' : ''}`}>
                               ⚠️

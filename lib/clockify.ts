@@ -175,7 +175,24 @@ export class ClockifyAPI {
         payload.taskId = task.id
       }
     }
+    // Convert tag names to tagIds if necessary (Clockify expects tagIds)
+    if (payload.tags && Array.isArray(payload.tags)) {
+      const allTags = await this.getTags(workspaceId);
+      const tagIds: string[] = [];
+      for (const label of payload.tags) {
+        let tag = allTags.find(t => t.name === label);
+        if (!tag) {
+          tag = await this.createTag(workspaceId, label);
+        }
+        tagIds.push(tag.id);
+      }
+      payload.tagIds = tagIds;
+    }
+    // Remove client-facing helper fields
     delete payload.taskName
+    delete payload.tags
+    // Ensure a default type if not provided
+    if (!payload.type) payload.type = 'REGULAR'
     try {
       return (await this.axiosInstance!.post(`/workspaces/${workspaceId}/user/${userId}/time-entries`, payload)).data as TimeEntry
     } catch (error: unknown) {
@@ -217,6 +234,18 @@ export class ClockifyAPI {
     
     try {
       return (await this.axiosInstance!.put(`/workspaces/${workspaceId}/user/${userId}/time-entries`, normalizedEntries)).data as TimeEntry[]
+    } catch (error: unknown) {
+      console.error("Clockify API Error:", (error as any).response?.data || (error as Error).message);
+      const errorMessage = (error as any).response?.data?.message || (error as any).response?.data || (error as Error).message || "Unknown error occurred";
+      throw new Error(`Clockify API Error: ${errorMessage}`);
+    }
+  }
+
+  async deleteTimeEntry(workspaceId: string, userId: string, entryId: string) {
+    try {
+      // Deleting a specific time entry uses the endpoint without the /user/{userId} segment
+      const res = await this.axiosInstance!.delete(`/workspaces/${workspaceId}/time-entries/${entryId}`)
+      return res.data as { id?: string }
     } catch (error: unknown) {
       console.error("Clockify API Error:", (error as any).response?.data || (error as Error).message);
       const errorMessage = (error as any).response?.data?.message || (error as any).response?.data || (error as Error).message || "Unknown error occurred";

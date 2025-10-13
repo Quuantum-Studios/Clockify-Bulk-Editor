@@ -116,3 +116,28 @@ export async function PUT(req: NextRequest, context: { params: { slug: string[] 
     return NextResponse.json({ error: errorMessage }, { status: statusCode })
   }
 }
+
+export async function DELETE(req: NextRequest, context: { params: { slug: string[] } }) {
+  try {
+    const body = await req.json()
+    const { apiKey } = body
+    apiKeySchema.parse({ apiKey })
+    const clockify = new ClockifyAPI()
+    clockify.setApiKey(apiKey)
+    const params = await context.params
+    const [resource, ...rest] = params.slug
+    if (resource === "time-entries") {
+      const [workspaceId, userId, entryId] = rest
+      if (!userId) return NextResponse.json({ error: "userId required" }, { status: 400 })
+      if (!entryId) return NextResponse.json({ error: "entryId required" }, { status: 400 })
+      const data = await clockify.deleteTimeEntry(workspaceId, userId, entryId)
+      return NextResponse.json(data)
+    }
+    return NextResponse.json({ error: "Not found" }, { status: 404 })
+  } catch (e: unknown) {
+    console.error("[API] Error in DELETE:", e);
+    const errorMessage = e instanceof Error ? e.message : String(e);
+    const statusCode = errorMessage.includes('Clockify API Error') ? 400 : 500;
+    return NextResponse.json({ error: errorMessage }, { status: statusCode })
+  }
+}
