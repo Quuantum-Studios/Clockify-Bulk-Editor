@@ -61,10 +61,6 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
       setToast({ type: "error", message: "No data to upload. Please select a CSV file." })
       return;
     }
-    if (!userId) {
-      setToast({ type: "error", message: "User ID not loaded." })
-      return;
-    }
     setUploading(true)
     setToast(null)
     try {
@@ -80,7 +76,14 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
         } catch (e) {
           setToast({ type: "error", message: (e as Error).message || "Failed to populate entries" })
         }
+        setUploading(false)
+        return
       } else {
+        if (!userId) {
+          setToast({ type: "error", message: "User ID not loaded." })
+          setUploading(false)
+          return
+        }
         const res = await fetch(`/api/proxy/time-entries/${workspaceId}/bulk`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -267,7 +270,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
       return (
         <div className="flex gap-2 justify-end mt-2">
           <Button onClick={reverifyProjects}>Reverify</Button>
-          <Button onClick={async () => { if (!projectCheck) { setToast({ type: 'error', message: 'Run verification first' }); return } if (projectCheck.missing.length > 0) { setToast({ type: 'error', message: 'Please create missing projects first' }); return } setStep(3) }} disabled={!projectCheck || projectCheck.missing.length > 0}>Proceed to Tasks</Button>
+          <Button onClick={async () => { if (!projectCheck && typeof onPopulate !== 'function') { setToast({ type: 'error', message: 'Run verification first' }); return } if (projectCheck && projectCheck.missing.length > 0 && typeof onPopulate !== 'function') { setToast({ type: 'error', message: 'Please create missing projects first' }); return } setStep(3) }} disabled={typeof onPopulate === 'function' ? false : (!projectCheck || projectCheck.missing.length > 0)}>Proceed to Tasks</Button>
         </div>
       )
     }
@@ -286,11 +289,11 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
           }}>Verify Tasks</Button>
           <Button onClick={async () => {
             // allow proceeding only when tasks have been checked and no missing tasks remain
-            if (Object.keys(taskCheck).length === 0) {
+            if (Object.keys(taskCheck).length === 0 && typeof onPopulate !== 'function') {
               setToast({ type: 'error', message: 'Please verify tasks first' })
               return
             }
-            if (!allTasksOK) {
+            if (!allTasksOK && typeof onPopulate !== 'function') {
               setToast({ type: 'error', message: 'Some tasks are missing. Create or refresh tasks before proceeding.' })
               return
             }
@@ -300,11 +303,14 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
       )
     }
     if (step === 4) {
+      const finalDisabled = typeof onPopulate === 'function'
+        ? false
+        : !(projectCheck && projectCheck.missing.length === 0 && (tagCheck && tagCheck.missing.length === 0) && allTasksOK)
       return (
         <div className="flex gap-2 justify-end mt-2">
           <Button onClick={() => setStep(3)}>Back</Button>
           <Button onClick={async () => { try { await verifyTags(); } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } }}>{tagCheck && tagCheck.missing.length ? 'Refresh Tags' : 'Verify Tags'}</Button>
-          <Button onClick={handleUpload} disabled={!(projectCheck && projectCheck.missing.length === 0 && (tagCheck && tagCheck.missing.length === 0) && allTasksOK)}>{uploading ? 'Uploading...' : (typeof onPopulate === 'function' ? 'Populate to Dashboard' : 'Proceed to Upload')}</Button>
+          <Button onClick={handleUpload} disabled={finalDisabled}>{uploading ? 'Uploading...' : (typeof onPopulate === 'function' ? 'Populate to Dashboard' : 'Proceed to Upload')}</Button>
         </div>
       )
     }
