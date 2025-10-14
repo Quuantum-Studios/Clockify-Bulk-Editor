@@ -19,7 +19,7 @@ const entrySchema = z.object({
 export async function POST(req: NextRequest, context: { params: Promise<{ workspaceId: string }> }) {
   try {
     const { workspaceId } = await context.params
-    const body = await req.json()
+    const body = await req.json() as { apiKey: string; userId: string; entries: unknown[] }
     const { apiKey, userId, entries } = body
     apiKeySchema.parse({ apiKey })
     if (!userId) throw new Error("userId required")

@@ -10,7 +10,7 @@ const bodySchema = z.object({
 export async function POST(req: NextRequest, context: { params: Promise<{ workspaceId: string }> }) {
   try {
     const { workspaceId } = await context.params
-    const body = await req.json()
+    const body = await req.json() as { apiKey: string; projectNames?: string[] }
     bodySchema.parse(body)
     const { apiKey, projectNames = [] } = body
     const clockify = new ClockifyAPI()

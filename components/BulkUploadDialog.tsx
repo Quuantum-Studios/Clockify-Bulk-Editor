@@ -93,7 +93,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ apiKey, userId, entries: normalized })
         })
-        const data = await res.json()
+        const data = await res.json() as { error?: string }
         if (res.ok) {
           setToast({ type: "success", message: "Bulk upload successful" })
           setRows([])
@@ -163,7 +163,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
       setVerifyingProjects(true)
       const projectNames = extractProjectNames(rows)
       const res = await fetch(`/api/proxy/workspaces/${workspaceId}/projects/check`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apiKey, projectNames }) })
-      const data = await res.json()
+      const data = await res.json() as { error?: string; existing?: { id: string; name: string }[]; missing?: string[] }
       if (!res.ok) {
         console.error('[BulkUploadDialog] verifyProjects: error response', data)
         throw new Error(data.error || 'Project check failed')
@@ -203,7 +203,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
         .filter(Boolean)
       const taskNames = Array.from(new Set(tasks))
       const res = await fetch(`/api/proxy/workspaces/${workspaceId}/tasks/check`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apiKey, projectId, taskNames }) })
-      const data = await res.json()
+      const data = await res.json() as { error?: string; existing?: { id: string; name: string }[]; missing?: string[] }
       if (!res.ok) {
         console.error('[BulkUploadDialog] verifyTasksForProject: error', data)
         throw new Error(data.error || 'Task check failed')
@@ -222,7 +222,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
     const missing = taskCheck[projectKey]?.missing || []
     if (!missing.length) return
     const res = await fetch(`/api/proxy/workspaces/${workspaceId}/tasks/create`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apiKey, projectId, taskNames: missing }) })
-    const data = await res.json()
+    const data = await res.json() as { error?: string }
     if (!res.ok) throw new Error(data.error || 'Task create failed')
     // refresh check
     await verifyTasksForProject(projectKey, projectId)
@@ -243,7 +243,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
         } else {
           try {
             const projectRes = await fetch(`/api/proxy/workspaces/${workspaceId}/projects/check`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apiKey, projectNames: [projectKey] }) })
-            const pd = await projectRes.json()
+            const pd = await projectRes.json() as { existing?: { id: string; name: string }[] }
             if (projectRes.ok && pd.existing && pd.existing[0]) {
               projectId = pd.existing[0].id
               setProjectsMap(prev => ({ ...prev, [projectKey.toLowerCase().trim()]: projectId }))
@@ -280,7 +280,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
       setVerifyingTags(true)
       const tagNames = extractTagNames(rows)
       const res = await fetch(`/api/proxy/workspaces/${workspaceId}/tags/check`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apiKey, tagNames }) })
-      const data = await res.json()
+      const data = await res.json() as { error?: string; existing?: { id: string; name: string }[]; missing?: string[] }
       if (!res.ok) {
         console.error('[BulkUploadDialog] verifyTags: error', data)
         throw new Error(data.error || 'Tag check failed')
@@ -299,7 +299,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
     const missing = tagCheck?.missing || []
     if (!missing.length) return
     const res = await fetch(`/api/proxy/workspaces/${workspaceId}/tags/create`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apiKey, tagNames: missing }) })
-    const data = await res.json()
+    const data = await res.json() as { error?: string }
     if (!res.ok) throw new Error(data.error || 'Tag create failed')
     await verifyTags()
     return data

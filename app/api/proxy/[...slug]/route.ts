@@ -61,7 +61,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ slug: s
 
 export async function POST(req: NextRequest, context: { params: Promise<{ slug: string[] }> }) {
   try {
-    const body = await req.json()
+    const body = await req.json() as { apiKey: string; [key: string]: unknown }
     const { apiKey, ...payload } = body
     apiKeySchema.parse({ apiKey })
     const clockify = new ClockifyAPI()
@@ -92,7 +92,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ slug: 
 
 export async function PUT(req: NextRequest, context: { params: Promise<{ slug: string[] }> }) {
   try {
-    const body = await req.json()
+    const body = await req.json() as { apiKey: string; [key: string]: unknown }
     const { apiKey, ...payload } = body
     apiKeySchema.parse({ apiKey })
     const clockify = new ClockifyAPI()
@@ -102,7 +102,7 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ slug: s
     if (resource === "time-entries") {
       const [workspaceId, userId, entryId] = rest
       if (!userId) return NextResponse.json({ error: "userId required" }, { status: 400 })
-      const data = await clockify.updateTimeEntry(workspaceId, userId, entryId, payload)
+      const data = await clockify.updateTimeEntry(workspaceId, userId, entryId, payload as Partial<import("../../../../lib/clockify").TimeEntry> & { tags?: string[] })
       return NextResponse.json(data)
     }
     return NextResponse.json({ error: "Not found" }, { status: 404 })
@@ -116,7 +116,7 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ slug: s
 
 export async function DELETE(req: NextRequest, context: { params: Promise<{ slug: string[] }> }) {
   try {
-    const body = await req.json()
+    const body = await req.json() as { apiKey: string; [key: string]: unknown }
     const { apiKey } = body
     apiKeySchema.parse({ apiKey })
     const clockify = new ClockifyAPI()

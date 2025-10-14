@@ -9,7 +9,7 @@ export async function POST(
   context: { params: Promise<{ workspaceId: string }> }
 ) {
   try {
-    const body = await req.json()
+    const body = await req.json() as { apiKey: string; projectId: string; taskNames: string[] }
     bodySchema.parse(body)
     const { apiKey, projectId, taskNames } = body
     const clockify = new ClockifyAPI()

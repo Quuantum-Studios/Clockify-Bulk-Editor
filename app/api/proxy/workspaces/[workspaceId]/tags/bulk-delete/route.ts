@@ -11,7 +11,7 @@ export async function DELETE(
 ) {
   try {
     const { workspaceId } = await context.params
-    const { apiKey, tagIds } = await request.json()
+    const { apiKey, tagIds } = await request.json() as { apiKey: string; tagIds: string[] }
 
     if (!apiKey) return NextResponse.json({ error: "API key is required" }, { status: 400 })
     if (!workspaceId) return NextResponse.json({ error: "Workspace ID is required" }, { status: 400 })

@@ -92,8 +92,9 @@ export default function DashboardPage() {
     if (!apiKey) return;
     fetch(`/api/proxy/user?apiKey=${apiKey}`)
       .then(r => r.json())
-      .then(data => {
-        if (data && data.id) setUserId(data.id)
+      .then((data: unknown) => {
+        const userData = data as { id?: string }
+        if (userData && userData.id) setUserId(userData.id)
         else setUserId("")
       })
       .catch(() => setUserId(""))
@@ -151,12 +152,15 @@ export default function DashboardPage() {
     fetch(`/api/proxy/workspaces?apiKey=${apiKey}`)
       .then(async r => {
         if (!r.ok) {
-          const errorData = await r.json().catch(() => ({}));
+          const errorData = await r.json().catch(() => ({})) as { error?: string };
           throw new Error(errorData.error || `HTTP ${r.status}: Failed to load workspaces`);
         }
         return r.json();
       })
-      .then(data => setWorkspaces(data))
+      .then((data: unknown) => {
+        const workspacesData = data as { id: string; name: string }[]
+        setWorkspaces(workspacesData)
+      })
       .catch((error) => {
         const errorMessage = error instanceof Error ? error.message : "Failed to load workspaces";
         setToast({ type: "error", message: errorMessage })
@@ -170,10 +174,10 @@ export default function DashboardPage() {
       try {
         const response = await fetch(`/api/proxy/projects/${workspaceId}?apiKey=${apiKey}`)
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
+          const errorData = await response.json().catch(() => ({})) as { error?: string };
           throw new Error(errorData.error || `HTTP ${response.status}: Failed to load projects`);
         }
-        const projectsData = await response.json()
+        const projectsData = await response.json() as { id: string; name: string }[]
         setProjects(projectsData)
 
         // Fetch tasks for each project
@@ -232,12 +236,12 @@ export default function DashboardPage() {
     fetch(`/api/proxy/time-entries/${workspaceId}/${userId}?apiKey=${apiKey}&projectId=${projectId}&start=${start}&end=${end}`)
       .then(async r => {
         if (!r.ok) {
-          const errorData = await r.json().catch(() => ({}));
+          const errorData = await r.json().catch(() => ({})) as { error?: string };
           throw new Error(errorData.error || `HTTP ${r.status}: Failed to load entries`);
         }
         return r.json();
       })
-      .then(data => { setTimeEntries(Array.isArray(data) ? data : []); setSelectedIds(new Set()); setLoading(false) })
+      .then((data: unknown) => { setTimeEntries(Array.isArray(data) ? data : []); setSelectedIds(new Set()); setLoading(false) })
       .catch((error) => { 
         setTimeEntries([]); 
         const errorMessage = error instanceof Error ? error.message : "Failed to load entries";
@@ -437,7 +441,7 @@ export default function DashboardPage() {
           body: JSON.stringify({ apiKey, ...createPayload })
         })
         if (!res.ok) {
-          const errorData = await res.json().catch(() => ({}));
+          const errorData = await res.json().catch(() => ({})) as { error?: string };
           const finalErrorMessage = errorData.error || `HTTP ${res.status}: Save failed`;
           throw new Error(finalErrorMessage);
         }
@@ -496,7 +500,7 @@ export default function DashboardPage() {
         body: JSON.stringify({ apiKey, ...mergedEntry })
       })
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
+        const errorData = await res.json().catch(() => ({})) as { error?: string };
         const finalErrorMessage = errorData.error || `HTTP ${res.status}: Save failed`;
         throw new Error(finalErrorMessage);
       }
@@ -537,7 +541,7 @@ export default function DashboardPage() {
         body: JSON.stringify({ apiKey })
       })
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
+        const errorData = await res.json().catch(() => ({})) as { error?: string };
         const finalErrorMessage = errorData.error || `HTTP ${res.status}: Delete failed`;
         throw new Error(finalErrorMessage);
       }
@@ -573,7 +577,7 @@ export default function DashboardPage() {
   const areAllSelected = Array.isArray(timeEntries) && timeEntries.length > 0 && timeEntries.every(e => selectedIds.has(e.id))
   const toggleSelectAll = () => {
     if (!Array.isArray(timeEntries) || timeEntries.length === 0) return
-    setSelectedIds(prev => {
+    setSelectedIds(() => {
       if (areAllSelected) return new Set()
       return new Set(timeEntries.map(e => e.id))
     })
@@ -602,7 +606,7 @@ export default function DashboardPage() {
           body: JSON.stringify({ apiKey })
         })
         if (!res.ok) {
-          const errorData = await res.json().catch(() => ({}));
+          const errorData = await res.json().catch(() => ({})) as { error?: string };
           const finalErrorMessage = errorData.error || `HTTP ${res.status}: Delete failed`
           throw new Error(finalErrorMessage)
         }

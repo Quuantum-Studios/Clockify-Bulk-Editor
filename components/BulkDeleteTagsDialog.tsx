@@ -97,7 +97,7 @@ export function BulkDeleteTagsDialog({
           body: JSON.stringify({ apiKey, tagIds: Array.from(selectedTags) }),
         }
       )
-      const data = await res.json()
+      const data = await res.json() as { error?: string }
       if (res.ok) {
         setToast({ type: "success", message: "Tags deleted successfully." })
         setSelectedTags(new Set())
