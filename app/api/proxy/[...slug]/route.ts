@@ -18,16 +18,15 @@ const timeEntryPayloadSchema = z.object({
   userId: z.string().optional()
 })
 
-
-export async function GET(req: NextRequest, context: { params: { slug: string[] } }) {
+export async function GET(req: NextRequest, context: { params: Promise<{ slug: string[] }> }) {
   try {
     const { searchParams } = new URL(req.url)
     const apiKey = searchParams.get("apiKey")
     apiKeySchema.parse({ apiKey })
     const clockify = new ClockifyAPI()
     clockify.setApiKey(apiKey!)
-    const params = await context.params
-    const [resource, ...rest] = params.slug
+    const { slug } = await context.params
+    const [resource, ...rest] = slug
     if (resource === "workspaces") {
       const data = await clockify.getWorkspaces()
       return NextResponse.json(data)
@@ -53,23 +52,22 @@ export async function GET(req: NextRequest, context: { params: { slug: string[] 
     }
     return NextResponse.json({ error: "Not found" }, { status: 404 })
   } catch (e: unknown) {
-    console.error("[API] Error in GET:", e);
-    const errorMessage = e instanceof Error ? e.message : String(e);
-    const statusCode = errorMessage.includes('Clockify API Error') ? 400 : 500;
+    console.error("[API] Error in GET:", e)
+    const errorMessage = e instanceof Error ? e.message : String(e)
+    const statusCode = errorMessage.includes("Clockify API Error") ? 400 : 500
     return NextResponse.json({ error: errorMessage }, { status: statusCode })
   }
 }
 
-
-export async function POST(req: NextRequest, context: { params: { slug: string[] } }) {
+export async function POST(req: NextRequest, context: { params: Promise<{ slug: string[] }> }) {
   try {
     const body = await req.json()
     const { apiKey, ...payload } = body
     apiKeySchema.parse({ apiKey })
     const clockify = new ClockifyAPI()
     clockify.setApiKey(apiKey)
-    const params = await context.params
-    const [resource, ...rest] = params.slug
+    const { slug } = await context.params
+    const [resource, ...rest] = slug
     if (resource === "time-entries") {
       const [workspaceId, userId] = rest
       if (!userId) return NextResponse.json({ error: "userId required" }, { status: 400 })
@@ -85,23 +83,22 @@ export async function POST(req: NextRequest, context: { params: { slug: string[]
     }
     return NextResponse.json({ error: "Not found" }, { status: 404 })
   } catch (e: unknown) {
-    console.error("[API] Error in POST:", e);
-    const errorMessage = e instanceof Error ? e.message : String(e);
-    const statusCode = errorMessage.includes('Clockify API Error') ? 400 : 500;
+    console.error("[API] Error in POST:", e)
+    const errorMessage = e instanceof Error ? e.message : String(e)
+    const statusCode = errorMessage.includes("Clockify API Error") ? 400 : 500
     return NextResponse.json({ error: errorMessage }, { status: statusCode })
   }
 }
 
-
-export async function PUT(req: NextRequest, context: { params: { slug: string[] } }) {
+export async function PUT(req: NextRequest, context: { params: Promise<{ slug: string[] }> }) {
   try {
     const body = await req.json()
     const { apiKey, ...payload } = body
     apiKeySchema.parse({ apiKey })
     const clockify = new ClockifyAPI()
     clockify.setApiKey(apiKey)
-    const params = await context.params
-    const [resource, ...rest] = params.slug
+    const { slug } = await context.params
+    const [resource, ...rest] = slug
     if (resource === "time-entries") {
       const [workspaceId, userId, entryId] = rest
       if (!userId) return NextResponse.json({ error: "userId required" }, { status: 400 })
@@ -110,22 +107,22 @@ export async function PUT(req: NextRequest, context: { params: { slug: string[] 
     }
     return NextResponse.json({ error: "Not found" }, { status: 404 })
   } catch (e: unknown) {
-    console.error("[API] Error in PUT:", e);
-    const errorMessage = e instanceof Error ? e.message : String(e);
-    const statusCode = errorMessage.includes('Clockify API Error') ? 400 : 500;
+    console.error("[API] Error in PUT:", e)
+    const errorMessage = e instanceof Error ? e.message : String(e)
+    const statusCode = errorMessage.includes("Clockify API Error") ? 400 : 500
     return NextResponse.json({ error: errorMessage }, { status: statusCode })
   }
 }
 
-export async function DELETE(req: NextRequest, context: { params: { slug: string[] } }) {
+export async function DELETE(req: NextRequest, context: { params: Promise<{ slug: string[] }> }) {
   try {
     const body = await req.json()
     const { apiKey } = body
     apiKeySchema.parse({ apiKey })
     const clockify = new ClockifyAPI()
     clockify.setApiKey(apiKey)
-    const params = await context.params
-    const [resource, ...rest] = params.slug
+    const { slug } = await context.params
+    const [resource, ...rest] = slug
     if (resource === "time-entries") {
       const [workspaceId, userId, entryId] = rest
       if (!userId) return NextResponse.json({ error: "userId required" }, { status: 400 })
@@ -135,9 +132,9 @@ export async function DELETE(req: NextRequest, context: { params: { slug: string
     }
     return NextResponse.json({ error: "Not found" }, { status: 404 })
   } catch (e: unknown) {
-    console.error("[API] Error in DELETE:", e);
-    const errorMessage = e instanceof Error ? e.message : String(e);
-    const statusCode = errorMessage.includes('Clockify API Error') ? 400 : 500;
+    console.error("[API] Error in DELETE:", e)
+    const errorMessage = e instanceof Error ? e.message : String(e)
+    const statusCode = errorMessage.includes("Clockify API Error") ? 400 : 500
     return NextResponse.json({ error: errorMessage }, { status: statusCode })
   }
 }

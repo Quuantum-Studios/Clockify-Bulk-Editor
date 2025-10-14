@@ -39,7 +39,7 @@ if (typeof window !== "undefined") {
   initialApiKey = window.localStorage.getItem("clockify_api_key") || ""
 }
 
-export const useClockifyStore = create<State>((set, get) => ({
+export const useClockifyStore = create<State>((set) => ({
   apiKey: initialApiKey,
   setApiKey: (apiKey) => {
     set({ apiKey })

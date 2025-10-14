@@ -24,7 +24,18 @@ export interface TimeEntryPayload {
   tags?: string[]
   billable?: boolean
   userId?: string
+  type?: string
+  tagIds?: string[]
   [key: string]: string | string[] | boolean | undefined
+}
+
+interface AxiosErrorResponse {
+  response?: {
+    data?: {
+      message?: string
+    } | string
+  }
+  message?: string
 }
 
 export class ClockifyAPI {
@@ -52,20 +63,20 @@ export class ClockifyAPI {
   }
 
   async getWorkspaces() {
-  return (await this.axiosInstance!.get("/workspaces")).data as { id: string; name: string }[]
+    return (await this.axiosInstance!.get("/workspaces")).data as { id: string; name: string }[]
   }
 
   async getProjects(workspaceId: string) {
-  return (await this.axiosInstance!.get(`/workspaces/${workspaceId}/projects`)).data as { id: string; name: string }[]
+    return (await this.axiosInstance!.get(`/workspaces/${workspaceId}/projects`)).data as { id: string; name: string }[]
   }
 
   async getTasks(workspaceId: string, projectId: string) {
-  return (await this.axiosInstance!.get(`/workspaces/${workspaceId}/projects/${projectId}/tasks`)).data as { id: string; name: string }[]
+    return (await this.axiosInstance!.get(`/workspaces/${workspaceId}/projects/${projectId}/tasks`)).data as { id: string; name: string }[]
   }
 
   async createTask(workspaceId: string, projectId: string, name: string): Promise<string> {
-  const res = await this.axiosInstance!.post(`/workspaces/${workspaceId}/projects/${projectId}/tasks`, { name })
-  return (res.data as { id: string }).id
+    const res = await this.axiosInstance!.post(`/workspaces/${workspaceId}/projects/${projectId}/tasks`, { name })
+    return (res.data as { id: string }).id
   }
 
   async getTimeEntries(workspaceId: string, userId: string, projectId?: string, start?: string, end?: string) {
@@ -78,7 +89,7 @@ export class ClockifyAPI {
   }
 
   async updateTimeEntry(workspaceId: string, userId: string, entryId: string, data: Partial<TimeEntry> & { tags?: string[] }) {
-    
+
     let tagIds = undefined;
     if (data.tags && Array.isArray(data.tags)) {
       const allTags = await this.getTags(workspaceId);
@@ -125,13 +136,14 @@ export class ClockifyAPI {
       return isNaN(d.getTime()) ? undefined : d.toISOString();
     };
     const payload: Record<string, unknown> = {};
-    const startFromTimeInterval = (data as any)?.timeInterval?.start as string | undefined;
-    const endFromTimeInterval = (data as any)?.timeInterval?.end as string | undefined;
-    const start = normalizeDate((data as any).start ?? startFromTimeInterval);
-    const end = normalizeDate((data as any).end ?? endFromTimeInterval);
+    const dataWithTimeInterval = data as Partial<TimeEntry> & { timeInterval?: { start?: string; end?: string } };
+    const startFromTimeInterval = dataWithTimeInterval.timeInterval?.start;
+    const endFromTimeInterval = dataWithTimeInterval.timeInterval?.end;
+    const start = normalizeDate(data.start ?? startFromTimeInterval);
+    const end = normalizeDate(data.end ?? endFromTimeInterval);
     if (start) payload.start = start;
     if (end) payload.end = end;
-    
+
     if (start && end && start >= end) {
       throw new Error(`Start time ${start} must be before end time ${end}`);
     }
@@ -145,15 +157,20 @@ export class ClockifyAPI {
       const res = (await this.axiosInstance!.put(`/workspaces/${workspaceId}/time-entries/${entryId}`, payload));
       return res.data as TimeEntry;
     } catch (error: unknown) {
-      console.error("Clockify API Error:", (error as any).response?.data || (error as Error).message);
-      const errorMessage = (error as any).response?.data?.message || (error as any).response?.data || (error as Error).message || "Unknown error occurred";
+      const axiosError = error as AxiosErrorResponse;
+      console.error("Clockify API Error:", axiosError.response?.data || axiosError.message);
+      const errorMessage =
+        (typeof axiosError.response?.data === 'object' && axiosError.response.data.message) ||
+        axiosError.response?.data ||
+        axiosError.message ||
+        "Unknown error occurred";
       throw new Error(`Clockify API Error: ${errorMessage}`);
     }
   }
 
   async createTimeEntry(workspaceId: string, userId: string, data: TimeEntryPayload) {
     const payload = { ...data }
-    
+
     const normalizeDate = (value: unknown): string | undefined => {
       if (!value || typeof value !== 'string') return undefined;
       if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) {
@@ -176,21 +193,21 @@ export class ClockifyAPI {
       const d = new Date(value);
       return isNaN(d.getTime()) ? undefined : d.toISOString();
     };
-    
+
     if (payload.start) {
       const normalized = normalizeDate(payload.start);
       if (normalized) payload.start = normalized;
     }
-    
+
     if (payload.end) {
       const normalized = normalizeDate(payload.end);
       if (normalized) payload.end = normalized;
     }
-    
+
     if (payload.start && payload.end && payload.start >= payload.end) {
       throw new Error(`Start time ${payload.start} must be before end time ${payload.end}`);
     }
-    
+
     if (!payload.taskId && payload.taskName && payload.projectId) {
       const tasks = await this.getTasks(workspaceId, payload.projectId)
       const task = (tasks as { id: string; name: string }[]).find((t) => t.name === payload.taskName)
@@ -222,8 +239,13 @@ export class ClockifyAPI {
     try {
       return (await this.axiosInstance!.post(`/workspaces/${workspaceId}/user/${userId}/time-entries`, payload)).data as TimeEntry
     } catch (error: unknown) {
-      console.error("Clockify API Error:", (error as any).response?.data || (error as Error).message);
-      const errorMessage = (error as any).response?.data?.message || (error as any).response?.data || (error as Error).message || "Unknown error occurred";
+      const axiosError = error as AxiosErrorResponse;
+      console.error("Clockify API Error:", axiosError.response?.data || axiosError.message);
+      const errorMessage =
+        (typeof axiosError.response?.data === 'object' && axiosError.response.data.message) ||
+        axiosError.response?.data ||
+        axiosError.message ||
+        "Unknown error occurred";
       throw new Error(`Clockify API Error: ${errorMessage}`);
     }
   }
@@ -250,7 +272,7 @@ export class ClockifyAPI {
       const d = new Date(value);
       return isNaN(d.getTime()) ? undefined : d.toISOString();
     };
-    
+
     const normalizedEntries = entries.map(entry => {
       const normalized = { ...entry };
       if (normalized.start) {
@@ -261,19 +283,24 @@ export class ClockifyAPI {
         const normalizedEnd = normalizeDate(normalized.end);
         if (normalizedEnd) normalized.end = normalizedEnd;
       }
-      
+
       if (normalized.start && normalized.end && normalized.start >= normalized.end) {
         throw new Error(`Start time ${normalized.start} must be before end time ${normalized.end}`);
       }
-      
+
       return normalized;
     });
-    
+
     try {
       return (await this.axiosInstance!.put(`/workspaces/${workspaceId}/user/${userId}/time-entries`, normalizedEntries)).data as TimeEntry[]
     } catch (error: unknown) {
-      console.error("Clockify API Error:", (error as any).response?.data || (error as Error).message);
-      const errorMessage = (error as any).response?.data?.message || (error as any).response?.data || (error as Error).message || "Unknown error occurred";
+      const axiosError = error as AxiosErrorResponse;
+      console.error("Clockify API Error:", axiosError.response?.data || axiosError.message);
+      const errorMessage =
+        (typeof axiosError.response?.data === 'object' && axiosError.response.data.message) ||
+        axiosError.response?.data ||
+        axiosError.message ||
+        "Unknown error occurred";
       throw new Error(`Clockify API Error: ${errorMessage}`);
     }
   }
@@ -284,8 +311,13 @@ export class ClockifyAPI {
       const res = await this.axiosInstance!.delete(`/workspaces/${workspaceId}/time-entries/${entryId}`)
       return res.data as { id?: string }
     } catch (error: unknown) {
-      console.error("Clockify API Error:", (error as any).response?.data || (error as Error).message);
-      const errorMessage = (error as any).response?.data?.message || (error as any).response?.data || (error as Error).message || "Unknown error occurred";
+      const axiosError = error as AxiosErrorResponse;
+      console.error("Clockify API Error:", axiosError.response?.data || axiosError.message);
+      const errorMessage =
+        (typeof axiosError.response?.data === 'object' && axiosError.response.data.message) ||
+        axiosError.response?.data ||
+        axiosError.message ||
+        "Unknown error occurred";
       throw new Error(`Clockify API Error: ${errorMessage}`);
     }
   }

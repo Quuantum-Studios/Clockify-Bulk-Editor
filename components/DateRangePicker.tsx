@@ -14,10 +14,11 @@ export function DateRangePicker({ value, onChange }: { value: DateRangeValue; on
       ranges={[{ ...value, key: "selection" }]}
       onChange={(item: RangeKeyDict) => {
         const sel = item.selection
-        onChange({ startDate: sel.startDate, endDate: sel.endDate })
+        if (sel.startDate && sel.endDate) {
+          onChange({ startDate: sel.startDate, endDate: sel.endDate })
+        }
       }}
       moveRangeOnFirstSelection={false}
-      showSelectionPreview={true}
       showDateDisplay={false}
       months={1}
       direction="horizontal"
