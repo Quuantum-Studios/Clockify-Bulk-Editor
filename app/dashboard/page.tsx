@@ -6,6 +6,7 @@ import { Select } from "../../components/ui/select"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../../components/ui/table"
 import { DateRangePicker } from "../../components/DateRangePicker"
 import { BulkUploadDialog } from "../../components/BulkUploadDialog"
+import { BulkDeleteTagsDialog } from "../../components/BulkDeleteTagsDialog"
 import { TagCloud } from "../../components/TagCloud"
 import { Skeleton } from "../../components/ui/skeleton"
 import { Toast } from "../../components/ui/toast"
@@ -39,6 +40,7 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false)
   const [editing, setEditing] = useState<Record<string, Partial<typeof timeEntries[number]>>>({})
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false)
+  const [bulkDeleteTagsDialogOpen, setBulkDeleteTagsDialogOpen] = useState(false)
   const [modifiedRows, setModifiedRows] = useState<Set<string>>(new Set())
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null)
   const [tags, setTags] = useState<{ id: string; name: string }[]>([])
@@ -619,6 +621,7 @@ export default function DashboardPage() {
         <Button onClick={fetchEntries} type="button">{loading ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Fetch Entries'}</Button>
         <Button onClick={addNewRow} type="button">Add Row</Button>
         <Button onClick={() => setBulkDialogOpen(true)} type="button">Bulk Upload</Button>
+        <Button onClick={() => setBulkDeleteTagsDialogOpen(true)} type="button">Bulk Delete Tags</Button>
       </div>
       {/* Table */}
       <div className="overflow-x-auto">
@@ -808,6 +811,29 @@ export default function DashboardPage() {
         userId={userId}
         onSuccess={() => { setBulkDialogOpen(false); fetchEntries() }}
         onPopulate={populateEntriesForReview}
+      />
+      <BulkDeleteTagsDialog
+        open={bulkDeleteTagsDialogOpen}
+        onClose={() => setBulkDeleteTagsDialogOpen(false)}
+        workspaceId={workspaceId}
+        apiKey={apiKey}
+        onSuccess={() => {
+          setBulkDeleteTagsDialogOpen(false);
+          // also refetch tags
+          const fetchTags = async () => {
+            if (!apiKey || !workspaceId) return;
+            try {
+              const api = new ClockifyAPI();
+              api.setApiKey(apiKey);
+              const tagList = await api.getTags(workspaceId);
+              setTags(tagList);
+            } catch {
+              setTags([]);
+            }
+          };
+          fetchTags();
+          fetchEntries();
+        }}
       />
       {/* Toast */}
       {toast && (

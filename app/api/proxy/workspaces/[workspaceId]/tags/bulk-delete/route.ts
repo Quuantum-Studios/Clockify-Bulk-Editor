@@ -1,0 +1,50 @@
+import { NextResponse } from "next/server"
+import { ClockifyAPI } from "../../../../../../../lib/clockify"
+
+async function delay(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: { workspaceId: string } }
+) {
+  try {
+    const { apiKey, tagIds } = await request.json()
+    const { workspaceId } = params
+
+    if (!apiKey) return NextResponse.json({ error: "API key is required" }, { status: 400 })
+    if (!workspaceId) return NextResponse.json({ error: "Workspace ID is required" }, { status: 400 })
+    if (!tagIds || !Array.isArray(tagIds) || tagIds.length === 0)
+      return NextResponse.json({ error: "Tag IDs are required" }, { status: 400 })
+
+    const api = new ClockifyAPI()
+    api.setApiKey(apiKey)
+
+    const failed: { id: string; reason: string }[] = []
+    const batchSize = 5
+
+    for (let i = 0; i < tagIds.length; i += batchSize) {
+      const batch = tagIds.slice(i, i + batchSize)
+      const results = await Promise.allSettled(batch.map(id => api.deleteTag(workspaceId, id)))
+      results.forEach((res, index) => {
+        if (res.status === "rejected") {
+          failed.push({ id: batch[index], reason: String(res.reason) })
+        }
+      })
+      await delay(1000)
+    }
+
+    if (failed.length > 0) {
+      return NextResponse.json(
+        { error: `Failed to delete ${failed.length} tags`, details: failed },
+        { status: 429 }
+      )
+    }
+
+    return NextResponse.json({ message: "Tags deleted successfully" })
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "An unknown error occurred"
+    return NextResponse.json({ error: errorMessage }, { status: 500 })
+  }
+}

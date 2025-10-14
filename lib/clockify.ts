@@ -52,6 +52,22 @@ export class ClockifyAPI {
     return res;
   }
 
+  async deleteTag(workspaceId: string, tagId: string) {
+    try {
+      const res = await this.axiosInstance!.delete(`/workspaces/${workspaceId}/tags/${tagId}`);
+      return res.data;
+    } catch (error: unknown) {
+      const axiosError = error as AxiosErrorResponse;
+      console.error("Clockify API Error:", axiosError.response?.data || axiosError.message);
+      const errorMessage =
+        (typeof axiosError.response?.data === 'object' && (axiosError.response.data as any).message) ||
+        (axiosError.response?.data as string) ||
+        axiosError.message ||
+        "Unknown error occurred";
+      throw new Error(`Clockify API Error: ${errorMessage}`);
+    }
+  }
+
   setApiKey(apiKey: string) {
     this.apiKey = apiKey
     this.axiosInstance = axios.create({
