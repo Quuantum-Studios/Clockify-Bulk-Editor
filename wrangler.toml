@@ -5,7 +5,7 @@ compatibility_flags = ["nodejs_compat"]
 
 [vars]
 NEXT_PUBLIC_APP_NAME = "Clockify Manager"
-NEXT_PUBLIC_API_URL = "https://clockify-manager.tdesk.workers.dev"
+NEXT_PUBLIC_API_URL = "https://clockify-manager.quuantum.com"
 
 [assets]
 directory = ".open-next/assets"

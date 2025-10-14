@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState, useRef, useCallback } from "react"
 import { useClockifyStore } from "../../lib/store"
 import { Button } from "../../components/ui/button"
 import { Select } from "../../components/ui/select"
@@ -7,7 +7,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from ".
 import { DateRangePicker } from "../../components/DateRangePicker"
 import { BulkUploadDialog } from "../../components/BulkUploadDialog"
 import { BulkDeleteTagsDialog } from "../../components/BulkDeleteTagsDialog"
-import { TagCloud } from "../../components/TagCloud"
+import { TagSelector } from "../../components/TagSelector"
 import { Skeleton } from "../../components/ui/skeleton"
 import { Toast } from "../../components/ui/toast"
 import { Input } from "../../components/ui/input"
@@ -15,7 +15,7 @@ import { Input } from "../../components/ui/input"
 import { ClockifyAPI } from "../../lib/clockify"
 import type { Task, TimeEntry } from "../../lib/store"
 
-export default function DashboardPage() {
+export default function AppPage() {
   const apiKey = useClockifyStore(state => state.apiKey)
   const workspaces = useClockifyStore(state => state.workspaces)
   const setWorkspaces = useClockifyStore(state => state.setWorkspaces)
@@ -213,7 +213,7 @@ export default function DashboardPage() {
     fetchTags();
   }, [apiKey, workspaceId, setProjects, setTasks])
 
-  const fetchEntries = () => {
+  const fetchEntries = useCallback(() => {
     if (!apiKey) {
       setToast({ type: "error", message: "API key required." });
       return;
@@ -248,7 +248,14 @@ export default function DashboardPage() {
         setToast({ type: "error", message: errorMessage }); 
         setLoading(false) 
       })
-  }
+  }, [apiKey, workspaceId, userId, dateRange, projectId, setTimeEntries])
+
+  // Auto-fetch entries when filters change
+  useEffect(() => {
+    if (apiKey && workspaceId && userId && dateRange) {
+      fetchEntries()
+    }
+  }, [apiKey, workspaceId, projectId, userId, dateRange, fetchEntries])
 
   const addNewRow = () => {
     const tempId = `new-${Date.now()}`
@@ -348,6 +355,7 @@ export default function DashboardPage() {
     setTags(prev => [...prev, newTag])
     return newTag
   }
+
   const handleSaveRow = async (entry: typeof timeEntries[number]) => {
     setSavingRows(s => new Set(s).add(entry.id))
     setToast(null)
@@ -629,43 +637,76 @@ export default function DashboardPage() {
   // dateRange is initialized from localStorage in the mount effect above
 
   return (
-    <div>
-      {/* inline spinners are rendered per-control instead of a global overlay */}
-      {/* Workspace/project/date pickers */}
-      <div className="relative flex flex-wrap gap-4 mb-6 items-end">
-        {/* Workspace Dropdown */}
-        <Select value={workspaceId} onChange={e => setWorkspaceId(e.target.value)}>
-          <option value="">Select Workspace</option>
-          {Array.isArray(workspaces) && workspaces.map((ws: { id: string; name: string }) => (
-            <option key={ws.id} value={ws.id}>{ws.name}</option>
-          ))}
-        </Select>
-        {/* Project Dropdown */}
-        <Select value={projectId} onChange={e => setProjectId(e.target.value)}>
-          <option value="">All Projects</option>
-          {Array.isArray(projects) && projects.map((p: { id: string; name: string }) => (
-            <option key={p.id} value={p.id}>{p.name}</option>
-          ))}
-        </Select>
-        {/* Date Picker */}
-        <Button onClick={() => setShowDatePicker(v => !v)} type="button">
-          {dateRange ? `${dateRange.startDate.toLocaleDateString()} - ${dateRange.endDate.toLocaleDateString()}` : 'Pick Date Range'}
-        </Button>
-        {showDatePicker && (
-          <div className="absolute z-20 top-full left-0 bg-white dark:bg-gray-900 rounded shadow-lg border p-2">
-            <DateRangePicker value={dateRange || { startDate: new Date(), endDate: new Date() }} onChange={val => { setDateRange(val); }} />
-          </div>
-        )}
-        <Button onClick={fetchEntries} type="button">{loading ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Fetch Entries'}</Button>
-        <Button onClick={addNewRow} type="button">Add Row</Button>
-        <Button onClick={() => setBulkDialogOpen(true)} type="button">Bulk Upload</Button>
-        <Button onClick={() => setBulkDeleteTagsDialogOpen(true)} type="button">Bulk Delete Tags</Button>
+    <div className="max-w-7xl mx-auto">
+      {/* Header Section */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Time Entries Dashboard</h1>
+        <p className="text-gray-600 dark:text-gray-400">Manage your Clockify time entries efficiently</p>
       </div>
-      {/* Table */}
-      <div className="overflow-x-auto">
-        {loading ? (
-          <Skeleton className="h-32 w-full" />
-        ) : (
+
+      {/* Controls Section */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Filters & Actions</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+          {/* Workspace Dropdown */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Workspace</label>
+            <Select value={workspaceId} onChange={e => setWorkspaceId(e.target.value)}>
+              <option value="">Select Workspace</option>
+              {Array.isArray(workspaces) && workspaces.map((ws: { id: string; name: string }) => (
+                <option key={ws.id} value={ws.id}>{ws.name}</option>
+              ))}
+            </Select>
+          </div>
+          {/* Project Dropdown */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Project</label>
+            <Select value={projectId} onChange={e => setProjectId(e.target.value)}>
+              <option value="">All Projects</option>
+              {Array.isArray(projects) && projects.map((p: { id: string; name: string }) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </Select>
+          </div>
+          {/* Date Picker */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Date Range</label>
+            <Button onClick={() => setShowDatePicker(v => !v)} type="button" className="w-full justify-start">
+              {dateRange ? `${dateRange.startDate.toLocaleDateString()} - ${dateRange.endDate.toLocaleDateString()}` : 'Pick Date Range'}
+            </Button>
+            {showDatePicker && (
+              <div className="absolute z-20 top-full left-0 bg-white dark:bg-gray-900 rounded shadow-lg border p-2">
+                <DateRangePicker value={dateRange || { startDate: new Date(), endDate: new Date() }} onChange={val => { setDateRange(val); }} />
+              </div>
+            )}
+          </div>
+        </div>
+        
+        {/* Action Buttons */}
+        <div className="flex flex-wrap gap-3">
+          <Button onClick={addNewRow} type="button" variant="outline">
+            + Add New Entry
+          </Button>
+          <Button onClick={() => setBulkDialogOpen(true)} type="button" variant="outline">
+            📁 Bulk Upload
+          </Button>
+          <Button onClick={() => setBulkDeleteTagsDialogOpen(true)} type="button" variant="outline">
+            🏷️ Manage Tags
+          </Button>
+        </div>
+      </div>
+
+      {/* Table Section */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Time Entries</h2>
+        </div>
+        <div className="overflow-x-auto">
+          {loading ? (
+            <div className="p-8">
+              <Skeleton className="h-32 w-full" />
+            </div>
+          ) : (
             Array.isArray(timeEntries) && timeEntries.length > 0 ? (
               <Table>
                 <TableHeader>
@@ -804,11 +845,13 @@ export default function DashboardPage() {
                           })()}
                         </TableCell>
                         <TableCell>
-                          <TagCloud
+                          <TagSelector
                             selectedTags={tagLabels}
                             availableTags={tags}
                             onChange={(newTags) => handleEdit(entry.id, "tags", newTags)}
                             onCreateTag={handleCreateTag}
+                            placeholder="Select tags..."
+                            className="min-w-[200px]"
                           />
                         </TableCell>
                         <TableCell>
@@ -839,10 +882,13 @@ export default function DashboardPage() {
             ) : (
               <div className="text-center text-muted-foreground py-8">No entries found.</div>
             )
-        )}
+          )}
+        </div>
       </div>
+
+      {/* Bulk Actions */}
       {Array.isArray(timeEntries) && timeEntries.length > 0 && (
-        <div className="flex justify-between mt-4">
+        <div className="flex justify-between mt-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
           <div className="flex items-center gap-3 text-sm text-muted-foreground">
             <span>Selected: {selectedIds.size}</span>
             <Button className="bg-transparent text-red-600" onClick={handleBulkDeleteSelected} disabled={selectedIds.size === 0 || savingRows.size > 0}>{savingRows.size > 0 ? <span className="inline-block w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" /> : 'Bulk Delete Selected'}</Button>
@@ -850,6 +896,7 @@ export default function DashboardPage() {
           <Button onClick={handleBulkSave} disabled={modifiedRows.size === 0}>{/* show spinner if any rows saving */savingRows.size > 0 ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Bulk Save All'}</Button>
         </div>
       )}
+
       {/* Bulk Upload Dialog */}
       <BulkUploadDialog
         open={bulkDialogOpen}
