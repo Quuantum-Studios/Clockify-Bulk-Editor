@@ -47,6 +47,7 @@ export default function DashboardPage() {
   const tagsFetchedRef = useRef(false)
   const [createTaskState, setCreateTaskState] = useState<Record<string, { showCreate: boolean; name: string; loading: boolean }>>({})
   const [savingRows, setSavingRows] = useState<Set<string>>(new Set())
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
 
   const toggleCreateTaskUI = (entryId: string, show?: boolean) => {
     setCreateTaskState(prev => ({ ...prev, [entryId]: { ...(prev[entryId] || { showCreate: false, name: "", loading: false }), showCreate: typeof show === 'boolean' ? show : !((prev[entryId] || {}).showCreate) } }))
@@ -241,7 +242,7 @@ export default function DashboardPage() {
         }
         return r.json();
       })
-      .then(data => { setTimeEntries(Array.isArray(data) ? data : []); setLoading(false) })
+      .then(data => { setTimeEntries(Array.isArray(data) ? data : []); setSelectedIds(new Set()); setLoading(false) })
       .catch((error) => { 
         setTimeEntries([]); 
         const errorMessage = error instanceof Error ? error.message : "Failed to load entries";
@@ -544,6 +545,7 @@ export default function DashboardPage() {
   const removeRow = (id: string) => {
     setTimeEntries((Array.isArray(timeEntries) ? timeEntries : []).filter(e => e.id !== id))
     setModifiedRows(prev => { const n = new Set(prev); n.delete(id); return n })
+    setSelectedIds(prev => { const n = new Set(prev); n.delete(id); return n })
   }
 
   const handleDeleteRow = async (entry: typeof timeEntries[number]) => {
@@ -586,6 +588,66 @@ export default function DashboardPage() {
     }
     setToast({ type: "success", message: "Bulk save complete" })
     setModifiedRows(new Set())
+  }
+
+  const toggleSelectOne = (id: string) => {
+    setSelectedIds(prev => {
+      const n = new Set(prev)
+      if (n.has(id)) n.delete(id); else n.add(id)
+      return n
+    })
+  }
+
+  const areAllSelected = Array.isArray(timeEntries) && timeEntries.length > 0 && timeEntries.every(e => selectedIds.has(e.id))
+  const toggleSelectAll = () => {
+    if (!Array.isArray(timeEntries) || timeEntries.length === 0) return
+    setSelectedIds(prev => {
+      if (areAllSelected) return new Set()
+      return new Set(timeEntries.map(e => e.id))
+    })
+  }
+
+  const handleBulkDeleteSelected = async () => {
+    if (selectedIds.size === 0) return
+    if (!workspaceId || !userId || !apiKey) { setToast({ type: "error", message: "Workspace, user and API key required to delete" }); return }
+    if (!confirm(`Delete ${selectedIds.size} selected entr${selectedIds.size === 1 ? 'y' : 'ies'}? This cannot be undone.`)) return
+    setToast(null)
+    let successCount = 0
+    let failCount = 0
+    for (const id of Array.from(selectedIds)) {
+      const entry = (Array.isArray(timeEntries) ? timeEntries : []).find(e => e.id === id)
+      if (!entry) continue
+      if ((entry as unknown as { _isNew?: boolean })._isNew) {
+        removeRow(entry.id)
+        successCount++
+        continue
+      }
+      setSavingRows(s => new Set(s).add(id))
+      try {
+        const res = await fetch(`/api/proxy/time-entries/${workspaceId}/${userId}/${id}`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ apiKey })
+        })
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          const finalErrorMessage = errorData.error || `HTTP ${res.status}: Delete failed`
+          throw new Error(finalErrorMessage)
+        }
+        removeRow(id)
+        successCount++
+      } catch {
+        failCount++
+      } finally {
+        setSavingRows(s => { const n = new Set(s); n.delete(id); return n })
+      }
+    }
+    setSelectedIds(new Set())
+    if (failCount === 0) setToast({ type: "success", message: `Deleted ${successCount} entr${successCount === 1 ? 'y' : 'ies'}` })
+    else if (successCount === 0) setToast({ type: "error", message: `Failed to delete ${failCount} entr${failCount === 1 ? 'y' : 'ies'}` })
+    else setToast({ type: "error", message: `Deleted ${successCount}, failed ${failCount}` })
+    // After bulk delete completes, refetch from server for a canonical view
+    fetchEntries()
   }
 
   // dateRange is initialized from localStorage in the mount effect above
@@ -632,6 +694,9 @@ export default function DashboardPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead>
+                      <input type="checkbox" checked={areAllSelected} onChange={toggleSelectAll} />
+                    </TableHead>
                     <TableHead>Description</TableHead>
                     <TableHead>Start(UTC)</TableHead>
                     <TableHead>End(UTC)</TableHead>
@@ -675,6 +740,9 @@ export default function DashboardPage() {
                     const rowHasErrors = !hasStart || timeError
                     return (
                       <TableRow key={entry.id} className={`${modifiedRows.has(entry.id) ? "bg-yellow-50 dark:bg-yellow-900/30" : ""} ${rowHasErrors ? "border border-red-200" : ""}`}>
+                        <TableCell>
+                          <input type="checkbox" checked={selectedIds.has(entry.id)} onChange={() => toggleSelectOne(entry.id)} />
+                        </TableCell>
                         <TableCell>
                           <Input
                             value={editingEntry.description !== undefined ? String(editingEntry.description) : (entry.description ?? "")}
@@ -798,7 +866,11 @@ export default function DashboardPage() {
         )}
       </div>
       {Array.isArray(timeEntries) && timeEntries.length > 0 && (
-        <div className="flex justify-end mt-4">
+        <div className="flex justify-between mt-4">
+          <div className="flex items-center gap-3 text-sm text-muted-foreground">
+            <span>Selected: {selectedIds.size}</span>
+            <Button className="bg-transparent text-red-600" onClick={handleBulkDeleteSelected} disabled={selectedIds.size === 0 || savingRows.size > 0}>{savingRows.size > 0 ? <span className="inline-block w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" /> : 'Bulk Delete Selected'}</Button>
+          </div>
           <Button onClick={handleBulkSave} disabled={modifiedRows.size === 0}>{/* show spinner if any rows saving */savingRows.size > 0 ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Bulk Save All'}</Button>
         </div>
       )}
