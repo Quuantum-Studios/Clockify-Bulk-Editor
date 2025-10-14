@@ -1,36 +1,80 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Clockify Manager
+
+A Next.js application for bulk editing Clockify time entries, built with OpenNext.js for Cloudflare Workers deployment.
+
+## Features
+
+- Bulk upload and edit time entries
+- Project and task management
+- Tag management with bulk operations
+- Date range filtering
+- CSV import/export functionality
 
 ## Getting Started
 
-First, run the development server:
+First, install dependencies:
+
+```bash
+npm install
+```
+
+Then, run the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Cloudflare Deployment
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+This project is configured for deployment on Cloudflare Workers using OpenNext.js.
+
+### Prerequisites
+
+1. Install Wrangler CLI:
+```bash
+npm install -g wrangler
+```
+
+2. Authenticate with Cloudflare:
+```bash
+wrangler login
+```
+
+### Environment Variables
+
+The following environment variables are configured in `wrangler.toml`:
+
+- `NEXT_PUBLIC_APP_NAME`: Application name (default: "Clockify Manager")
+- `NEXT_PUBLIC_API_URL`: API URL for the deployed worker
+
+### Deployment Commands
+
+1. **Preview locally** (test the Cloudflare Worker locally):
+```bash
+npm run preview
+```
+
+2. **Deploy to Cloudflare**:
+```bash
+npm run deploy
+```
+
+3. **Generate Cloudflare types** (if you modify wrangler.toml):
+```bash
+npm run cf-typegen
+```
+
+### Configuration
+
+- Worker name: `clockify-manager`
+- Compatibility date: `2025-03-25`
+- Node.js compatibility enabled
+- Assets served from `.open-next/assets`
 
 ## Learn More
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [Next.js Documentation](https://nextjs.org/docs)
+- [OpenNext.js Cloudflare](https://github.com/serverless-stack/open-next)
+- [Cloudflare Workers](https://developers.cloudflare.com/workers/)

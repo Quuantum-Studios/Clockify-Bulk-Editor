@@ -3,7 +3,7 @@ import { useRouter, usePathname } from "next/navigation"
 import { Sun, Moon } from "lucide-react"
 import { useState, useEffect } from "react"
 
-const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "Clockify Bulk Editor"
+const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "Clockify Manager"
 
 export default function AppNavLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();

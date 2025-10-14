@@ -50,9 +50,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ worksp
       }
       if (entry.projectName) delete entry.projectName
     }
-    console.log(`[API] BULK PUT time-entries for workspaceId=${workspaceId}, userId=${userId}, entries=`, parsedEntries)
     const results = await clockify.bulkUpdateTimeEntries(workspaceId, userId, parsedEntries as TimeEntryPayload[])
-    console.log("[API] BULK Response:", results)
     return NextResponse.json({ success: true, results })
   } catch (e: unknown) {
     console.error("[API] Error in BULK POST:", e)

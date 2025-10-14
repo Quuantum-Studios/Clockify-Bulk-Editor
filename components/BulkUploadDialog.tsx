@@ -42,14 +42,12 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
       setToast({ type: "error", message: "Please upload a CSV file." })
       return
     }
-    console.log('[BulkUploadDialog] handleFile: selected', file.name)
     setParsing(true)
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
       complete: (result: unknown) => {
         const parsed = (result as { data: CSVRow[] }).data
-        console.log('[BulkUploadDialog] handleFile: parsed rows', parsed.length)
         setRows(parsed)
         setParsing(false)
       },
@@ -66,19 +64,15 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
       setToast({ type: "error", message: "No data to upload. Please select a CSV file." })
       return;
     }
-    console.log('[BulkUploadDialog] handleUpload: starting')
     setUploading(true)
     setToast(null)
     try {
       const normalized = getNormalizedEntries()
-      console.log('[BulkUploadDialog] handleUpload: normalized entries', normalized)
 
       // If caller provided onPopulate, return normalized entries for manual review instead of creating them
       if (typeof onPopulate === 'function') {
         try {
-          console.log('[BulkUploadDialog] handleUpload: calling onPopulate')
           onPopulate(normalized)
-          console.log('[BulkUploadDialog] handleUpload: onPopulate returned')
           setToast({ type: "success", message: "Entries added to dashboard for review" })
           setRows([])
           onClose()
@@ -100,7 +94,6 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
           body: JSON.stringify({ apiKey, userId, entries: normalized })
         })
         const data = await res.json()
-        console.log('[BulkUploadDialog] handleUpload: upload response', res.status, data)
         if (res.ok) {
           setToast({ type: "success", message: "Bulk upload successful" })
           setRows([])
@@ -169,7 +162,6 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
     try {
       setVerifyingProjects(true)
       const projectNames = extractProjectNames(rows)
-      console.log('[BulkUploadDialog] verifyProjects: checking', projectNames)
       const res = await fetch(`/api/proxy/workspaces/${workspaceId}/projects/check`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apiKey, projectNames }) })
       const data = await res.json()
       if (!res.ok) {
@@ -181,7 +173,6 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
       for (const p of existing) map[p.name.toLowerCase().trim()] = p.id
       setProjectsMap(map)
       setProjectCheck({ existing, missing: data.missing || [] })
-      console.log('[BulkUploadDialog] verifyProjects: result', { existing: existing.length, missing: data.missing || [] })
       return data
     } catch (e) {
       console.error('[BulkUploadDialog] verifyProjects: caught', e)
@@ -199,7 +190,6 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
   const verifyTasksForProject = async (projectNameOrId: string, projectId?: string) => {
     try {
       setVerifyingAllTasks(true)
-      console.log('[BulkUploadDialog] verifyTasksForProject: checking', projectNameOrId, 'projectId', projectId)
 
       const tasks = rows
         .filter(r => {
@@ -219,7 +209,6 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
         throw new Error(data.error || 'Task check failed')
       }
       setTaskCheck(prev => ({ ...prev, [projectNameOrId]: { existing: (data.existing || []).map((t: { id: string; name: string }) => t.name), missing: data.missing || [] } }))
-      console.log('[BulkUploadDialog] verifyTasksForProject: result', projectNameOrId, data)
       return data
     } catch (e) {
       console.error('[BulkUploadDialog] verifyTasksForProject: caught', e)
@@ -290,7 +279,6 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
     try {
       setVerifyingTags(true)
       const tagNames = extractTagNames(rows)
-      console.log('[BulkUploadDialog] verifyTags: checking', tagNames)
       const res = await fetch(`/api/proxy/workspaces/${workspaceId}/tags/check`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apiKey, tagNames }) })
       const data = await res.json()
       if (!res.ok) {
@@ -298,7 +286,6 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
         throw new Error(data.error || 'Tag check failed')
       }
       setTagCheck({ existing: (data.existing || []).map((t: { id: string; name: string }) => t.name), missing: data.missing || [] })
-      console.log('[BulkUploadDialog] verifyTags: result', data)
       return data
     } catch (e) {
       console.error('[BulkUploadDialog] verifyTags: caught', e)

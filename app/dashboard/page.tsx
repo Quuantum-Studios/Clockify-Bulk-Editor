@@ -27,11 +27,6 @@ export default function DashboardPage() {
   const setTimeEntries = useClockifyStore(state => state.setTimeEntries)
   const optimisticUpdate = useClockifyStore(state => state.optimisticUpdate)
   const optimisticTask = useClockifyStore(state => state.optimisticTask)
-  try {
-    console.log('[Dashboard] render: timeEntries length', Array.isArray(timeEntries) ? timeEntries.length : typeof timeEntries)
-    console.log('[Dashboard] render: timeEntries value ->', timeEntries)
-    try { console.log('[Dashboard] render: direct store timeEntries length', Array.isArray(useClockifyStore.getState().timeEntries) ? useClockifyStore.getState().timeEntries.length : typeof useClockifyStore.getState().timeEntries) } catch (e) { console.error(e) }
-  } catch (err) { console.error('[Dashboard] render log error', err) }
   const [workspaceId, setWorkspaceId] = useState("")
   const [projectId, setProjectId] = useState("")
   const [userId, setUserId] = useState("")
@@ -272,13 +267,6 @@ export default function DashboardPage() {
 
   // Populate entries returned from BulkUploadDialog for manual review
   const populateEntriesForReview = async (entries: Record<string, unknown>[]) => {
-    console.log('[Dashboard] populateEntriesForReview: received entries', entries?.length)
-    if (entries && entries.length > 0) console.log('[Dashboard] populateEntriesForReview first', entries[0])
-    try {
-      console.log('[Dashboard] populateEntriesForReview called, entries:', entries.length, entries)
-    } catch (err) {
-      console.error('[Dashboard] populateEntriesForReview: logging error', err)
-    }
 
     const toAdd: TimeEntry[] = entries.map((e, idx) => {
       const tempId = `bulk-${Date.now()}-${idx}`
@@ -312,14 +300,7 @@ export default function DashboardPage() {
       }
       return t
     })
-    console.log('[Dashboard] populateEntriesForReview: toAdd count', toAdd.length)
-    try {
-      console.log('[Dashboard] populateEntriesForReview: prev length', Array.isArray(timeEntries) ? timeEntries.length : 0)
-    } catch (err) { console.error('[Dashboard] populateEntriesForReview: prev log error', err) }
     const next = [...toAdd, ...(Array.isArray(timeEntries) ? timeEntries : [])]
-    try {
-      console.log('[Dashboard] populateEntriesForReview: next length', next.length)
-    } catch (err) { console.error('[Dashboard] populateEntriesForReview: next log error', err) }
     setTimeEntries(next)
     // prefetch tasks for resolved projects so the task dropdowns can show the correct task lists
     try {
@@ -341,11 +322,6 @@ export default function DashboardPage() {
     } catch {
       // ignore prefetch errors
     }
-    try {
-      const store = useClockifyStore.getState()
-      console.log('[Dashboard] populateEntriesForReview: store timeEntries length', Array.isArray(store.timeEntries) ? store.timeEntries.length : typeof store.timeEntries)
-    } catch (err) { console.error('[Dashboard] populateEntriesForReview: store inspect error', err) }
-    console.log('[Dashboard] populateEntriesForReview: updated timeEntries with', toAdd.length, 'items')
     // mark them as modified so user can bulk save all or individually
     setModifiedRows(s => {
       const n = new Set(s)
@@ -521,16 +497,12 @@ export default function DashboardPage() {
       })
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
-        console.log("Error response:", errorData);
-        console.log("Error message from response:", errorData.error);
         const finalErrorMessage = errorData.error || `HTTP ${res.status}: Save failed`;
-        console.log("Final error message:", finalErrorMessage);
         throw new Error(finalErrorMessage);
       }
       setToast({ type: "success", message: "Saved" })
       setModifiedRows(s => { const n = new Set(s); n.delete(entry.id); return n })
     } catch (error) {
-      console.log("Caught error in handleSaveRow:", error);
       const errorMessage = error instanceof Error ? error.message : "Save failed";
       setToast({ type: "error", message: errorMessage })
     } finally {
