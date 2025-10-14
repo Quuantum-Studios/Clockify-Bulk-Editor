@@ -60,7 +60,7 @@ export class ClockifyAPI {
       const axiosError = error as AxiosErrorResponse;
       console.error("Clockify API Error:", axiosError.response?.data || axiosError.message);
       const errorMessage =
-        (typeof axiosError.response?.data === 'object' && (axiosError.response.data as any).message) ||
+        (typeof axiosError.response?.data === 'object' && (axiosError.response.data).message) ||
         (axiosError.response?.data as string) ||
         axiosError.message ||
         "Unknown error occurred";

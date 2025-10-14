@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server"
+import { NextResponse, NextRequest } from "next/server"
 import { ClockifyAPI } from "../../../../../../../lib/clockify"
 
 async function delay(ms: number) {
@@ -6,12 +6,12 @@ async function delay(ms: number) {
 }
 
 export async function DELETE(
-  request: Request,
-  { params }: { params: { workspaceId: string } }
+  request: NextRequest,
+  context: { params: Promise<{ workspaceId: string }> }
 ) {
   try {
+    const { workspaceId } = await context.params
     const { apiKey, tagIds } = await request.json()
-    const { workspaceId } = params
 
     if (!apiKey) return NextResponse.json({ error: "API key is required" }, { status: 400 })
     if (!workspaceId) return NextResponse.json({ error: "Workspace ID is required" }, { status: 400 })
