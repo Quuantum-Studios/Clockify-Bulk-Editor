@@ -95,6 +95,22 @@ export class ClockifyAPI {
     return (res.data as { id: string }).id
   }
 
+  async deleteTask(workspaceId: string, projectId: string, taskId: string) {
+    try {
+      const res = await this.axiosInstance!.delete(`/workspaces/${workspaceId}/projects/${projectId}/tasks/${taskId}`)
+      return res.data
+    } catch (error: unknown) {
+      const axiosError = error as AxiosErrorResponse;
+      console.error("Clockify API Error:", axiosError.response?.data || axiosError.message);
+      const errorMessage =
+        (typeof axiosError.response?.data === 'object' && (axiosError.response.data).message) ||
+        (axiosError.response?.data as string) ||
+        axiosError.message ||
+        "Unknown error occurred";
+      throw new Error(`Clockify API Error: ${errorMessage}`);
+    }
+  }
+
   async getTimeEntries(workspaceId: string, userId: string, projectId?: string, start?: string, end?: string) {
     const params: Record<string, string> = {}
     if (projectId) params.project = projectId

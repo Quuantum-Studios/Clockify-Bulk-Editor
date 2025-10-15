@@ -7,6 +7,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from ".
 import { DateRangePicker } from "../../components/DateRangePicker"
 import { BulkUploadDialog } from "../../components/BulkUploadDialog"
 import { BulkDeleteTagsDialog } from "../../components/BulkDeleteTagsDialog"
+import { BulkDeleteTasksDialog } from "../../components/BulkDeleteTasksDialog"
 import { TagSelector } from "../../components/TagSelector"
 import { Skeleton } from "../../components/ui/skeleton"
 import { Toast } from "../../components/ui/toast"
@@ -37,6 +38,7 @@ export default function AppPage() {
   const [editing, setEditing] = useState<Record<string, Partial<typeof timeEntries[number]>>>({})
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false)
   const [bulkDeleteTagsDialogOpen, setBulkDeleteTagsDialogOpen] = useState(false)
+  const [bulkDeleteTasksDialogOpen, setBulkDeleteTasksDialogOpen] = useState(false)
   const [modifiedRows, setModifiedRows] = useState<Set<string>>(new Set())
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null)
   const [tags, setTags] = useState<{ id: string; name: string }[]>([])
@@ -705,7 +707,7 @@ export default function AppPage() {
           </Select>
           {/* Date Range */}
           <div className="relative">
-            <Button onClick={() => setShowDatePicker(v => !v)} type="button" className="h-9 min-w-[260px] justify-start">
+            <Button onClick={() => setShowDatePicker(v => !v)} type="button" className="h-9 min-w-[200px] justify-start">
               {dateRange ? `${dateRange.startDate.toLocaleDateString()} - ${dateRange.endDate.toLocaleDateString()}` : 'Pick Date Range'}
             </Button>
             {showDatePicker && (
@@ -716,17 +718,20 @@ export default function AppPage() {
           </div>
           {/* Actions */}
           <div className="flex items-center gap-2 ml-auto">
-            <Button onClick={addNewRow} type="button" variant="outline" className="h-9">+ Add New Entry</Button>
-            <Button onClick={() => setBulkDialogOpen(true)} type="button" variant="outline" className="h-9">📁 Bulk Upload</Button>
             <Button onClick={() => setBulkDeleteTagsDialogOpen(true)} type="button" variant="outline" className="h-9">🏷️ Manage Tags</Button>
+            <Button onClick={() => setBulkDeleteTasksDialogOpen(true)} type="button" variant="outline" className="h-9" disabled={!projectId}>✅ Manage Tasks</Button>
           </div>
         </div>
       </div>
 
       {/* Table Section */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Time Entries</h2>
+          <div className="flex items-center gap-2">
+          <Button onClick={addNewRow} type="button" variant="outline" className="h-9">+ Add New Entry</Button>
+          <Button onClick={() => setBulkDialogOpen(true)} type="button" variant="outline" className="h-9">📁 Bulk Upload</Button>
+          </div>
         </div>
         <div className="overflow-x-auto">
           {loading ? (
@@ -1061,6 +1066,22 @@ export default function AppPage() {
             }
           };
           fetchTags();
+          fetchEntries();
+        }}
+      />
+      <BulkDeleteTasksDialog
+        open={bulkDeleteTasksDialogOpen}
+        onClose={() => setBulkDeleteTasksDialogOpen(false)}
+        workspaceId={workspaceId}
+        apiKey={apiKey}
+        projectId={projectId}
+        onSuccess={() => {
+          if (!apiKey || !workspaceId || !projectId) return;
+          try {
+            const api = new ClockifyAPI();
+            api.setApiKey(apiKey);
+            api.getTasks(workspaceId, projectId).then(projectTasks => setTasks(projectId, projectTasks)).catch(() => {})
+          } catch {}
           fetchEntries();
         }}
       />
