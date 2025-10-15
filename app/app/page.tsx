@@ -11,6 +11,7 @@ import { TagSelector } from "../../components/TagSelector"
 import { Skeleton } from "../../components/ui/skeleton"
 import { Toast } from "../../components/ui/toast"
 import { Input } from "../../components/ui/input"
+import { Save, RotateCcw, Trash2, XCircle, Calendar, DollarSign } from "lucide-react"
 
 import { ClockifyAPI } from "../../lib/clockify"
 import type { Task, TimeEntry } from "../../lib/store"
@@ -43,6 +44,53 @@ export default function AppPage() {
   const [createTaskState, setCreateTaskState] = useState<Record<string, { showCreate: boolean; name: string; loading: boolean }>>({})
   const [savingRows, setSavingRows] = useState<Set<string>>(new Set())
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [timeEditOpen, setTimeEditOpen] = useState<Record<string, { start: boolean; end: boolean }>>({})
+  const [projectTaskEditOpen, setProjectTaskEditOpen] = useState<Record<string, boolean>>({})
+  const [tagsEditOpen, setTagsEditOpen] = useState<Record<string, boolean>>({})
+  const timeEditorRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  const projectTaskEditorRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  const tagsEditorRefs = useRef<Record<string, HTMLDivElement | null>>({})
+
+  const toggleTimeEditor = (entryId: string, field: 'start' | 'end', open?: boolean) => {
+    setTimeEditOpen(prev => {
+      const cur = prev[entryId] || { start: false, end: false }
+      const next = { ...cur, [field]: typeof open === 'boolean' ? open : !cur[field] }
+      return { ...prev, [entryId]: next }
+    })
+  }
+
+  // Close inline editors when clicking outside their containers
+  useEffect(() => {
+    const handleDocClick = (e: MouseEvent) => {
+      const targetNode = e.target as Node
+      // Time editors
+      Object.entries(timeEditOpen).forEach(([id, open]) => {
+        if (!(open?.start || open?.end)) return
+        const container = timeEditorRefs.current[id]
+        if (container && !container.contains(targetNode)) {
+          setTimeEditOpen(prev => ({ ...prev, [id]: { start: false, end: false } }))
+        }
+      })
+      // Project/Task editor
+      Object.entries(projectTaskEditOpen).forEach(([id, isOpen]) => {
+        if (!isOpen) return
+        const container = projectTaskEditorRefs.current[id]
+        if (container && !container.contains(targetNode)) {
+          setProjectTaskEditOpen(prev => ({ ...prev, [id]: false }))
+        }
+      })
+      // Tags editor
+      Object.entries(tagsEditOpen).forEach(([id, isOpen]) => {
+        if (!isOpen) return
+        const container = tagsEditorRefs.current[id]
+        if (container && !container.contains(targetNode)) {
+          setTagsEditOpen(prev => ({ ...prev, [id]: false }))
+        }
+      })
+    }
+    document.addEventListener('mousedown', handleDocClick)
+    return () => document.removeEventListener('mousedown', handleDocClick)
+  }, [timeEditOpen, projectTaskEditOpen, tagsEditOpen])
 
   const toggleCreateTaskUI = (entryId: string, show?: boolean) => {
     setCreateTaskState(prev => ({ ...prev, [entryId]: { ...(prev[entryId] || { showCreate: false, name: "", loading: false }), showCreate: typeof show === 'boolean' ? show : !((prev[entryId] || {}).showCreate) } }))
@@ -708,20 +756,17 @@ export default function AppPage() {
             </div>
           ) : (
             Array.isArray(timeEntries) && timeEntries.length > 0 ? (
-              <Table>
+              <Table className="table-fixed">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>
+                    <TableHead className="w-8">
                       <input type="checkbox" checked={areAllSelected} onChange={toggleSelectAll} />
                     </TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Start(UTC)</TableHead>
-                    <TableHead>End(UTC)</TableHead>
-                    <TableHead>Project</TableHead>
-                    <TableHead>Task</TableHead>
-                    <TableHead>Tags</TableHead>
-                    <TableHead>Billable</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead className="w-[22%] whitespace-nowrap">Description</TableHead>
+                    <TableHead className="w-[280px] whitespace-nowrap">Time (UTC)</TableHead>
+                    <TableHead className="w-[26%] whitespace-nowrap">Project / Task</TableHead>
+                    <TableHead className="whitespace-nowrap">Tags</TableHead>
+                    <TableHead className="text-center w-[150px] whitespace-nowrap">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -755,88 +800,144 @@ export default function AppPage() {
                     const endDate = rowEnd ? new Date(rowEnd) : null
                     const timeError = startDate && endDate ? startDate.getTime() >= endDate.getTime() : false
                     const rowHasErrors = !hasStart || timeError
+                    const isBillable = (editingEntry.billable !== undefined ? Boolean(editingEntry.billable) : Boolean(entry.billable))
                     return (
-                      <TableRow key={entry.id} className={`${modifiedRows.has(entry.id) ? "bg-yellow-50 dark:bg-yellow-900/30" : ""} ${rowHasErrors ? "border border-red-200" : ""}`}>
+                      <TableRow key={entry.id} className={`${modifiedRows.has(entry.id) ? "bg-yellow-50 dark:bg-yellow-900/30" : ""} ${rowHasErrors ? "border border-red-200" : ""} relative`}>
                         <TableCell>
                           <input type="checkbox" checked={selectedIds.has(entry.id)} onChange={() => toggleSelectOne(entry.id)} />
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="min-w-0 overflow-hidden">
                           <Input
                             value={editingEntry.description !== undefined ? String(editingEntry.description) : (entry.description ?? "")}
                             onChange={e => handleEdit(entry.id, "description", e.target.value)}
+                            className="truncate w-full min-w-0"
                           />
                         </TableCell>
-                        <TableCell>
-                          <Input
-                            type="datetime-local"
-                            value={
-                              editingEntry.start
-                                ? (typeof editingEntry.start === "string" ? editingEntry.start.slice(0, 16) : "")
-                                : (tiStart
-                                  ? new Date(tiStart).toISOString().slice(0, 16)
-                                  : (entry.start ? new Date(entry.start).toISOString().slice(0, 16) : "")
-                                )
-                            }
-                            onChange={e => handleEdit(entry.id, "start", e.target.value)}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="datetime-local"
-                            value={
-                              editingEntry.end
-                                ? (typeof editingEntry.end === "string" ? editingEntry.end.slice(0, 16) : "")
-                                : (tiEnd
-                                  ? new Date(tiEnd).toISOString().slice(0, 16)
-                                  : (entry.end ? new Date(entry.end).toISOString().slice(0, 16) : "")
-                                )
-                            }
-                            onChange={e => handleEdit(entry.id, "end", e.target.value)}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Select
-                            value={String((editingEntry.projectId ?? entry.projectId ?? ""))}
-                            onChange={e => handleEdit(entry.id, "projectId", e.target.value)}
-                          >
-                            <option value="">None</option>
-                            {Array.isArray(projects) ? projects.map(p => (
-                              <option key={p.id} value={p.id}>{p.name}</option>
-                            )) : null}
-                          </Select>
-                          {/* {project && <div className="text-xs text-muted-foreground mt-1">{project.name}</div>} */}
-                        </TableCell>
-                        <TableCell>
+                        <TableCell className="whitespace-nowrap overflow-hidden" ref={el => { timeEditorRefs.current[entry.id] = el }}>
                           {(() => {
-                            const projectIdForRow = String(editingEntry.projectId ?? entry.projectId ?? "")
-                            const projectTaskList = (tasks && tasks[projectIdForRow] || []) as Task[]
-                            const selectedTaskId = (editingEntry.taskId !== undefined ? (editingEntry.taskId as string) : (entry as TimeEntry).taskId) || ""
-                            const createState = createTaskState[entry.id] || { showCreate: false, name: "", loading: false }
+                            const open = timeEditOpen[entry.id] || { start: false, end: false }
+                            const startVal = editingEntry.start
+                              ? (typeof editingEntry.start === "string" ? editingEntry.start.slice(0, 16) : "")
+                              : (tiStart
+                                ? new Date(tiStart).toISOString().slice(0, 16)
+                                : (entry.start ? new Date(entry.start).toISOString().slice(0, 16) : "")
+                              )
+                            const endVal = editingEntry.end
+                              ? (typeof editingEntry.end === "string" ? editingEntry.end.slice(0, 16) : "")
+                              : (tiEnd
+                                ? new Date(tiEnd).toISOString().slice(0, 16)
+                                : (entry.end ? new Date(entry.end).toISOString().slice(0, 16) : "")
+                              )
+                            const displayStart = startVal ? startVal.replace('T', ' ') : ""
+                            const displayEnd = endVal ? endVal.replace('T', ' ') : ""
                             return (
-                              <div>
+                              <div className="flex items-center gap-2">
+                                {/* Start */}
+                                {open.start ? (
+                                  <Input
+                                    type="datetime-local"
+                                    className="w-[150px]"
+                                    value={startVal}
+                                    onChange={e => handleEdit(entry.id, "start", e.target.value)}
+                                    onBlur={() => toggleTimeEditor(entry.id, 'start', false)}
+                                  />
+                                ) : (
+                                  <button
+                                    type="button"
+                                    className="text-xs text-gray-600 dark:text-gray-300 hover:underline"
+                                    onClick={() => toggleTimeEditor(entry.id, 'start', true)}
+                                    title="Edit start"
+                                  >{displayStart || '—'}</button>
+                                )}
+                                <span className="text-muted-foreground">→</span>
+                                {/* End */}
+                                {open.end ? (
+                                  <Input
+                                    type="datetime-local"
+                                    className="w-[150px]"
+                                    value={endVal}
+                                    onChange={e => handleEdit(entry.id, "end", e.target.value)}
+                                    onBlur={() => toggleTimeEditor(entry.id, 'end', false)}
+                                  />
+                                ) : (
+                                  <button
+                                    type="button"
+                                    className="text-xs text-gray-600 dark:text-gray-300 hover:underline"
+                                    onClick={() => toggleTimeEditor(entry.id, 'end', true)}
+                                    title="Edit end"
+                                  >{displayEnd || '—'}</button>
+                                )}
+                                <Button
+                                  type="button"
+                                  className="h-7 w-7 p-0 rounded-full bg-transparent"
+                                  onClick={() => setTimeEditOpen(prev => ({ ...prev, [entry.id]: { start: true, end: true } }))}
+                                  title="Open date editors"
+                                  aria-label="Open date editors"
+                                >
+                                  <Calendar className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            )
+                          })()}
+                        </TableCell>
+                        <TableCell className="min-w-0 overflow-hidden whitespace-nowrap" ref={el => { projectTaskEditorRefs.current[entry.id] = el }}>
+                          {(() => {
+                            const entryProjectId = String(editingEntry.projectId ?? entry.projectId ?? "")
+                            const projectObj = Array.isArray(projects) ? projects.find((p: { id: string; name: string }) => p.id === entryProjectId) : null
+                            const projectLabel = projectObj?.name || "None"
+                            const taskIdSelected = (editingEntry.taskId !== undefined ? (editingEntry.taskId as string) : (entry as TimeEntry).taskId) || ""
+                            const taskList = (tasks && tasks[entryProjectId] || []) as Task[]
+                            const taskObj = taskList.find(t => t.id === taskIdSelected)
+                            const taskLabel = (editingEntry.taskName as string) || taskObj?.name || "None"
+                            const isOpen = !!projectTaskEditOpen[entry.id]
+                            const createState = createTaskState[entry.id] || { showCreate: false, name: "", loading: false }
+                            if (!isOpen) {
+                              return (
+                                <button
+                                  type="button"
+                                  className="text-xs text-gray-700 dark:text-gray-200 hover:underline truncate max-w-[420px]"
+                                  onClick={() => setProjectTaskEditOpen(prev => ({ ...prev, [entry.id]: true }))}
+                                  title="Edit project and task"
+                                >{projectLabel}{taskLabel && taskLabel !== 'None' ? ` • ${taskLabel}` : ''}</button>
+                              )
+                            }
+                            return (
+                              <div className="flex items-center gap-2">
                                 <Select
-                                  value={selectedTaskId}
+                                  value={entryProjectId}
+                                  onChange={e => handleEdit(entry.id, "projectId", e.target.value)}
+                                  className="min-w-[140px] max-w-[220px] truncate"
+                                >
+                                  <option value="">None</option>
+                                  {Array.isArray(projects) ? projects.map(p => (
+                                    <option key={p.id} value={p.id}>{p.name}</option>
+                                  )) : null}
+                                </Select>
+                                <Select
+                                  value={taskIdSelected}
                                   onChange={e => {
                                     const v = e.target.value
                                     if (v === "__create_new__") {
                                       toggleCreateTaskUI(entry.id, true)
                                     } else {
                                       handleEdit(entry.id, "taskId", v)
-                                      const t = projectTaskList.find((tt) => tt.id === v)
+                                      const t = taskList.find((tt) => tt.id === v)
                                       handleEdit(entry.id, "taskName", t ? t.name : "")
                                     }
                                   }}
+                                  className="min-w-[140px] max-w-[220px] truncate"
                                 >
                                   <option value="">None</option>
-                                  {Array.isArray(projectTaskList) && projectTaskList.map((t) => (
+                                  {Array.isArray(taskList) && taskList.map((t) => (
                                     <option key={t.id} value={t.id}>{t.name}</option>
                                   ))}
                                   <option value="__create_new__">Create new...</option>
                                 </Select>
+                                <Button className="bg-transparent text-xs" onClick={() => setProjectTaskEditOpen(prev => ({ ...prev, [entry.id]: false }))}>Done</Button>
                                 {createState.showCreate && (
                                   <div className="mt-2 flex gap-2">
                                     <Input value={createState.name} onChange={e => setCreateTaskName(entry.id, e.target.value)} placeholder="New task name" />
-                                    <Button onClick={() => createTaskForEntry(entry.id, projectIdForRow)} disabled={createState.loading}>{createState.loading ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Create'}</Button>
+                                    <Button onClick={() => createTaskForEntry(entry.id, entryProjectId)} disabled={createState.loading}>{createState.loading ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Create'}</Button>
                                     <Button className="bg-transparent text-sm" onClick={() => toggleCreateTaskUI(entry.id, false)}>Cancel</Button>
                                   </div>
                                 )}
@@ -844,36 +945,90 @@ export default function AppPage() {
                             )
                           })()}
                         </TableCell>
-                        <TableCell>
-                          <TagSelector
-                            selectedTags={tagLabels}
-                            availableTags={tags}
-                            onChange={(newTags) => handleEdit(entry.id, "tags", newTags)}
-                            onCreateTag={handleCreateTag}
-                            placeholder="Select tags..."
-                            className="min-w-[200px]"
-                          />
+                        <TableCell className="min-w-0 overflow-visible" ref={el => { tagsEditorRefs.current[entry.id] = el }}>
+                          {tagsEditOpen[entry.id] ? (
+                            <TagSelector
+                              selectedTags={tagLabels}
+                              availableTags={tags}
+                              onChange={(newTags) => handleEdit(entry.id, "tags", newTags)}
+                              onCreateTag={handleCreateTag}
+                              placeholder="Select tags..."
+                              className="min-w-[140px] max-w-[260px] truncate"
+                            />
+                          ) : (
+                            <button
+                              type="button"
+                              className="text-xs text-gray-700 dark:text-gray-200 hover:underline truncate max-w-[260px]"
+                              onClick={() => setTagsEditOpen(prev => ({ ...prev, [entry.id]: true }))}
+                              title="Edit tags"
+                            >{tagLabels && tagLabels.length > 0 ? tagLabels.join(", ") : 'No tags'}</button>
+                          )}
+                          {tagsEditOpen[entry.id] && (
+                            <div className="mt-2">
+                              <Button className="bg-transparent text-xs" onClick={() => setTagsEditOpen(prev => ({ ...prev, [entry.id]: false }))}>Done</Button>
+                            </div>
+                          )}
                         </TableCell>
-                        <TableCell>
-                          <Select
-                            value={editingEntry.billable !== undefined ? String(editingEntry.billable) : (entry.billable ? "true" : "false")}
-                            onChange={e => handleEdit(entry.id, "billable", e.target.value === "true")}
+                        <TableCell className="flex items-center gap-2">
+                          <Button
+                            onClick={() => handleSaveRow(entry)}
+                            disabled={!modifiedRows.has(entry.id)}
+                            className={`h-8 w-8 p-0 rounded-full ${modifiedRows.has(entry.id) ? "bg-green-50 text-green-700 hover:bg-green-100" : "bg-transparent"}`}
+                            title="Save"
+                            aria-label="Save"
                           >
-                            <option value="false">No</option>
-                            <option value="true">Yes</option>
-                          </Select>
-                        </TableCell>
-                        <TableCell className="flex gap-2">
-                          <Button onClick={() => handleSaveRow(entry)} disabled={!modifiedRows.has(entry.id)}>{savingRows.has(entry.id) ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Save'}</Button>
-                          <Button className="bg-transparent text-sm" onClick={() => undoEdits(entry.id)}>Undo</Button>
-                          {((entry as unknown as { _isNew?: boolean })._isNew) && <Button className="bg-transparent text-sm text-red-600" onClick={() => removeRow(entry.id)}>Remove</Button>}
-                          <Button className="bg-transparent text-sm text-red-600" onClick={() => handleDeleteRow(entry)} disabled={savingRows.has(entry.id)}>{savingRows.has(entry.id) ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Delete'}</Button>
+                            {savingRows.has(entry.id)
+                              ? <span className="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                              : <Save className="h-4 w-4" />}
+                          </Button>
+
+                          <Button
+                            className={`h-8 w-8 p-0 rounded-full bg-transparent ${modifiedRows.has(entry.id) ? "ring-2 ring-amber-400 bg-amber-50 text-amber-700" : ""}`}
+                            onClick={() => undoEdits(entry.id)}
+                            title="Undo changes"
+                            aria-label="Undo changes"
+                          >
+                            <RotateCcw className="h-4 w-4" />
+                          </Button>
+
+                          {((entry as unknown as { _isNew?: boolean })._isNew) && (
+                            <Button
+                              className="h-8 w-8 p-0 rounded-full bg-transparent text-red-600 hover:bg-red-50"
+                              onClick={() => removeRow(entry.id)}
+                              title="Remove new row"
+                              aria-label="Remove new row"
+                            >
+                              <XCircle className="h-4 w-4" />
+                            </Button>
+                          )}
+
+                          <Button
+                            className="h-8 w-8 p-0 rounded-full bg-transparent text-red-600 hover:bg-red-50"
+                            onClick={() => handleDeleteRow(entry)}
+                            disabled={savingRows.has(entry.id)}
+                            title="Delete"
+                            aria-label="Delete"
+                          >
+                            {savingRows.has(entry.id)
+                              ? <span className="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                              : <Trash2 className="h-4 w-4" />}
+                          </Button>
                           {rowHasErrors && (
                             <span className="ml-2 inline-block align-middle text-sm text-red-600" title={`${!hasStart ? 'Start time is missing.' : ''}${timeError ? ' Start must be before End.' : ''}`}>
                               ⚠️
                             </span>
                           )}
                         </TableCell>
+                        {/* Billable indicator in row corner (left) with toggle */}
+                        <button
+                          type="button"
+                          onClick={() => handleEdit(entry.id, 'billable', !isBillable)}
+                          className={`absolute left-3 top-2 p-0 bg-transparent ${isBillable ? 'text-green-600' : 'text-red-500'}`}
+                          title={isBillable ? 'Billable (click to mark non-billable)' : 'Non-billable (click to mark billable)'}
+                          aria-label={isBillable ? 'Toggle to non-billable' : 'Toggle to billable'}
+                        >
+                          <DollarSign className="h-4 w-4 opacity-80" />
+                        </button>
                       </TableRow>
                     );
                   })}
