@@ -1,5 +1,5 @@
 "use client"
-import { useRef, useState } from "react"
+import { useRef, useState, type ReactNode } from "react"
 import Papa from "papaparse"
 import { Sheet } from "./ui/sheet"
 import { Button } from "./ui/button"
@@ -20,12 +20,13 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
   const fileInputRef = useRef<HTMLInputElement>(null)
   type CSVRow = Record<string, string | string[] | undefined>
   const [rows, setRows] = useState<CSVRow[]>([])
+  const [fileName, setFileName] = useState<string>("")
   const [parsing, setParsing] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [verifyingProjects, setVerifyingProjects] = useState(false)
   const [verifyingAllTasks, setVerifyingAllTasks] = useState(false)
   const [verifyingTags, setVerifyingTags] = useState(false)
-  const [step, setStep] = useState<1|2|3|4>(1)
+  const [step, setStep] = useState<1|2|3|4|5>(1)
   const [projectCheck, setProjectCheck] = useState<{ existing: { id: string; name: string }[]; missing: string[] } | null>(null)
   const [projectsMap, setProjectsMap] = useState<Record<string, string | undefined>>({})
   const [taskCheck, setTaskCheck] = useState<Record<string, { existing: string[]; missing: string[] }>>({})
@@ -42,6 +43,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
       setToast({ type: "error", message: "Please upload a CSV file." })
       return
     }
+    setFileName(file.name)
     setParsing(true)
     Papa.parse(file, {
       header: true,
@@ -156,6 +158,10 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
     }
     return Array.from(set)
   }
+
+  const getHeaderKeys = (): string[] => rows.length ? Object.keys(rows[0]) : []
+  const requiredHeaders = ['description', 'start', 'end']
+  const missingHeaders = requiredHeaders.filter(h => !getHeaderKeys().some(k => k.trim().toLowerCase() === h))
 
   // API calls for checks
   const verifyProjects = async () => {
@@ -306,12 +312,13 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
   }
 
   if (!open) return null;
-  const stepTitles = ['Upload', 'Projects', 'Tasks', 'Tags & Preview']
+  const stepTitles = ['Upload', 'Projects', 'Tasks', 'Tags', 'Preview']
   const stepDescriptions: Record<number, string> = {
-    1: 'Select a CSV file. The file must have headers matching Clockify fields (description, start, end, projectName, taskName, tags, billable).',
-    2: 'Verify that referenced projects exist in the workspace. Missing projects must be created before continuing.',
-    3: 'Verify tasks for each project. You can create any missing tasks automatically here.',
-    4: 'Verify tags, review a preview of the first 10 entries, then upload or populate the dashboard.'
+    1: 'Select a CSV file. Required headers: description, start, end. Optional: projectName/projectId, taskName, tags, billable.',
+    2: 'Verify that referenced projects exist in the workspace.',
+    3: 'Verify tasks across projects. Create missing tasks if needed.',
+    4: 'Verify tags. Create missing tags if needed.',
+    5: 'Preview normalized entries before populating/uploading.'
   }
 
   const progressPercent = Math.round(((step - 1) / (stepTitles.length - 1)) * 100)
@@ -323,13 +330,27 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
           const idx = i + 1
           const completed = idx < step
           const active = idx === step
+          const badge = (() => {
+            if (idx === 1) return rows.length ? `${rows.length}` : undefined
+            if (idx === 2) return projectCheck ? String(projectCheck.missing.length || 0) : undefined
+            if (idx === 3) return Object.keys(taskCheck).length ? String(Object.values(taskCheck).reduce((a, v) => a + (v.missing?.length || 0), 0)) : undefined
+            if (idx === 4) return tagCheck ? String(tagCheck.missing.length || 0) : undefined
+            return undefined
+          })()
           return (
             <div key={title} className="flex items-center gap-3">
               <div className={"flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium " + (completed ? 'bg-green-600 text-white' : active ? 'bg-primary text-white' : 'bg-muted text-muted-foreground')}>
                 {completed ? '✓' : idx}
               </div>
               <div className="hidden md:block text-sm " aria-current={active ? 'step' : undefined}>
-                <div className={active ? 'font-semibold' : 'text-muted-foreground'}>{title}</div>
+                <div className={active ? 'font-semibold flex items-center gap-2' : 'text-muted-foreground flex items-center gap-2'}>
+                  <span>{title}</span>
+                  {typeof badge !== 'undefined' && (
+                    <span className={"inline-flex items-center justify-center h-5 px-2 rounded-full text-xs " + ((idx === 2 || idx === 3 || idx === 4) && Number(badge) > 0 ? 'bg-red-100 text-red-700' : 'bg-muted text-muted-foreground')}>
+                      {badge}
+                    </span>
+                  )}
+                </div>
               </div>
               {i < stepTitles.length - 1 && <div className="w-6 h-px bg-border" />}
             </div>
@@ -347,62 +368,108 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
   const allTasksOK = Object.values(taskCheck).length > 0 && allTasksMissingCount === 0
 
   const renderStepControls = () => {
+    const left: ReactNode[] = []
+    const right: ReactNode[] = []
+
+    if (step > 1) {
+      left.push(
+        <Button key="back" onClick={() => {
+          if (step === 2) setStep(1)
+          if (step === 3) { setTaskCheck({}); setStep(2) }
+          if (step === 4) setStep(3)
+        }}>Back</Button>
+      )
+    } else {
+      left.push(
+        <Button key="cancel" variant="secondary" onClick={onClose}>Cancel</Button>
+      )
+    }
+
     if (step === 1) {
-      return (
-        <div className="flex gap-2 justify-end mt-2">
-          <Button onClick={async () => { try { await verifyProjects(); setStep(2) } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } }} disabled={rows.length === 0}>{verifyingProjects ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Next: Verify Projects'}</Button>
-        </div>
+      right.push(
+        <Button key="next" onClick={async () => { try { await verifyProjects(); setStep(2) } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } }} disabled={rows.length === 0 || missingHeaders.length > 0}>
+          {verifyingProjects ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Next: Verify Projects'}
+        </Button>
       )
     }
+
     if (step === 2) {
-      return (
-        <div className="flex gap-2 justify-end mt-2">
-          <Button onClick={reverifyProjects}>{verifyingProjects ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Reverify'}</Button>
-          <Button onClick={async () => { if (!projectCheck && typeof onPopulate !== 'function') { setToast({ type: 'error', message: 'Run verification first' }); return } if (projectCheck && projectCheck.missing.length > 0 && typeof onPopulate !== 'function') { setToast({ type: 'error', message: 'Please create missing projects first' }); return } setStep(3) }} disabled={typeof onPopulate === 'function' ? false : (!projectCheck || projectCheck.missing.length > 0)}>Proceed to Tasks</Button>
-        </div>
+      right.push(
+        <Button key="reverify" onClick={reverifyProjects}>
+          {verifyingProjects ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Reverify'}
+        </Button>
+      )
+      right.push(
+        <Button key="toTasks" onClick={async () => {
+          try {
+            const projectsToCheck = projectCheck ? projectCheck.existing.map(p => p.name) : extractProjectNames(rows)
+            for (const p of projectsToCheck) {
+              const projectId = projectsMap[p.toLowerCase().trim()]
+              await verifyTasksForProject(p, projectId)
+            }
+            setStep(3)
+          } catch (e) { setToast({ type: 'error', message: (e as Error).message }) }
+        }}>
+          Next: Verify Tasks
+        </Button>
       )
     }
+
     if (step === 3) {
-      return (
-        <div className="flex gap-2 justify-end mt-2">
-          <Button onClick={() => { setTaskCheck({}); setStep(2) }}>Back</Button>
-          <Button onClick={async () => {
-            try {
-              const projectsToCheck = projectCheck ? projectCheck.existing.map(p => p.name) : extractProjectNames(rows)
-              for (const p of projectsToCheck) {
-                const projectId = projectsMap[p.toLowerCase().trim()]
-                await verifyTasksForProject(p, projectId)
-              }
-            } catch (e) { setToast({ type: 'error', message: (e as Error).message }) }
-          }}>{verifyingAllTasks ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Verify Tasks'}</Button>
-          <Button onClick={async () => {
-            // allow proceeding only when tasks have been checked and no missing tasks remain
-            if (Object.keys(taskCheck).length === 0 && typeof onPopulate !== 'function') {
-              setToast({ type: 'error', message: 'Please verify tasks first' })
-              return
-            }
-            if (!allTasksOK && typeof onPopulate !== 'function') {
-              setToast({ type: 'error', message: 'Some tasks are missing. Create or refresh tasks before proceeding.' })
-              return
-            }
-            setStep(4)
-          }} disabled={!allTasksOK}>Proceed to Tags</Button>
-        </div>
+      right.push(
+        <Button key="reverifyTasks" onClick={refreshAllTasks}>
+          {verifyingAllTasks ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Reverify'}
+        </Button>
+      )
+      const anyMissingTasks = Object.values(taskCheck).some(v => (v.missing?.length || 0) > 0)
+      if (anyMissingTasks) {
+        right.push(
+          <Button key="createMissingTasks" onClick={async () => { try { await createAllMissingTasks(); setToast({ type: 'success', message: 'Tasks created' }); } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } }}>
+            Create missing tasks
+          </Button>
+        )
+      }
+      right.push(
+        <Button key="toTags" onClick={async () => { try { await verifyTags(); setStep(4) } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } }}>
+          Next: Verify Tags
+        </Button>
       )
     }
+
     if (step === 4) {
-      const finalDisabled = typeof onPopulate === 'function'
-        ? false
-        : !(projectCheck && projectCheck.missing.length === 0 && (tagCheck && tagCheck.missing.length === 0) && allTasksOK)
-      return (
-        <div className="flex gap-2 justify-end mt-2">
-          <Button onClick={() => setStep(3)}>Back</Button>
-          <Button onClick={async () => { try { await verifyTags(); } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } }}>{verifyingTags ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : (tagCheck && tagCheck.missing.length ? 'Refresh Tags' : 'Verify Tags')}</Button>
-          <Button onClick={handleUpload} disabled={finalDisabled}>{uploading ? 'Uploading...' : (typeof onPopulate === 'function' ? 'Populate to Dashboard' : 'Proceed to Upload')}</Button>
-        </div>
+      right.push(
+        <Button key="reverifyTags" onClick={async () => { try { await verifyTags(); } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } }}>
+          {verifyingTags ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Reverify'}
+        </Button>
+      )
+      if (tagCheck && tagCheck.missing.length > 0) {
+        right.push(
+          <Button key="createMissingTags" onClick={async () => { try { await createTags(); setToast({ type: 'success', message: 'Tags created' }) } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } }}>
+            Create missing tags
+          </Button>
+        )
+      }
+      right.push(
+        <Button key="toPreview" onClick={() => setStep(5)}>
+          Next: Preview
+        </Button>
       )
     }
-    return null
+
+    if (step === 5) {
+      right.push(
+        <Button key="populate" onClick={handleUpload}>
+          {uploading ? 'Uploading...' : (typeof onPopulate === 'function' ? 'Populate to Dashboard' : 'Proceed to Upload')}
+        </Button>
+      )
+    }
+
+    return (
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex gap-2">{left}</div>
+        <div className="flex gap-2">{right}</div>
+      </div>
+    )
   }
 
   return (
@@ -447,6 +514,18 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
         </div>
         {rows.length > 0 && step === 1 && (
           <div className="overflow-x-auto max-h-64 mb-2 border rounded">
+            <div className="flex flex-wrap items-center justify-between gap-2 p-2 text-xs border-b bg-muted/50">
+              <div className="flex items-center gap-2">
+                <span className="font-medium">File:</span>
+                <span className="text-muted-foreground">{fileName}</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span><span className="font-medium">Rows:</span> {rows.length}</span>
+                <span className={missingHeaders.length ? 'text-red-700' : 'text-green-700'}>
+                  {missingHeaders.length ? `Missing headers: ${missingHeaders.join(', ')}` : 'All required headers present'}
+                </span>
+              </div>
+            </div>
             <Table>
               <TableHeader>
                 <TableRow>
@@ -467,71 +546,75 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
             </Table>
           </div>
         )}
-        {/* Step controls */}
-        <div className="mt-2">{renderStepControls()}</div>
+        {/* Step controls moved to footer */}
 
         {/* Step detail panels */}
         {step === 2 && projectCheck && (
           <div className="p-3 border rounded bg-muted">
             <h3 className="font-medium">Project verification</h3>
-            {projectCheck.missing.length > 0 ? (
-              <div>
-                <p className="text-sm">The following projects are missing. Please create them first (manually), then click Reverify.</p>
-                <ul className="list-disc pl-5 mt-2">
-                  {projectCheck.missing.map(p => <li key={p}>{p}</li>)}
-                </ul>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+              <div className="p-2 border rounded bg-background">
+                <div className="text-sm font-medium mb-1">Existing ({projectCheck.existing.length})</div>
+                {projectCheck.existing.length ? (
+                  <ul className="text-sm list-disc pl-5 max-h-40 overflow-auto">
+                    {projectCheck.existing.map(p => <li key={p.id}>{p.name}</li>)}
+                  </ul>
+                ) : <div className="text-sm text-muted-foreground">None</div>}
               </div>
-            ) : (
-              <p className="text-sm">All projects exist.</p>
-            )}
+              <div className="p-2 border rounded bg-background">
+                <div className="text-sm font-medium mb-1">Missing ({projectCheck.missing.length})</div>
+                {projectCheck.missing.length ? (
+                  <ul className="text-sm list-disc pl-5 max-h-40 overflow-auto">
+                    {projectCheck.missing.map(p => <li key={p}>{p}</li>)}
+                  </ul>
+                ) : <div className="text-sm text-muted-foreground">None</div>}
+              </div>
+            </div>
           </div>
         )}
 
         {step === 3 && (
           <div className="p-3 border rounded bg-muted">
             <h3 className="font-medium">Task verification</h3>
-            {Object.keys(taskCheck).length === 0 ? <p className="text-sm">No tasks verified yet. Click Verify Tasks.</p> : (
-              <div className="space-y-2">
-                {Object.entries(taskCheck).map(([proj, chk]) => (
-                  <div key={proj} className="p-2 border rounded">
-                    <strong>{proj}</strong>
-                    {chk.missing.length > 0 ? (
-                      <div>
-                        <p className="text-sm">Missing tasks:</p>
-                        <ul className="list-disc pl-5">
-                          {chk.missing.map(t => <li key={t}>{t}</li>)}
-                        </ul>
-                      </div>
-                    ) : <p className="text-sm">All tasks exist for this project.</p>}
-                  </div>
-                ))}
+            {Object.keys(taskCheck).length === 0 ? <p className="text-sm">No tasks verified yet. Use Reverify to fetch status.</p> : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+                <div className="p-2 border rounded bg-background">
+                  <div className="text-sm font-medium mb-1">Existing ({Array.from(new Set(Object.values(taskCheck).flatMap(v => v.existing || []))).length})</div>
+                  {(() => { const list = Array.from(new Set(Object.values(taskCheck).flatMap(v => v.existing || []))); return list.length ? (
+                    <ul className="text-sm list-disc pl-5 max-h-40 overflow-auto">{list.map(t => <li key={t}>{t}</li>)}</ul>
+                  ) : <div className="text-sm text-muted-foreground">None</div> })()}
+                </div>
+                <div className="p-2 border rounded bg-background">
+                  <div className="text-sm font-medium mb-1">Missing ({Array.from(new Set(Object.values(taskCheck).flatMap(v => v.missing || []))).length})</div>
+                  {(() => { const list = Array.from(new Set(Object.values(taskCheck).flatMap(v => v.missing || []))); return list.length ? (
+                    <ul className="text-sm list-disc pl-5 max-h-40 overflow-auto">{list.map(t => <li key={t}>{t}</li>)}</ul>
+                  ) : <div className="text-sm text-muted-foreground">None</div> })()}
+                </div>
               </div>
             )}
-            <div className="mt-3 flex gap-2">
-              <Button onClick={async () => { try { await createAllMissingTasks(); setToast({ type: 'success', message: 'Tasks created' }); } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } }}>Create missing tasks</Button>
-              <Button onClick={refreshAllTasks}>Refresh</Button>
-            </div>
           </div>
         )}
 
         {step === 4 && tagCheck && (
           <div className="p-3 border rounded bg-muted">
             <h3 className="font-medium">Tag verification</h3>
-            {tagCheck.missing.length > 0 ? (
-              <div>
-                <p className="text-sm">Missing tags:</p>
-                <ul className="list-disc pl-5">
-                  {tagCheck.missing.map(t => <li key={t}>{t}</li>)}
-                </ul>
-                <div className="mt-3 flex gap-2">
-                  <Button onClick={async () => { try { await createTags(); setToast({ type: 'success', message: 'Tags created' }) } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } }}>Create missing tags</Button>
-                  <Button onClick={async () => { try { await verifyTags(); setToast({ type: 'success', message: 'Tags refreshed' }) } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } }}>Refresh</Button>
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+              <div className="p-2 border rounded bg-background">
+                <div className="text-sm font-medium mb-1">Existing ({tagCheck.existing.length})</div>
+                {tagCheck.existing.length ? (
+                  <ul className="text-sm list-disc pl-5 max-h-40 overflow-auto">{tagCheck.existing.map(t => <li key={t}>{t}</li>)}</ul>
+                ) : <div className="text-sm text-muted-foreground">None</div>}
               </div>
-            ) : <p className="text-sm">All tags exist.</p>}
+              <div className="p-2 border rounded bg-background">
+                <div className="text-sm font-medium mb-1">Missing ({tagCheck.missing.length})</div>
+                {tagCheck.missing.length ? (
+                  <ul className="text-sm list-disc pl-5 max-h-40 overflow-auto">{tagCheck.missing.map(t => <li key={t}>{t}</li>)}</ul>
+                ) : <div className="text-sm text-muted-foreground">None</div>}
+              </div>
+            </div>
           </div>
         )}
-        {step === 4 && (
+        {step === 5 && (
           <div className="p-3 border rounded bg-muted">
             <h3 className="font-medium">Preview entries (first 10)</h3>
             <div className="overflow-x-auto max-h-48">
@@ -562,6 +645,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
                 </TableBody>
               </Table>
             </div>
+            <div className="mt-2 text-xs text-muted-foreground">Showing 10 of {rows.length} rows.</div>
           </div>
         )}
         {toast && (
@@ -569,6 +653,11 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
             {toast.message}
           </Toast>
         )}
+        <div className="sticky bottom-0 left-0 right-0 -mx-6 mt-4 border-t bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <div className="p-4 flex justify-end">
+            {renderStepControls()}
+          </div>
+        </div>
       </div>
     </Sheet>
   )

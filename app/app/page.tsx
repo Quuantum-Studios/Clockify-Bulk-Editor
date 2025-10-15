@@ -686,61 +686,40 @@ export default function AppPage() {
 
   return (
     <div className="max-w-7xl mx-auto">
-      {/* Header Section */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Time Entries Dashboard</h1>
-        <p className="text-gray-600 dark:text-gray-400">Manage your Clockify time entries efficiently</p>
-      </div>
-
-      {/* Controls Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
-        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Filters & Actions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-          {/* Workspace Dropdown */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Workspace</label>
-            <Select value={workspaceId} onChange={e => setWorkspaceId(e.target.value)}>
-              <option value="">Select Workspace</option>
-              {Array.isArray(workspaces) && workspaces.map((ws: { id: string; name: string }) => (
-                <option key={ws.id} value={ws.id}>{ws.name}</option>
-              ))}
-            </Select>
-          </div>
-          {/* Project Dropdown */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Project</label>
-            <Select value={projectId} onChange={e => setProjectId(e.target.value)}>
-              <option value="">All Projects</option>
-              {Array.isArray(projects) && projects.map((p: { id: string; name: string }) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </Select>
-          </div>
-          {/* Date Picker */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Date Range</label>
-            <Button onClick={() => setShowDatePicker(v => !v)} type="button" className="w-full justify-start">
+      {/* Controls Section (compact single row) */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-4">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Workspace */}
+          <Select value={workspaceId} onChange={e => setWorkspaceId(e.target.value)} className="h-9 w-[200px]">
+            <option value="">Workspace</option>
+            {Array.isArray(workspaces) && workspaces.map((ws: { id: string; name: string }) => (
+              <option key={ws.id} value={ws.id}>{ws.name}</option>
+            ))}
+          </Select>
+          {/* Project */}
+          <Select value={projectId} onChange={e => setProjectId(e.target.value)} className="h-9 w-[220px]">
+            <option value="">All Projects</option>
+            {Array.isArray(projects) && projects.map((p: { id: string; name: string }) => (
+              <option key={p.id} value={p.id}>{p.name}</option>
+            ))}
+          </Select>
+          {/* Date Range */}
+          <div className="relative">
+            <Button onClick={() => setShowDatePicker(v => !v)} type="button" className="h-9 min-w-[260px] justify-start">
               {dateRange ? `${dateRange.startDate.toLocaleDateString()} - ${dateRange.endDate.toLocaleDateString()}` : 'Pick Date Range'}
             </Button>
             {showDatePicker && (
-              <div className="absolute z-20 top-full left-0 bg-white dark:bg-gray-900 rounded shadow-lg border p-2">
+              <div className="absolute z-20 mt-2 left-0 bg-white dark:bg-gray-900 rounded shadow-lg border p-2">
                 <DateRangePicker value={dateRange || { startDate: new Date(), endDate: new Date() }} onChange={val => { setDateRange(val); }} />
               </div>
             )}
           </div>
-        </div>
-        
-        {/* Action Buttons */}
-        <div className="flex flex-wrap gap-3">
-          <Button onClick={addNewRow} type="button" variant="outline">
-            + Add New Entry
-          </Button>
-          <Button onClick={() => setBulkDialogOpen(true)} type="button" variant="outline">
-            📁 Bulk Upload
-          </Button>
-          <Button onClick={() => setBulkDeleteTagsDialogOpen(true)} type="button" variant="outline">
-            🏷️ Manage Tags
-          </Button>
+          {/* Actions */}
+          <div className="flex items-center gap-2 ml-auto">
+            <Button onClick={addNewRow} type="button" variant="outline" className="h-9">+ Add New Entry</Button>
+            <Button onClick={() => setBulkDialogOpen(true)} type="button" variant="outline" className="h-9">📁 Bulk Upload</Button>
+            <Button onClick={() => setBulkDeleteTagsDialogOpen(true)} type="button" variant="outline" className="h-9">🏷️ Manage Tags</Button>
+          </div>
         </div>
       </div>
 
