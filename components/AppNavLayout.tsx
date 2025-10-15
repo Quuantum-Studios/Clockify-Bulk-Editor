@@ -6,9 +6,22 @@ import SettingsDialog from "./SettingsDialog"
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "Clockify Manager"
 
 export default function AppNavLayout({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState(() => (typeof window !== "undefined" && window.localStorage.getItem("theme")) || "light")
+  const [theme, setTheme] = useState("light")
   const [settingsOpen, setSettingsOpen] = useState(false)
-  useEffect(() => { document.documentElement.classList.toggle("dark", theme === "dark"); window.localStorage.setItem("theme", theme) }, [theme])
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+    const savedTheme = window.localStorage.getItem("theme") || "light"
+    setTheme(savedTheme)
+  }, [])
+
+  useEffect(() => { 
+    if (mounted) {
+      document.documentElement.classList.toggle("dark", theme === "dark")
+      window.localStorage.setItem("theme", theme)
+    }
+  }, [theme, mounted])
 
   return (
     <div className={"min-h-screen flex flex-col bg-background text-foreground " + (theme === 'dark' ? 'dark' : '')}>

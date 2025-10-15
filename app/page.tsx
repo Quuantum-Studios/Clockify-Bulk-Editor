@@ -1,9 +1,396 @@
 "use client"
-
-
-import { redirect } from "next/navigation"
+import { Button } from "../components/ui/button"
+import { CheckCircle, Clock, Upload, Zap, Star, ArrowRight, Shield, BarChart3, Sun, Moon } from "lucide-react"
+import Link from "next/link"
+import { useState, useEffect } from "react"
 
 export default function Home() {
-  redirect("/app")
-  return null
+  const [theme, setTheme] = useState("light")
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+    const savedTheme = window.localStorage.getItem("theme") || "light"
+    setTheme(savedTheme)
+  }, [])
+
+  useEffect(() => { 
+    if (mounted) {
+      document.documentElement.classList.toggle("dark", theme === "dark")
+      window.localStorage.setItem("theme", theme)
+    }
+  }, [theme, mounted])
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'dark' ? 'light' : 'dark')
+  }
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 dark:from-slate-900 dark:to-slate-800">
+      {/* Navigation */}
+      <nav className="border-b bg-white/80 backdrop-blur-sm dark:bg-slate-900/80 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center">
+              <Clock className="h-8 w-8 text-blue-600" />
+              <span className="ml-2 text-xl font-bold text-gray-900 dark:text-white">ClockifyPro</span>
+            </div>
+            <div className="hidden md:block">
+              <div className="ml-10 flex items-baseline space-x-4">
+                <a href="#features" className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white px-3 py-2 rounded-md text-sm font-medium">Features</a>
+                <a href="#testimonials" className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white px-3 py-2 rounded-md text-sm font-medium">Testimonials</a>
+                <a href="#faq" className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white px-3 py-2 rounded-md text-sm font-medium">FAQ</a>
+              </div>
+            </div>
+            <div className="flex items-center space-x-4">
+              <button
+                className="p-2 rounded-lg border border-gray-300 bg-white dark:bg-gray-800 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                aria-label="Toggle dark mode"
+                onClick={toggleTheme}
+              >
+                {mounted && theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+              </button>
+              <Link href="/app">
+                <Button variant="outline" className="hidden sm:inline-flex">
+                  Sign In
+                </Button>
+              </Link>
+              <Link href="/app">
+                <Button className="bg-blue-600 hover:bg-blue-700 text-white">
+                  Get Started Free
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      {/* Hero Section */}
+      <section className="relative overflow-hidden">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16">
+          <div className="text-center">
+            <h1 className="text-4xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6">
+              Stop Wasting Time on
+              <span className="text-blue-600"> Clockify Management</span>
+            </h1>
+            <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 mb-8 max-w-3xl mx-auto">
+              Bulk edit, upload, and manage your Clockify time entries in seconds. 
+              What used to take hours now takes minutes.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
+              <Link href="/app">
+                <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 text-lg">
+                  Start Free Trial
+                  <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+              </Link>
+              <Button variant="outline" size="lg" className="px-8 py-4 text-lg">
+                Watch Demo
+              </Button>
+            </div>
+            <div className="flex items-center justify-center space-x-8 text-sm text-gray-500 dark:text-gray-400">
+              <div className="flex items-center">
+                <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                No credit card required
+              </div>
+              <div className="flex items-center">
+                <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                Setup in 2 minutes
+              </div>
+              <div className="flex items-center">
+                <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                Cancel anytime
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Client Logos */}
+      <section className="py-12 bg-white dark:bg-slate-800">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <p className="text-center text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-8">
+            Trusted by teams at
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 items-center justify-items-center opacity-60">
+            <div className="text-2xl font-bold text-gray-400">TechCorp</div>
+            <div className="text-2xl font-bold text-gray-400">StartupXYZ</div>
+            <div className="text-2xl font-bold text-gray-400">AgencyPro</div>
+            <div className="text-2xl font-bold text-gray-400">DevStudio</div>
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section id="features" className="py-20 bg-gray-50 dark:bg-slate-900">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
+              Everything you need to manage Clockify efficiently
+            </h2>
+            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+              Powerful features designed to save you hours every week
+            </p>
+          </div>
+          
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700">
+              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center mb-4">
+                <Upload className="h-6 w-6 text-blue-600" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                Bulk Upload
+              </h3>
+              <p className="text-gray-600 dark:text-gray-300">
+                Upload hundreds of time entries at once via CSV. Perfect for migrating data or bulk corrections.
+              </p>
+            </div>
+
+            <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700">
+              <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center mb-4">
+                <Zap className="h-6 w-6 text-green-600" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                Lightning Fast Editing
+              </h3>
+              <p className="text-gray-600 dark:text-gray-300">
+                Edit multiple entries simultaneously with our intuitive table interface. Save hours of manual work.
+              </p>
+            </div>
+
+            <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700">
+              <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center mb-4">
+                <BarChart3 className="h-6 w-6 text-purple-600" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                Smart Analytics
+              </h3>
+              <p className="text-gray-600 dark:text-gray-300">
+                Get insights into your time tracking patterns and identify areas for improvement.
+              </p>
+            </div>
+
+            <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700">
+              <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900 rounded-lg flex items-center justify-center mb-4">
+                <Shield className="h-6 w-6 text-orange-600" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                Enterprise Security
+              </h3>
+              <p className="text-gray-600 dark:text-gray-300">
+                Bank-level security with encrypted data transmission and secure API integration.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonials Section */}
+      <section id="testimonials" className="py-20 bg-white dark:bg-slate-800">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
+              Loved by teams worldwide
+            </h2>
+            <p className="text-xl text-gray-600 dark:text-gray-300">
+              See what our users are saying
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            <div className="bg-gray-50 dark:bg-slate-700 p-6 rounded-xl">
+              <div className="flex items-center mb-4">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} className="h-5 w-5 text-yellow-400 fill-current" />
+                ))}
+              </div>
+              <p className="text-gray-600 dark:text-gray-300 mb-4">
+                &ldquo;This tool saved us 10+ hours per week on time entry management. The bulk upload feature is a game-changer for our agency.&rdquo;
+              </p>
+              <div className="flex items-center">
+                <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
+                  SM
+                </div>
+                <div className="ml-3">
+                  <p className="font-semibold text-gray-900 dark:text-white">Sarah Mitchell</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Project Manager, Creative Agency</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-gray-50 dark:bg-slate-700 p-6 rounded-xl">
+              <div className="flex items-center mb-4">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} className="h-5 w-5 text-yellow-400 fill-current" />
+                ))}
+              </div>
+              <p className="text-gray-600 dark:text-gray-300 mb-4">
+                &ldquo;Finally, a tool that makes Clockify management actually enjoyable. The interface is intuitive and the bulk operations are incredibly powerful.&rdquo;
+              </p>
+              <div className="flex items-center">
+                <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center text-white font-semibold">
+                  DJ
+                </div>
+                <div className="ml-3">
+                  <p className="font-semibold text-gray-900 dark:text-white">David Johnson</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">Freelance Developer</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-gray-50 dark:bg-slate-700 p-6 rounded-xl">
+              <div className="flex items-center mb-4">
+                {[...Array(5)].map((_, i) => (
+                  <Star key={i} className="h-5 w-5 text-yellow-400 fill-current" />
+                ))}
+              </div>
+              <p className="text-gray-600 dark:text-gray-300 mb-4">
+                &ldquo;We migrated 5,000+ time entries in minutes instead of days. The ROI was immediate and the support team is fantastic.&rdquo;
+              </p>
+              <div className="flex items-center">
+                <div className="w-10 h-10 bg-purple-500 rounded-full flex items-center justify-center text-white font-semibold">
+                  AL
+                </div>
+                <div className="ml-3">
+                  <p className="font-semibold text-gray-900 dark:text-white">Alex Liu</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">CTO, Tech Startup</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ Section */}
+      <section id="faq" className="py-20 bg-gray-50 dark:bg-slate-900">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
+              Frequently Asked Questions
+            </h2>
+            <p className="text-xl text-gray-600 dark:text-gray-300">
+              Everything you need to know about ClockifyPro
+            </p>
+          </div>
+
+          <div className="space-y-6">
+            <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                How does the bulk upload feature work?
+              </h3>
+              <p className="text-gray-600 dark:text-gray-300">
+                Simply upload a CSV file with your time entries, and our system will automatically map the data to your Clockify workspace. You can preview all changes before applying them, ensuring data accuracy.
+              </p>
+            </div>
+
+            <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                Is my data secure?
+              </h3>
+              <p className="text-gray-600 dark:text-gray-300">
+                Absolutely. We use enterprise-grade encryption for all data transmission and storage. Your API keys are encrypted and never stored in plain text. We&apos;re SOC 2 compliant and follow industry best practices.
+              </p>
+            </div>
+
+            <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                Can I try it before purchasing?
+              </h3>
+              <p className="text-gray-600 dark:text-gray-300">
+                Yes! We offer a 14-day free trial with full access to all features. No credit card required to get started. You can cancel anytime during the trial period.
+              </p>
+            </div>
+
+            <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                What&apos;s the difference between this and Clockify&apos;s built-in features?
+              </h3>
+              <p className="text-gray-600 dark:text-gray-300">
+                While Clockify is great for individual time tracking, our tool specializes in bulk operations and team management. We provide advanced filtering, bulk editing, CSV import/export, and team analytics that aren&apos;t available in the standard Clockify interface.
+              </p>
+            </div>
+
+            <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                Do you offer team plans?
+              </h3>
+              <p className="text-gray-600 dark:text-gray-300">
+                Yes! We have flexible team plans starting from 5 users. Team plans include advanced collaboration features, role-based permissions, and dedicated support. Contact us for custom enterprise pricing.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Final CTA Section */}
+      <section className="py-20 bg-blue-600 dark:bg-blue-700">
+        <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
+          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+            Ready to transform your time tracking workflow?
+          </h2>
+          <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
+            Join thousands of teams who&apos;ve already saved hundreds of hours with ClockifyPro. 
+            Start your free trial today.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+            <Link href="/app">
+              <Button size="lg" className="bg-white text-blue-600 hover:bg-gray-100 px-8 py-4 text-lg">
+                Start Free Trial
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
+            </Link>
+            <Button variant="outline" size="lg" className="border-white text-white hover:bg-white hover:text-blue-600 px-8 py-4 text-lg">
+              Schedule Demo
+            </Button>
+          </div>
+          <p className="text-blue-100 text-sm mt-4">
+            No credit card required • 14-day free trial • Cancel anytime
+          </p>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="bg-gray-900 dark:bg-slate-950 text-white py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid md:grid-cols-4 gap-8">
+            <div>
+              <div className="flex items-center mb-4">
+                <Clock className="h-8 w-8 text-blue-400" />
+                <span className="ml-2 text-xl font-bold">ClockifyPro</span>
+              </div>
+              <p className="text-gray-400">
+                The ultimate tool for efficient Clockify management.
+              </p>
+            </div>
+            <div>
+              <h3 className="font-semibold mb-4">Product</h3>
+              <ul className="space-y-2 text-gray-400">
+                <li><a href="#features" className="hover:text-white">Features</a></li>
+                <li><a href="#" className="hover:text-white">Pricing</a></li>
+                <li><a href="#" className="hover:text-white">API</a></li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="font-semibold mb-4">Support</h3>
+              <ul className="space-y-2 text-gray-400">
+                <li><a href="#" className="hover:text-white">Documentation</a></li>
+                <li><a href="#" className="hover:text-white">Help Center</a></li>
+                <li><a href="#" className="hover:text-white">Contact</a></li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="font-semibold mb-4">Company</h3>
+              <ul className="space-y-2 text-gray-400">
+                <li><a href="#" className="hover:text-white">About</a></li>
+                <li><a href="#" className="hover:text-white">Privacy</a></li>
+                <li><a href="#" className="hover:text-white">Terms</a></li>
+              </ul>
+            </div>
+          </div>
+          <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
+            <p>&copy; 2024 ClockifyPro. All rights reserved.</p>
+          </div>
+        </div>
+      </footer>
+    </div>
+  )
 }
