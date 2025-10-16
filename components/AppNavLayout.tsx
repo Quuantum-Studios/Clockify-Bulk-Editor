@@ -2,6 +2,7 @@
 import { Sun, Moon, Settings } from "lucide-react"
 import { useState, useEffect } from "react"
 import SettingsDialog from "./SettingsDialog"
+import MagicButton from "./MagicButton"
 
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "Clockify Manager"
 
@@ -49,6 +50,7 @@ export default function AppNavLayout({ children }: { children: React.ReactNode }
       <main className="flex-1 p-6">
         {children}
       </main>
+      <MagicButton />
       
       {/* Settings Dialog */}
       <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />

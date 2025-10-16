@@ -14,6 +14,8 @@
   "dependencies": {
     "@opennextjs/cloudflare": "^1.10.1",
     "@radix-ui/react-slot": "^1.2.3",
+    "assemblyai": "^4.17.0",
+    "audiomotion-analyzer": "^4.5.1",
     "axios": "^1.12.2",
     "axios-logger": "^2.8.1",
     "class-variance-authority": "^0.7.1",
