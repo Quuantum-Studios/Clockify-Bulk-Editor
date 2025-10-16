@@ -1,5 +1,5 @@
 "use client"
-import { useRef, useState, type ReactNode } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 import Papa from "papaparse"
 import { Sheet } from "./ui/sheet"
 import { Button } from "./ui/button"
@@ -14,9 +14,10 @@ interface BulkUploadDialogProps {
   userId: string
   onSuccess: () => void
   onPopulate?: (entries: Record<string, unknown>[]) => void
+  initialCsv?: string | null
 }
 
-export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, onSuccess, onPopulate }: BulkUploadDialogProps) {
+export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, onSuccess, onPopulate, initialCsv }: BulkUploadDialogProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   type CSVRow = Record<string, string | string[] | undefined>
   const [rows, setRows] = useState<CSVRow[]>([])
@@ -32,6 +33,28 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
   const [taskCheck, setTaskCheck] = useState<Record<string, { existing: string[]; missing: string[] }>>({})
   const [tagCheck, setTagCheck] = useState<{ existing: string[]; missing: string[] } | null>(null)
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null)
+
+  // Parse initial CSV content when provided and dialog opens
+  useEffect(() => {
+    if (!open) return
+    if (!initialCsv || typeof initialCsv !== 'string' || !initialCsv.trim()) return
+    try {
+      setParsing(true)
+      // Strip markdown code fences if present
+      const cleaned = initialCsv.replace(/^```[a-zA-Z]*\n?/m, '').replace(/\n?```$/m, '')
+      const result = Papa.parse(cleaned, { header: true, skipEmptyLines: true }) as unknown as { data: CSVRow[]; errors?: unknown[] }
+      const parsed = (result?.data || []) as CSVRow[]
+      if (parsed && Array.isArray(parsed) && parsed.length > 0) {
+        setRows(parsed)
+        setFileName('AI-generated.csv')
+        setToast({ type: 'success', message: `Imported ${parsed.length} rows from AI` })
+      }
+    } catch {
+      setToast({ type: 'error', message: 'Failed to parse AI CSV' })
+    } finally {
+      setParsing(false)
+    }
+  }, [open, initialCsv])
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]

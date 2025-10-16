@@ -37,6 +37,9 @@ export default function AppPage() {
   const [loading, setLoading] = useState(false)
   const [editing, setEditing] = useState<Record<string, Partial<typeof timeEntries[number]>>>({})
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false)
+  const bulkOpen = useClockifyStore(state => state.bulkUploadOpen)
+  const bulkCsv = useClockifyStore(state => state.bulkUploadCsv)
+  const closeBulk = useClockifyStore(state => state.closeBulkUpload)
   const [bulkDeleteTagsDialogOpen, setBulkDeleteTagsDialogOpen] = useState(false)
   const [bulkDeleteTasksDialogOpen, setBulkDeleteTasksDialogOpen] = useState(false)
   const [modifiedRows, setModifiedRows] = useState<Set<string>>(new Set())
@@ -1038,13 +1041,14 @@ export default function AppPage() {
 
       {/* Bulk Upload Dialog */}
       <BulkUploadDialog
-        open={bulkDialogOpen}
-        onClose={() => setBulkDialogOpen(false)}
+        open={bulkDialogOpen || bulkOpen}
+        onClose={() => { setBulkDialogOpen(false); closeBulk(); }}
         workspaceId={workspaceId}
         apiKey={apiKey}
         userId={userId}
-        onSuccess={() => { setBulkDialogOpen(false); fetchEntries() }}
+        onSuccess={() => { setBulkDialogOpen(false); closeBulk(); fetchEntries() }}
         onPopulate={populateEntriesForReview}
+        initialCsv={bulkCsv || undefined}
       />
       <BulkDeleteTagsDialog
         open={bulkDeleteTagsDialogOpen}

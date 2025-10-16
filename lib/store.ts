@@ -31,6 +31,11 @@ type State = {
   updateTimeEntry: (id: string, patch: Partial<TimeEntry>) => void
   optimisticUpdate: (id: string, patch: Partial<TimeEntry>) => void
   optimisticTask: (projectId: string, task: Task) => void
+  // Bulk upload dialog controls
+  bulkUploadOpen: boolean
+  bulkUploadCsv: string | null
+  openBulkUploadWithCsv: (csv: string) => void
+  closeBulkUpload: () => void
 }
 
 // Hydrate apiKey from localStorage if available
@@ -63,5 +68,10 @@ export const useClockifyStore = create<State>((set) => ({
   })),
   optimisticTask: (projectId, task) => set(state => ({
     tasks: { ...state.tasks, [projectId]: [...(state.tasks[projectId] || []), { ...task, _optimistic: true }] }
-  }))
+  })),
+  // Bulk upload dialog controls
+  bulkUploadOpen: false,
+  bulkUploadCsv: null,
+  openBulkUploadWithCsv: (csv) => set({ bulkUploadOpen: true, bulkUploadCsv: csv || "" }),
+  closeBulkUpload: () => set({ bulkUploadOpen: false, bulkUploadCsv: null })
 }))

@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useRef, useState, useTransition } from "react"
 import AudioMotionAnalyzer from 'audiomotion-analyzer'
 import { Mic, MicOff } from "lucide-react"
+import { useClockifyStore } from "../lib/store"
 
 type Props = { open: boolean; onOpenChange: (v: boolean) => void }
 
@@ -19,6 +20,7 @@ export default function VoiceDialog({ open, onOpenChange }: Props) {
   const audioCtxRef = useRef<AudioContext | null>(null)
   const vizContainerRef = useRef<HTMLDivElement | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+  const openBulk = useClockifyStore(s => s.openBulkUploadWithCsv)
   
 
   const close = useCallback(() => onOpenChange(false), [onOpenChange])
@@ -63,7 +65,7 @@ export default function VoiceDialog({ open, onOpenChange }: Props) {
     vadRef.current.processor = analyser as unknown as ScriptProcessorNode
   }, [recording, stopRecording])
 
-  const startVisualizer = useCallback((audioContext: AudioContext) => {
+  const startVisualizer = useCallback(() => {
     const container = vizContainerRef.current
     if (!container) return
     if (!audioMotionRef.current) {
@@ -134,13 +136,13 @@ export default function VoiceDialog({ open, onOpenChange }: Props) {
     }
     mr.start()
     setRecording(true)
-  }, [recording, setupVAD, startVisualizer])
+  }, [recording, setupVAD])
 
   useEffect(() => {
     if (!recording) return
     // ensure DOM has rendered the container
     const id = requestAnimationFrame(() => {
-      if (audioCtxRef.current) startVisualizer(audioCtxRef.current)
+      if (audioCtxRef.current) startVisualizer()
     })
     return () => cancelAnimationFrame(id)
   }, [recording, startVisualizer])
@@ -148,13 +150,17 @@ export default function VoiceDialog({ open, onOpenChange }: Props) {
   const onAnalyze = useCallback(async () => {
     const body = { messages: [{ role: "user", content: text }] }
     startTransition(async () => {
-      const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
-      if (!res.ok) return
-      const data = (await res.json()) as { message?: string; content?: string }
-      const reply = (data?.message || data?.content) || ""
-      if (reply) setText(t => (t ? t + "\n\n" : "") + reply)
+      try {
+        const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+        if (!res.ok) return
+        const data = (await res.json()) as { message?: string; content?: string }
+        const csv = (data?.message || data?.content) || ""
+        if (csv && typeof csv === 'string') {
+          openBulk(csv)
+        }
+      } catch {}
     })
-  }, [text])
+  }, [text, openBulk])
 
   if (!open) return null
 
