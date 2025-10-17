@@ -42,6 +42,7 @@ export class ClockifyAPI {
   private apiKey: string = ""
   private axiosInstance: ReturnType<typeof axios.create> | null = null
   private baseUrl = "https://api.clockify.me/api/v1"
+  private defaultTimezone: string = "UTC"
 
   async getTags(workspaceId: string) {
     return (await this.axiosInstance!.get(`/workspaces/${workspaceId}/tags`)).data as { id: string; name: string }[];
@@ -76,6 +77,58 @@ export class ClockifyAPI {
     })
     this.axiosInstance.interceptors.request.use(requestLogger);
     this.axiosInstance.interceptors.response.use(responseLogger, errorLogger);
+  }
+
+  setDefaultTimezone(tz: string) {
+    this.defaultTimezone = tz || "UTC"
+  }
+
+  private toUtcIsoFromNaive(value: string): string | undefined {
+    if (!value) return undefined;
+    // value is expected like YYYY-MM-DDTHH:mm (no seconds, no Z) in the selected timezone
+    const m = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
+    if (!m) return undefined;
+    const [, yy, mm, dd, hh, min] = m;
+    try {
+      // Use Intl to compute offset for the target timezone at that local time by formatting the time parts.
+      // Build a Date in UTC for the same wall time, then adjust by the timezone offset.
+      const year = Number(yy);
+      const month = Number(mm) - 1;
+      const day = Number(dd);
+      const hour = Number(hh);
+      const minute = Number(min);
+      // Start with UTC millis for the naive local time
+      const utcMs = Date.UTC(year, month, day, hour, minute);
+      const dtf = new Intl.DateTimeFormat('en-US', {
+        timeZone: this.defaultTimezone || 'UTC',
+        hour12: false,
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit'
+      });
+      const parts = dtf.formatToParts(new Date(utcMs));
+      const y = Number(parts.find(p => p.type === 'year')?.value || yy);
+      const mo = Number(parts.find(p => p.type === 'month')?.value || mm);
+      const da = Number(parts.find(p => p.type === 'day')?.value || dd);
+      const ho = Number(parts.find(p => p.type === 'hour')?.value || hh);
+      const mi = Number(parts.find(p => p.type === 'minute')?.value || min);
+      const se = Number(parts.find(p => p.type === 'second')?.value || '0');
+      // Compute the same wall time interpreted as if it were in the selected TZ, then convert to UTC by subtracting the actual offset between that TZ time and UTC.
+      const tzGuessMs = Date.UTC(y, mo - 1, da, ho, mi, se);
+      // Determine actual offset by comparing formatting back to UTC
+      const tzDate = new Date(tzGuessMs);
+      // Format tzDate in that timezone to recover its local wall time
+      const backParts = dtf.formatToParts(tzDate);
+      const backY = Number(backParts.find(p => p.type === 'year')?.value || yy);
+      const backMo = Number(backParts.find(p => p.type === 'month')?.value || mm);
+      const backDa = Number(backParts.find(p => p.type === 'day')?.value || dd);
+      const backHo = Number(backParts.find(p => p.type === 'hour')?.value || hh);
+      const backMi = Number(backParts.find(p => p.type === 'minute')?.value || min);
+      const backSe = Number(backParts.find(p => p.type === 'second')?.value || '0');
+      const reconstructedMs = Date.UTC(backY, backMo - 1, backDa, backHo, backMi, backSe);
+      return new Date(reconstructedMs).toISOString();
+    } catch {
+      return undefined;
+    }
   }
 
   async getWorkspaces() {
@@ -146,22 +199,8 @@ export class ClockifyAPI {
     const normalizeDate = (value: unknown): string | undefined => {
       if (!value || typeof value !== 'string') return undefined;
       if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) {
-        // Treat datetimes without timezone as India time (IST, UTC+5:30).
-        // Parse components and convert to UTC so the resulting ISO string
-        // represents the correct instant in time.
-        const m = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
-        if (!m) return undefined;
-        const [, yy, mm, dd, hh, min] = m;
-        const year = Number(yy);
-        const month = Number(mm) - 1;
-        const day = Number(dd);
-        const hour = Number(hh);
-        const minute = Number(min);
-        // IST offset is +5:30 (5.5 hours)
-        const istOffsetMs = (5 * 60 + 30) * 60 * 1000;
-        const utcMs = Date.UTC(year, month, day, hour, minute) - istOffsetMs;
-        const d = new Date(utcMs);
-        return isNaN(d.getTime()) ? undefined : d.toISOString();
+        const iso = this.toUtcIsoFromNaive(value);
+        if (iso) return iso;
       }
       if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/.test(value)) return value;
       const d = new Date(value);
@@ -206,20 +245,8 @@ export class ClockifyAPI {
     const normalizeDate = (value: unknown): string | undefined => {
       if (!value || typeof value !== 'string') return undefined;
       if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) {
-        // Treat naive timestamps as India time (IST) by converting the
-        // provided wall-clock IST time into the corresponding UTC instant.
-        const m = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
-        if (!m) return undefined;
-        const [, yy, mm, dd, hh, min] = m;
-        const year = Number(yy);
-        const month = Number(mm) - 1;
-        const day = Number(dd);
-        const hour = Number(hh);
-        const minute = Number(min);
-        const istOffsetMs = (5 * 60 + 30) * 60 * 1000;
-        const utcMs = Date.UTC(year, month, day, hour, minute) - istOffsetMs;
-        const d = new Date(utcMs);
-        return isNaN(d.getTime()) ? undefined : d.toISOString();
+        const iso = this.toUtcIsoFromNaive(value);
+        if (iso) return iso;
       }
       if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/.test(value)) return value;
       const d = new Date(value);
@@ -286,19 +313,8 @@ export class ClockifyAPI {
     const normalizeDate = (value: unknown): string | undefined => {
       if (!value || typeof value !== 'string') return undefined;
       if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) {
-        // When bulk importing, treat bare datetimes as India time (IST).
-        const m = value.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/);
-        if (!m) return undefined;
-        const [, yy, mm, dd, hh, min] = m;
-        const year = Number(yy);
-        const month = Number(mm) - 1;
-        const day = Number(dd);
-        const hour = Number(hh);
-        const minute = Number(min);
-        const istOffsetMs = (5 * 60 + 30) * 60 * 1000;
-        const utcMs = Date.UTC(year, month, day, hour, minute) - istOffsetMs;
-        const d = new Date(utcMs);
-        return isNaN(d.getTime()) ? undefined : d.toISOString();
+        const iso = this.toUtcIsoFromNaive(value);
+        if (iso) return iso;
       }
       if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/.test(value)) return value;
       const d = new Date(value);

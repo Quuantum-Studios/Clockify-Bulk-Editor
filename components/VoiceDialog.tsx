@@ -148,7 +148,9 @@ export default function VoiceDialog({ open, onOpenChange }: Props) {
   }, [recording, startVisualizer])
 
   const onAnalyze = useCallback(async () => {
-    const body = { messages: [{ role: "user", content: text }] }
+    const prompt = useClockifyStore.getState().userPrompt || ""
+    const content = prompt ? `${prompt}\n\n${text}` : text
+    const body = { messages: [{ role: "user", content }] }
     startTransition(async () => {
       try {
         const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })

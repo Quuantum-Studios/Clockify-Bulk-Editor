@@ -19,6 +19,7 @@ import type { Task, TimeEntry } from "../../lib/store"
 
 export default function AppPage() {
   const apiKey = useClockifyStore(state => state.apiKey)
+  const defaultTimezone = useClockifyStore(state => state.defaultTimezone)
   const workspaces = useClockifyStore(state => state.workspaces)
   const setWorkspaces = useClockifyStore(state => state.setWorkspaces)
   const projects = useClockifyStore(state => state.projects)
@@ -284,8 +285,32 @@ export default function AppPage() {
       return;
     }
     setLoading(true)
-    const start = dateRange.startDate.toISOString()
-    const end = dateRange.endDate.toISOString()
+    // Interpret the dateRange start/end as wall time in selected timezone and send as UTC Z strings
+    const toUtcIso = (d: Date) => {
+      const yyyy = d.getFullYear().toString().padStart(4, '0')
+      const mm = (d.getMonth() + 1).toString().padStart(2, '0')
+      const dd = d.getDate().toString().padStart(2, '0')
+      const HH = d.getHours().toString().padStart(2, '0')
+      const MM = d.getMinutes().toString().padStart(2, '0')
+      const naive = `${yyyy}-${mm}-${dd}T${HH}:${MM}`
+      // Reuse server normalization by letting API convert timezone? We convert client-side to be consistent with UI
+      try {
+        const dtf = new Intl.DateTimeFormat('en-US', { timeZone: defaultTimezone || 'UTC', hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })
+        const parts = dtf.formatToParts(d)
+        const y = Number(parts.find(p => p.type === 'year')?.value || yyyy)
+        const mo = Number(parts.find(p => p.type === 'month')?.value || mm)
+        const da = Number(parts.find(p => p.type === 'day')?.value || dd)
+        const ho = Number(parts.find(p => p.type === 'hour')?.value || HH)
+        const mi = Number(parts.find(p => p.type === 'minute')?.value || MM)
+        const se = Number(parts.find(p => p.type === 'second')?.value || '0')
+        const ms = Date.UTC(y, mo - 1, da, ho, mi, se)
+        return new Date(ms).toISOString()
+      } catch {
+        return d.toISOString()
+      }
+    }
+    const start = toUtcIso(dateRange.startDate)
+    const end = toUtcIso(dateRange.endDate)
     fetch(`/api/proxy/time-entries/${workspaceId}/${userId}?apiKey=${apiKey}&projectId=${projectId}&start=${start}&end=${end}`)
       .then(async r => {
         if (!r.ok) {
@@ -312,8 +337,18 @@ export default function AppPage() {
 
   const addNewRow = () => {
     const tempId = `new-${Date.now()}`
-    const nowIso = new Date().toISOString()
-    const endIso = new Date(Date.now() + 30 * 60 * 1000).toISOString()
+    const now = new Date()
+    const in30 = new Date(Date.now() + 30 * 60 * 1000)
+    const toLocalNaive = (d: Date) => {
+      const yyyy = d.getFullYear().toString().padStart(4, '0')
+      const mm = (d.getMonth() + 1).toString().padStart(2, '0')
+      const dd = d.getDate().toString().padStart(2, '0')
+      const HH = d.getHours().toString().padStart(2, '0')
+      const MM = d.getMinutes().toString().padStart(2, '0')
+      return `${yyyy}-${mm}-${dd}T${HH}:${MM}:00Z`
+    }
+    const nowIso = toLocalNaive(now)
+    const endIso = toLocalNaive(in30)
     const newEntry: import("../../lib/store").TimeEntry & { _isNew: boolean } = {
       id: tempId,
       description: "",
@@ -496,10 +531,10 @@ export default function AppPage() {
       if (!createPayload.type) createPayload.type = 'REGULAR'
       // If tags were provided as names they were converted into tagIds earlier
       try {
-        const res = await fetch(`/api/proxy/time-entries/${workspaceId}/${userId}`, {
+      const res = await fetch(`/api/proxy/time-entries/${workspaceId}/${userId}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ apiKey, ...createPayload })
+        body: JSON.stringify({ apiKey, timezone: defaultTimezone, ...createPayload })
         })
         if (!res.ok) {
           const errorData = await res.json().catch(() => ({})) as { error?: string };
@@ -558,7 +593,7 @@ export default function AppPage() {
       const res = await fetch(`/api/proxy/time-entries/${workspaceId}/${userId}/${entry.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey, ...mergedEntry })
+        body: JSON.stringify({ apiKey, timezone: defaultTimezone, ...mergedEntry })
       })
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({})) as { error?: string };

@@ -61,11 +61,12 @@ export async function GET(req: NextRequest, context: { params: Promise<{ slug: s
 
 export async function POST(req: NextRequest, context: { params: Promise<{ slug: string[] }> }) {
   try {
-    const body = await req.json() as { apiKey: string; [key: string]: unknown }
-    const { apiKey, ...payload } = body
+    const body = await req.json() as { apiKey: string; timezone?: string; [key: string]: unknown }
+    const { apiKey, timezone, ...payload } = body
     apiKeySchema.parse({ apiKey })
     const clockify = new ClockifyAPI()
     clockify.setApiKey(apiKey)
+    if (timezone && typeof timezone === 'string') clockify.setDefaultTimezone(timezone)
     const { slug } = await context.params
     const [resource, ...rest] = slug
     if (resource === "time-entries") {
@@ -92,11 +93,12 @@ export async function POST(req: NextRequest, context: { params: Promise<{ slug: 
 
 export async function PUT(req: NextRequest, context: { params: Promise<{ slug: string[] }> }) {
   try {
-    const body = await req.json() as { apiKey: string; [key: string]: unknown }
-    const { apiKey, ...payload } = body
+    const body = await req.json() as { apiKey: string; timezone?: string; [key: string]: unknown }
+    const { apiKey, timezone, ...payload } = body
     apiKeySchema.parse({ apiKey })
     const clockify = new ClockifyAPI()
     clockify.setApiKey(apiKey)
+    if (timezone && typeof timezone === 'string') clockify.setDefaultTimezone(timezone)
     const { slug } = await context.params
     const [resource, ...rest] = slug
     if (resource === "time-entries") {

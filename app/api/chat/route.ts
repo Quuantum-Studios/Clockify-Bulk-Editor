@@ -3,28 +3,108 @@ import { GoogleGenerativeAI } from "@google/generative-ai"
 
 export const runtime = "nodejs"
 
-const SYSTEM_PROMPT = `You are an assistant that converts free-form time tracking notes into a CSV that is compatible with the Clockify Bulk Upload feature.
+function buildSystemPrompt(params: {
+  userTimezone?: string
+  userPrompt?: string
+  tags?: string
+  projectName?: string
+  taskName?: string
+  description?: string
+  projects?: Array<{
+    name?: string
+    tasks?: Array<{
+      name?: string
+      descriptions?: string[]
+    }>
+  }>
+}): string {
+  const today = new Date().toISOString().split('T')[0]
+  const tz = params.userTimezone || "UTC"
+  const up = params.userPrompt || ""
+  const tg = params.tags || ""
+  const pn = params.projectName || ""
+  const tn = params.taskName || ""
+  const desc = params.description || ""
+  const renderedProjects = (() => {
+    const rows: string[] = []
+    const list = Array.isArray(params.projects) ? params.projects : []
+    if (list.length === 0 && (pn || tn || desc)) {
+      rows.push(`Project: ${pn}`)
+      rows.push(`  Task: ${tn}`)
+      rows.push(`    Description: ${desc}`)
+      return rows.join("\n")
+    }
+    for (const project of list) {
+      rows.push(`Project: ${project?.name || ""}`)
+      const tasks = Array.isArray(project?.tasks) ? project!.tasks! : []
+      for (const task of tasks) {
+        rows.push(`  Task: ${task?.name || ""}`)
+        const descriptions = Array.isArray(task?.descriptions) ? task!.descriptions! : []
+        if (descriptions.length === 0) {
+          rows.push(`    Description: `)
+        } else {
+          for (const d of descriptions) {
+            rows.push(`    Description: ${d}`)
+          }
+        }
+      }
+    }
+    return rows.join("\n")
+  })()
+  return `You are an assistant that converts free-form time tracking notes into a CSV.
 
 Output MUST be valid CSV with a header row and UTF-8 text. Do not add markdown fences. Do not add commentary. Only output the CSV content.
 
-Headers must be: description,start,end,projectName,projectId,taskName,tags,billable
+Headers must be: description,start,end,projectName,taskName,tags,billable
 
 Rules:
-- start and end should be ISO 8601 timestamps if present (YYYY-MM-DDTHH:mm:ssZ). If end is missing, leave blank.
-- projectName OR projectId may be used; if unknown leave blank.
+- start and end should be ISO 8601 timestamps if present (YYYY-MM-DDTHH:mm:ssZ). consider the timestamps provided by user are in ${tz} timezone for start and end. Use the current date if the start or end is not provided.
+- projectName may be used; if unknown leave blank.
+- description may be used; if unknown then add according to the taskName.
 - taskName may be used; if unknown leave blank.
-- tags: comma-separated labels in a single cell.
-- billable: true or false (default to false if unsure).
-- Include only rows you can infer confidently; skip ambiguous ones.
-`
+- tags: comma-separated labels in a single cell. Add according to the description, taskName if not provided.
+- billable: true or false (if unknow then decide according  to the taskName, description. default to true if unsure).
+- projectName, taskName, tags, description are chosen from existing data and new created if no relevant data found.
+
+Additional Details:
+Todays date: ${today}
+
+User preferences:
+${up}
+
+Existing Data:
+Tags: ${tg}
+
+${renderedProjects}`
+}
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json().catch(() => ({})) as { messages?: { role: string; content: string }[]; text?: string }
+    const body = await req.json().catch(() => ({})) as {
+      messages?: { role: string; content: string }[]
+      text?: string
+      userPrompt?: string
+      timezone?: string
+      tags?: string | string[]
+      projectName?: string
+      taskName?: string
+      description?: string
+      projects?: Array<{ name?: string; tasks?: Array<{ name?: string; descriptions?: string[] }> }>
+    }
     const userText = body?.messages?.[0]?.content || body?.text || ""
     if (!userText || typeof userText !== 'string') {
       return new Response(JSON.stringify({ error: "missing text" }), { status: 400 })
     }
+
+    const systemPrompt = buildSystemPrompt({
+      userTimezone: body.timezone,
+      userPrompt: body.userPrompt,
+      tags: Array.isArray(body.tags) ? body.tags.join(', ') : (body.tags || ""),
+      projectName: body.projectName,
+      taskName: body.taskName,
+      description: body.description,
+      projects: body.projects,
+    })
 
     const provider = (process.env.CHAT_AI_PROVIDER || '').toLowerCase()
     console.log('Chat API provider:', provider)
@@ -38,7 +118,7 @@ export async function POST(req: NextRequest) {
       }
       
       const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash'
-      const prompt = `${SYSTEM_PROMPT}\n\nUser input: ${userText}`
+      const prompt = `${systemPrompt}\n\nUser input: ${userText}`
       
       console.log('Calling Gemini API with model:', model)
       
@@ -88,7 +168,7 @@ export async function POST(req: NextRequest) {
         body: JSON.stringify({
           model,
           messages: [
-            { role: "system", content: SYSTEM_PROMPT },
+            { role: "system", content: systemPrompt },
             { role: "user", content: userText }
           ],
           temperature: 0.2,

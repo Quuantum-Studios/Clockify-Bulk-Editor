@@ -1,6 +1,7 @@
 "use client"
 import { useEffect, useState } from "react"
 import { Input } from "./ui/input"
+import { Select } from "./ui/select"
 import { Button } from "./ui/button"
 import { Toast } from "./ui/toast"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog"
@@ -12,21 +13,42 @@ interface SettingsDialogProps {
 }
 
 export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
-  const { apiKey, setApiKey } = useClockifyStore()
+  const { apiKey, setApiKey, userPrompt, setUserPrompt, defaultTimezone, setDefaultTimezone } = useClockifyStore()
   const [apiKeyInput, setApiKeyInput] = useState("")
+  const [promptInput, setPromptInput] = useState("")
+  const [tzInput, setTzInput] = useState("")
+  const tzOptions: string[] = (() => {
+    try {
+      const sv = (Intl as unknown as { supportedValuesOf?: (k: string) => string[] }).supportedValuesOf
+      if (sv) return sv('timeZone') || []
+    } catch {}
+    return [
+      "UTC",
+      "America/Los_Angeles",
+      "America/Denver",
+      "America/Chicago",
+      "America/New_York",
+      "Europe/London",
+      "Europe/Paris",
+      "Europe/Berlin",
+      "Asia/Kolkata",
+      "Asia/Tokyo",
+      "Australia/Sydney"
+    ]
+  })()
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null)
 
   useEffect(() => {
     setApiKeyInput(apiKey || "")
-  }, [apiKey])
+    setPromptInput(userPrompt || "")
+    setTzInput(defaultTimezone || "")
+  }, [apiKey, userPrompt, defaultTimezone])
 
-  const handleSaveApiKey = () => {
-    if (!apiKeyInput || apiKeyInput.length < 10) {
-      setToast({ type: "error", message: "Please enter a valid API key." })
-      return
-    }
-    setApiKey(apiKeyInput)
-    setToast({ type: "success", message: "API key saved" })
+  const handleSaveSettings = () => {
+    if (apiKeyInput && apiKeyInput.length >= 10) setApiKey(apiKeyInput)
+    setUserPrompt(promptInput || "")
+    setDefaultTimezone(tzInput || (Intl && new Intl.DateTimeFormat().resolvedOptions().timeZone) || "UTC")
+    setToast({ type: "success", message: "Settings saved" })
   }
 
   return (
@@ -52,10 +74,40 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
               Get your API key from Clockify Settings → API
             </p>
           </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Magic Assistant Prompt (optional)
+            </label>
+            <Input
+              type="text"
+              placeholder="Give the AI extra context for your workspace"
+              value={promptInput}
+              onChange={e => setPromptInput(e.target.value)}
+              className="w-full"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Default Timezone
+            </label>
+            <Select
+              value={tzInput}
+              onChange={e => setTzInput(e.target.value)}
+              className="w-full"
+            >
+              <option value="">Select a timezone</option>
+              {tzOptions.map(tz => (
+                <option key={tz} value={tz}>{tz}</option>
+              ))}
+            </Select>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Used for displaying and interpreting times.</p>
+          </div>
           
           <div className="flex justify-end">
-            <Button onClick={handleSaveApiKey} className="w-full">
-              Save API Key
+            <Button onClick={handleSaveSettings} className="w-full">
+              Save Settings
             </Button>
           </div>
         </div>

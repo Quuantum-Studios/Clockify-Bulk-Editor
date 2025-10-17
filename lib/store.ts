@@ -20,6 +20,10 @@ export type TimeEntry = {
 type State = {
   apiKey: string
   setApiKey: (apiKey: string) => void
+  userPrompt: string
+  setUserPrompt: (prompt: string) => void
+  defaultTimezone: string
+  setDefaultTimezone: (tz: string) => void
   workspaces: Workspace[]
   setWorkspaces: (w: Workspace[]) => void
   projects: Project[]
@@ -40,8 +44,16 @@ type State = {
 
 // Hydrate apiKey from localStorage if available
 let initialApiKey = ""
+let initialPrompt = ""
+let initialTimezone = ""
 if (typeof window !== "undefined") {
   initialApiKey = window.localStorage.getItem("clockify_api_key") || ""
+  initialPrompt = window.localStorage.getItem("clockify_user_prompt") || ""
+  initialTimezone =
+    window.localStorage.getItem("clockify_default_timezone") ||
+    (Intl && typeof Intl === "object" && (Intl as unknown as { DateTimeFormat: typeof Intl.DateTimeFormat }).DateTimeFormat
+      ? new Intl.DateTimeFormat().resolvedOptions().timeZone
+      : "UTC")
 }
 
 export const useClockifyStore = create<State>((set) => ({
@@ -50,6 +62,20 @@ export const useClockifyStore = create<State>((set) => ({
     set({ apiKey })
     if (typeof window !== "undefined") {
       window.localStorage.setItem("clockify_api_key", apiKey)
+    }
+  },
+  userPrompt: initialPrompt,
+  setUserPrompt: (userPrompt) => {
+    set({ userPrompt })
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("clockify_user_prompt", userPrompt)
+    }
+  },
+  defaultTimezone: initialTimezone,
+  setDefaultTimezone: (defaultTimezone) => {
+    set({ defaultTimezone })
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("clockify_default_timezone", defaultTimezone)
     }
   },
   workspaces: [],
