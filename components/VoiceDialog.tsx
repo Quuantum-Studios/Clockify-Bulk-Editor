@@ -153,9 +153,24 @@ export default function VoiceDialog({ open, onOpenChange }: Props) {
   }, [recording, startVisualizer])
 
   const onAnalyze = useCallback(async () => {
-    const prompt = useClockifyStore.getState().userPrompt || ""
+    const state = useClockifyStore.getState()
+    const prompt = state.userPrompt || ""
     const content = prompt ? `${prompt}\n\n${text}` : text
-    const body = { messages: [{ role: "user", content }] }
+    // Build Existing Data block
+    const wsProjects = state.projects || []
+    const projWithTasks = (wsProjects as { id: string; name: string }[]).map(p => ({
+      name: p.name,
+      tasks: (state.tasks?.[p.id] || []).map(t => ({ name: t.name, descriptions: [] as string[] }))
+    }))
+    const tagsList: string[] = []
+    const timezone = state.defaultTimezone || "UTC"
+    const body = {
+      messages: [{ role: "user", content }],
+      userPrompt: prompt,
+      timezone,
+      tags: tagsList,
+      projects: projWithTasks
+    }
     startTransition(async () => {
       try {
         const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })

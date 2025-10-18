@@ -434,20 +434,20 @@ export default function AppPage() {
       }
       return t
     })
-    const next = [...toAdd, ...(Array.isArray(timeEntries) ? timeEntries : [])]
-    setTimeEntries(next)
-    // prefetch tasks for resolved projects so the task dropdowns can show the correct task lists
+    // Fetch tasks for involved projects first, so we can resolve taskId from taskName reliably
+    const projectIdsToFetch = Array.from(new Set(toAdd.map(t => t.projectId).filter(Boolean))) as string[]
+    const fetchedTasksMap: Record<string, Task[]> = {}
     try {
-      if (apiKey && workspaceId) {
+      if (apiKey && workspaceId && projectIdsToFetch.length) {
         const api = new ClockifyAPI()
         api.setApiKey(apiKey)
-        const projectIdsToFetch = Array.from(new Set(toAdd.map(t => t.projectId).filter(Boolean))) as string[]
         for (const pid of projectIdsToFetch) {
-          // if we already have tasks for this project, skip
-          if (tasks && tasks[pid] && Array.isArray(tasks[pid]) && tasks[pid].length > 0) continue
           try {
-            const projectTasks = await api.getTasks(workspaceId, pid)
-            setTasks(pid, projectTasks)
+            // if we already have tasks for this project, reuse; else fetch
+            const existing = (tasks && tasks[pid]) || []
+            const projectTasks = Array.isArray(existing) && existing.length > 0 ? existing : await api.getTasks(workspaceId, pid)
+            fetchedTasksMap[pid] = projectTasks
+            if (!(Array.isArray(existing) && existing.length > 0)) setTasks(pid, projectTasks)
           } catch {
             // ignore per-project task fetch errors
           }
@@ -456,10 +456,21 @@ export default function AppPage() {
     } catch {
       // ignore prefetch errors
     }
+    // Resolve taskId by name when possible
+    const toAddResolved = toAdd.map(t => {
+      if (!t.taskId && t.taskName && t.projectId) {
+        const list = fetchedTasksMap[t.projectId] || []
+        const found = list.find(tt => tt.name.toLowerCase().trim() === (t.taskName as string).toLowerCase().trim())
+        if (found) return { ...t, taskId: found.id, taskName: found.name }
+      }
+      return t
+    })
+    const next = [...toAddResolved, ...(Array.isArray(timeEntries) ? timeEntries : [])]
+    setTimeEntries(next)
     // mark them as modified so user can bulk save all or individually
     setModifiedRows(s => {
       const n = new Set(s)
-      for (const t of toAdd) n.add(t.id)
+      for (const t of toAddResolved) n.add(t.id)
       return n
     })
     setBulkDialogOpen(false)
@@ -948,7 +959,7 @@ export default function AppPage() {
                             const taskIdSelected = (editingEntry.taskId !== undefined ? (editingEntry.taskId as string) : (entry as TimeEntry).taskId) || ""
                             const taskList = (tasks && tasks[entryProjectId] || []) as Task[]
                             const taskObj = taskList.find(t => t.id === taskIdSelected)
-                            const taskLabel = (editingEntry.taskName as string) || taskObj?.name || "None"
+                            const taskLabel = (editingEntry.taskName as string) || taskObj?.name || (entry as TimeEntry).taskName || "None"
                             const isOpen = !!projectTaskEditOpen[entry.id]
                             const createState = createTaskState[entry.id] || { showCreate: false, name: "", loading: false }
                             if (!isOpen) {

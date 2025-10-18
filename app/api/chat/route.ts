@@ -76,9 +76,9 @@ User preferences:
 ${up}
 
 Existing Data:
-Tags: ${tg}
+Tags: ${Array.isArray(params.tags) ? (params.tags as unknown as string[]).join(', ') : tg}
 
-${renderedProjects}`
+${renderedProjects || "Project: \n  Task: \n    Description: "}`
 }
 
 export async function POST(req: NextRequest) {
