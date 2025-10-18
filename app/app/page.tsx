@@ -328,6 +328,41 @@ export default function AppPage() {
       })
   }, [apiKey, workspaceId, userId, dateRange, projectId, setTimeEntries])
 
+  const refreshAllReferenceData = useCallback(async () => {
+    if (!apiKey) { setToast({ type: "error", message: "API key required." }); return }
+    try {
+      // Workspaces
+      const wsRes = await fetch(`/api/proxy/workspaces?apiKey=${apiKey}`)
+      if (wsRes.ok) {
+        const ws = await wsRes.json() as { id: string; name: string }[]
+        setWorkspaces(ws)
+      }
+      if (!workspaceId) return;
+      // Projects
+      const projectsRes = await fetch(`/api/proxy/projects/${workspaceId}?apiKey=${apiKey}`)
+      if (projectsRes.ok) {
+        const projectsData = await projectsRes.json() as { id: string; name: string }[]
+        setProjects(projectsData)
+        const api = new ClockifyAPI(); api.setApiKey(apiKey)
+        for (const p of projectsData) {
+          try { const projectTasks = await api.getTasks(workspaceId, p.id); setTasks(p.id, projectTasks) } catch {}
+        }
+      }
+      // Tags
+      try {
+        const api = new ClockifyAPI(); api.setApiKey(apiKey)
+        const tagList = await api.getTags(workspaceId)
+        setTags(tagList)
+      } catch { setTags([]) }
+      // Entries
+      fetchEntries()
+      setToast({ type: 'success', message: 'Refreshed data' })
+    } catch {
+      setToast({ type: 'error', message: 'Refresh failed' })
+    }
+  }, [apiKey, workspaceId, setWorkspaces, setProjects, setTasks, fetchEntries])
+
+
   // Auto-fetch entries when filters change
   useEffect(() => {
     if (apiKey && workspaceId && userId && dateRange) {
@@ -756,6 +791,9 @@ export default function AppPage() {
           </div>
           {/* Actions */}
           <div className="flex items-center gap-2 ml-auto">
+            <Button onClick={refreshAllReferenceData} type="button" variant="outline" className="h-9" title="Refresh data">
+              <RotateCcw className="h-4 w-4 mr-1" /> Refresh
+            </Button>
             <Button onClick={() => setBulkDeleteTagsDialogOpen(true)} type="button" variant="outline" className="h-9">🏷️ Manage Tags</Button>
             <Button onClick={() => setBulkDeleteTasksDialogOpen(true)} type="button" variant="outline" className="h-9" disabled={!projectId}>✅ Manage Tasks</Button>
           </div>
@@ -1081,7 +1119,7 @@ export default function AppPage() {
         workspaceId={workspaceId}
         apiKey={apiKey}
         userId={userId}
-        onSuccess={() => { setBulkDialogOpen(false); closeBulk(); fetchEntries() }}
+        onSuccess={async () => { await refreshAllReferenceData(); setBulkDialogOpen(false); closeBulk(); fetchEntries() }}
         onPopulate={populateEntriesForReview}
         initialCsv={bulkCsv || undefined}
       />

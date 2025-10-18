@@ -58,10 +58,10 @@ Output MUST be valid CSV with a header row and UTF-8 text. Do not add markdown f
 Headers must be: description,start,end,projectName,taskName,tags,billable
 
 Rules:
-- start and end should be ISO 8601 timestamps if present (YYYY-MM-DDTHH:mm:ssZ). consider the timestamps provided by user are in ${tz} timezone for start and end. Use the current date if the start or end is not provided.
+- start and end should be timestamps if present (YYYY-MM-DD HH:mm:ss). consider the timestamps provided by user are in ${tz} timezone for start and end. Use the current date if the start or end is not provided.
 - projectName may be used; if unknown leave blank.
 - description may be used; if unknown then add according to the taskName. Don't include projectName.
-- taskName may be used; if unknown leave blank. Don't include projectName.
+- taskName may be used; should be concise if creating a new task, otherwise use the existing taskName. If unknown leave blank. Don't include projectName.
 - tags: labels separated by | in a single cell. Add according to the description, taskName if not provided.
 - billable: true or false (if unknow then decide according  to the taskName, description. default to true if unsure).
 - projectName, taskName, tags, description are chosen from existing data and new created if no relevant data found.

@@ -27,12 +27,19 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
   const [verifyingProjects, setVerifyingProjects] = useState(false)
   const [verifyingAllTasks, setVerifyingAllTasks] = useState(false)
   const [verifyingTags, setVerifyingTags] = useState(false)
+  const [creatingTasks, setCreatingTasks] = useState(false)
+  const [creatingTags, setCreatingTags] = useState(false)
   const [step, setStep] = useState<1|2|3|4|5>(1)
   const [projectCheck, setProjectCheck] = useState<{ existing: { id: string; name: string }[]; missing: string[] } | null>(null)
   const [projectsMap, setProjectsMap] = useState<Record<string, string | undefined>>({})
   const [taskCheck, setTaskCheck] = useState<Record<string, { existing: string[]; missing: string[] }>>({})
   const [tagCheck, setTagCheck] = useState<{ existing: string[]; missing: string[] } | null>(null)
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null)
+
+  // Always start at step 1 when dialog is opened
+  useEffect(() => {
+    if (open) setStep(1)
+  }, [open])
 
   // Parse initial CSV content when provided and dialog opens
   useEffect(() => {
@@ -387,8 +394,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
     </div>
   )
   // Step UI rendering helpers
-  const allTasksMissingCount = Object.values(taskCheck).reduce((acc, v) => acc + (v?.missing?.length || 0), 0)
-  const allTasksOK = Object.values(taskCheck).length > 0 && allTasksMissingCount === 0
+  
 
   const renderStepControls = () => {
     const left: ReactNode[] = []
@@ -400,6 +406,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
           if (step === 2) setStep(1)
           if (step === 3) { setTaskCheck({}); setStep(2) }
           if (step === 4) setStep(3)
+          if (step === 5) setStep(4)
         }}>Back</Button>
       )
     } else {
@@ -423,7 +430,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
         </Button>
       )
       right.push(
-        <Button key="toTasks" onClick={async () => {
+        <Button key="toTasks" disabled={(projectCheck?.missing?.length || 0) > 0} onClick={async () => {
           try {
             const projectsToCheck = projectCheck ? projectCheck.existing.map(p => p.name) : extractProjectNames(rows)
             for (const p of projectsToCheck) {
@@ -433,7 +440,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
             setStep(3)
           } catch (e) { setToast({ type: 'error', message: (e as Error).message }) }
         }}>
-          Next: Verify Tasks
+          {verifyingAllTasks ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Next: Verify Tasks'}
         </Button>
       )
     }
@@ -447,14 +454,14 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
       const anyMissingTasks = Object.values(taskCheck).some(v => (v.missing?.length || 0) > 0)
       if (anyMissingTasks) {
         right.push(
-          <Button key="createMissingTasks" onClick={async () => { try { await createAllMissingTasks(); setToast({ type: 'success', message: 'Tasks created' }); } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } }}>
-            Create missing tasks
+          <Button key="createMissingTasks" disabled={creatingTasks} onClick={async () => { setCreatingTasks(true); try { await createAllMissingTasks(); setToast({ type: 'success', message: 'Tasks created' }); } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } finally { setCreatingTasks(false) } }}>
+            {creatingTasks ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Create missing tasks'}
           </Button>
         )
       }
       right.push(
-        <Button key="toTags" onClick={async () => { try { await verifyTags(); setStep(4) } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } }}>
-          Next: Verify Tags
+        <Button key="toTags" disabled={Object.values(taskCheck).some(v => (v.missing?.length || 0) > 0)} onClick={async () => { try { await verifyTags(); setStep(4) } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } }}>
+          {verifyingTags ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Next: Verify Tags'}
         </Button>
       )
     }
@@ -467,13 +474,13 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
       )
       if (tagCheck && tagCheck.missing.length > 0) {
         right.push(
-          <Button key="createMissingTags" onClick={async () => { try { await createTags(); setToast({ type: 'success', message: 'Tags created' }) } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } }}>
-            Create missing tags
+          <Button key="createMissingTags" disabled={creatingTags} onClick={async () => { setCreatingTags(true); try { await createTags(); setToast({ type: 'success', message: 'Tags created' }) } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } finally { setCreatingTags(false) } }}>
+            {creatingTags ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Create missing tags'}
           </Button>
         )
       }
       right.push(
-        <Button key="toPreview" onClick={() => setStep(5)}>
+        <Button key="toPreview" disabled={!!(tagCheck && tagCheck.missing.length > 0)} onClick={() => setStep(5)}>
           Next: Preview
         </Button>
       )
@@ -488,7 +495,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
     }
 
     return (
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex w-full items-center justify-between gap-2">
         <div className="flex gap-2">{left}</div>
         <div className="flex gap-2">{right}</div>
       </div>
@@ -686,7 +693,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
           </Toast>
         )}
         <div className="sticky bottom-0 left-0 right-0 -mx-6 mt-4 border-t bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-          <div className="p-4 flex justify-end">
+          <div className="p-4">
             {renderStepControls()}
           </div>
         </div>
