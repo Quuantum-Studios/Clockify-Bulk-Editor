@@ -60,11 +60,14 @@ Headers must be: description,start,end,projectName,taskName,tags,billable
 Rules:
 - start and end should be ISO 8601 timestamps if present (YYYY-MM-DDTHH:mm:ssZ). consider the timestamps provided by user are in ${tz} timezone for start and end. Use the current date if the start or end is not provided.
 - projectName may be used; if unknown leave blank.
-- description may be used; if unknown then add according to the taskName.
-- taskName may be used; if unknown leave blank.
-- tags: comma-separated labels in a single cell. Add according to the description, taskName if not provided.
+- description may be used; if unknown then add according to the taskName. Don't include projectName.
+- taskName may be used; if unknown leave blank. Don't include projectName.
+- tags: labels separated by | in a single cell. Add according to the description, taskName if not provided.
 - billable: true or false (if unknow then decide according  to the taskName, description. default to true if unsure).
 - projectName, taskName, tags, description are chosen from existing data and new created if no relevant data found.
+- Example output:
+description,start,end,projectName,taskName,tags,billable
+"Example task",2025-01-01 00:00:00,2025-01-01 01:00:00,"Example project","Example task","tag1|tag2",true
 
 Additional Details:
 Todays date: ${today}
@@ -119,6 +122,8 @@ export async function POST(req: NextRequest) {
       
       const model = process.env.GEMINI_MODEL || 'gemini-1.5-flash'
       const prompt = `${systemPrompt}\n\nUser input: ${userText}`
+
+      console.log('Gemini prompt:', prompt)
       
       console.log('Calling Gemini API with model:', model)
       
@@ -141,7 +146,7 @@ export async function POST(req: NextRequest) {
           return new Response(JSON.stringify({ error: "empty response from Gemini" }), { status: 500 })
         }
         
-        console.log('Gemini response length:', csv.length)
+        console.log('Gemini response length:', csv, csv.length)
         return Response.json({ content: csv })
       } catch (error) {
         console.error('Gemini API error:', error)

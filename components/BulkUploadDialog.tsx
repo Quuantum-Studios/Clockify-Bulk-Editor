@@ -42,7 +42,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
       setParsing(true)
       // Strip markdown code fences if present
       const cleaned = initialCsv.replace(/^```[a-zA-Z]*\n?/m, '').replace(/\n?```$/m, '')
-      const result = Papa.parse(cleaned, { header: true, skipEmptyLines: true }) as unknown as { data: CSVRow[]; errors?: unknown[] }
+      const result = Papa.parse(cleaned, { header: true, skipEmptyLines: true, delimiter: ',' }) as unknown as { data: CSVRow[]; errors?: unknown[] }
       const parsed = (result?.data || []) as CSVRow[]
       if (parsed && Array.isArray(parsed) && parsed.length > 0) {
         setRows(parsed)
@@ -347,8 +347,8 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
   const progressPercent = Math.round(((step - 1) / (stepTitles.length - 1)) * 100)
 
   const renderStepper = () => (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-3">
+    <div className="flex flex-col gap-3 min-w-0 w-full">
+      <div className="flex items-center gap-3 overflow-x-auto flex-nowrap">
         {stepTitles.map((title, i) => {
           const idx = i + 1
           const completed = idx < step
@@ -501,12 +501,21 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
         className="bg-background rounded-lg w-[98vw] max-w-4xl flex flex-col gap-4 p-6 shadow-xl relative"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h2 className="text-lg font-semibold mb-1">Bulk Upload CSV</h2>
-            <div className="text-sm text-muted-foreground">A guided, step-by-step assistant to verify and upload many time entries at once.</div>
+        <div className="grid grid-cols-1 md:grid-cols-[1fr,auto] md:items-start gap-6 bg-gradient-to-r from-blue-50/80 via-primary/5 to-transparent rounded-lg shadow-sm px-4 py-3 border border-gray-200 dark:border-gray-800">
+          <div className="flex-1 min-w-0 md:pr-2">
+            <h2 className="text-2xl font-bold text-primary mb-0.5 flex items-center gap-2 leading-tight">
+              <svg className="w-5 h-5 text-blue-500 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.75 10.75L19.5 7m0 0l-3.75-3.75M19.5 7H7.5A4.5 4.5 0 003 11.5v5.25A2.25 2.25 0 005.25 19h7.5" />
+              </svg>
+              Bulk Upload CSV
+            </h2>
+            <div className="text-sm text-muted-foreground mt-2">
+              Upload, review, and verify multiple time entries with a guided, step-by-step flow.
+            </div>
           </div>
-          <div className="md:w-1/2">{renderStepper()}</div>
+          <div className="flex-1 min-w-0 md:pr-2">
+            {renderStepper()}
+          </div>
         </div>
 
         <div className="pt-2">
