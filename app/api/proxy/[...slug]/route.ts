@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { ClockifyAPI } from "../../../../lib/clockify"
 import { checkRateLimit } from "../../../../lib/ratelimit"
+import { getCachedData } from "../../../../lib/cache"
 
 const apiKeySchema = z.object({
   apiKey: z.string().min(10)
@@ -40,17 +41,29 @@ export async function GET(req: NextRequest, context: { params: Promise<{ slug: s
     const { slug } = await context.params
     const [resource, ...rest] = slug
     if (resource === "workspaces") {
-      const data = await clockify.getWorkspaces()
+      const data = await getCachedData(
+        `workspaces:${apiKey}`,
+        () => clockify.getWorkspaces(),
+        3600 // 1 hour
+      )
       return NextResponse.json(data)
     }
     if (resource === "projects") {
       const [workspaceId] = rest
-      const data = await clockify.getProjects(workspaceId)
+      const data = await getCachedData(
+        `projects:${apiKey}:${workspaceId}`,
+        () => clockify.getProjects(workspaceId),
+        1800 // 30 minutes
+      )
       return NextResponse.json(data)
     }
     if (resource === "tasks") {
       const [workspaceId, projectId] = rest
-      const data = await clockify.getTasks(workspaceId, projectId)
+      const data = await getCachedData(
+        `tasks:${apiKey}:${workspaceId}:${projectId}`,
+        () => clockify.getTasks(workspaceId, projectId),
+        900 // 15 minutes
+      )
       return NextResponse.json(data)
     }
     if (resource === "time-entries") {

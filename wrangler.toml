@@ -10,3 +10,8 @@ NEXT_PUBLIC_API_URL = "https://clockify-manager.quuantum.com"
 [assets]
 directory = ".open-next/assets"
 binding = "ASSETS"
+
+[[kv_namespaces]]
+binding = "KV"
+id = "83a3c43ebc8f447f8e9f76dbbd400fca"
+preview_id = "e0d674cb2180476e804c2e9a4ec0426e"

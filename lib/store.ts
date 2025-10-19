@@ -17,6 +17,13 @@ export type TimeEntry = {
   [key: string]: unknown
 }
 
+export type UserProfile = {
+  id: string
+  email: string
+  name: string
+  profilePicture?: string
+}
+
 type State = {
   apiKey: string
   setApiKey: (apiKey: string) => void
@@ -24,6 +31,8 @@ type State = {
   setUserPrompt: (prompt: string) => void
   defaultTimezone: string
   setDefaultTimezone: (tz: string) => void
+  userProfile: UserProfile | null
+  setUserProfile: (profile: UserProfile | null) => void
   workspaces: Workspace[]
   setWorkspaces: (w: Workspace[]) => void
   projects: Project[]
@@ -78,6 +87,8 @@ export const useClockifyStore = create<State>((set) => ({
       window.localStorage.setItem("clockify_default_timezone", defaultTimezone)
     }
   },
+  userProfile: null,
+  setUserProfile: (userProfile) => set({ userProfile }),
   workspaces: [],
   setWorkspaces: (w) => set({ workspaces: w }),
   projects: [],
