@@ -1,5 +1,6 @@
 import { NextResponse, NextRequest } from "next/server"
 import { ClockifyAPI } from "../../../../../../../lib/clockify"
+import { checkRateLimit } from "../../../../../../../lib/ratelimit"
 
 async function delay(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms))
@@ -14,6 +15,17 @@ export async function DELETE(
     const { apiKey, projectId, taskIds } = await request.json() as { apiKey: string; projectId: string; taskIds: string[] }
 
     if (!apiKey) return NextResponse.json({ error: "API key is required" }, { status: 400 })
+    const rateLimit = checkRateLimit(apiKey)
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: "Rate limit exceeded" }, { 
+        status: 429,
+        headers: {
+          "X-RateLimit-Limit": "100",
+          "X-RateLimit-Remaining": "0",
+          "X-RateLimit-Reset": new Date(rateLimit.resetAt).toISOString()
+        }
+      })
+    }
     if (!workspaceId) return NextResponse.json({ error: "Workspace ID is required" }, { status: 400 })
     if (!projectId) return NextResponse.json({ error: "Project ID is required" }, { status: 400 })
     if (!taskIds || !Array.isArray(taskIds) || taskIds.length === 0)

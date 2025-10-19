@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { ClockifyAPI, TimeEntryPayload } from "../../../../../../lib/clockify"
+import { checkRateLimit } from "../../../../../../lib/ratelimit"
 
 const apiKeySchema = z.object({ apiKey: z.string().min(10) })
 const entrySchema = z.object({
@@ -22,6 +23,17 @@ export async function POST(req: NextRequest, context: { params: Promise<{ worksp
     const body = await req.json() as { apiKey: string; userId: string; entries: unknown[] }
     const { apiKey, userId, entries } = body
     apiKeySchema.parse({ apiKey })
+    const rateLimit = checkRateLimit(apiKey)
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: "Rate limit exceeded" }, { 
+        status: 429,
+        headers: {
+          "X-RateLimit-Limit": "100",
+          "X-RateLimit-Remaining": "0",
+          "X-RateLimit-Reset": new Date(rateLimit.resetAt).toISOString()
+        }
+      })
+    }
     if (!userId) throw new Error("userId required")
     if (!Array.isArray(entries)) throw new Error("Entries must be an array")
     const clockify = new ClockifyAPI()

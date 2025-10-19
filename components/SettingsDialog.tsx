@@ -44,8 +44,25 @@ export default function SettingsDialog({ open, onClose }: SettingsDialogProps) {
     setTzInput(defaultTimezone || "")
   }, [apiKey, userPrompt, defaultTimezone])
 
-  const handleSaveSettings = () => {
-    if (apiKeyInput && apiKeyInput.length >= 10) setApiKey(apiKeyInput)
+  const handleSaveSettings = async () => {
+    if (apiKeyInput && apiKeyInput.length >= 10) {
+      try {
+        const res = await fetch("/api/validate-key", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ apiKey: apiKeyInput })
+        })
+        const data = await res.json() as { valid: boolean; error?: string }
+        if (!data.valid) {
+          setToast({ type: "error", message: data.error || "Invalid API key" })
+          return
+        }
+        setApiKey(apiKeyInput)
+      } catch (e) {
+        setToast({ type: "error", message: e instanceof Error ? e.message : "Failed to validate API key" })
+        return
+      }
+    }
     setUserPrompt(promptInput || "")
     setDefaultTimezone(tzInput || (Intl && new Intl.DateTimeFormat().resolvedOptions().timeZone) || "UTC")
     setToast({ type: "success", message: "Settings saved" })

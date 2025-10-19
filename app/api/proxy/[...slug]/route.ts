@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { ClockifyAPI } from "../../../../lib/clockify"
+import { checkRateLimit } from "../../../../lib/ratelimit"
 
 const apiKeySchema = z.object({
   apiKey: z.string().min(10)
@@ -23,6 +24,17 @@ export async function GET(req: NextRequest, context: { params: Promise<{ slug: s
     const { searchParams } = new URL(req.url)
     const apiKey = searchParams.get("apiKey")
     apiKeySchema.parse({ apiKey })
+    const rateLimit = checkRateLimit(apiKey!)
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: "Rate limit exceeded" }, { 
+        status: 429,
+        headers: {
+          "X-RateLimit-Limit": "100",
+          "X-RateLimit-Remaining": "0",
+          "X-RateLimit-Reset": new Date(rateLimit.resetAt).toISOString()
+        }
+      })
+    }
     const clockify = new ClockifyAPI()
     clockify.setApiKey(apiKey!)
     const { slug } = await context.params
@@ -64,6 +76,17 @@ export async function POST(req: NextRequest, context: { params: Promise<{ slug: 
     const body = await req.json() as { apiKey: string; timezone?: string; [key: string]: unknown }
     const { apiKey, timezone, ...payload } = body
     apiKeySchema.parse({ apiKey })
+    const rateLimit = checkRateLimit(apiKey)
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: "Rate limit exceeded" }, { 
+        status: 429,
+        headers: {
+          "X-RateLimit-Limit": "100",
+          "X-RateLimit-Remaining": "0",
+          "X-RateLimit-Reset": new Date(rateLimit.resetAt).toISOString()
+        }
+      })
+    }
     const clockify = new ClockifyAPI()
     clockify.setApiKey(apiKey)
     if (timezone && typeof timezone === 'string') clockify.setDefaultTimezone(timezone)
@@ -96,6 +119,17 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ slug: s
     const body = await req.json() as { apiKey: string; timezone?: string; [key: string]: unknown }
     const { apiKey, timezone, ...payload } = body
     apiKeySchema.parse({ apiKey })
+    const rateLimit = checkRateLimit(apiKey)
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: "Rate limit exceeded" }, { 
+        status: 429,
+        headers: {
+          "X-RateLimit-Limit": "100",
+          "X-RateLimit-Remaining": "0",
+          "X-RateLimit-Reset": new Date(rateLimit.resetAt).toISOString()
+        }
+      })
+    }
     const clockify = new ClockifyAPI()
     clockify.setApiKey(apiKey)
     if (timezone && typeof timezone === 'string') clockify.setDefaultTimezone(timezone)
@@ -121,6 +155,17 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ slug
     const body = await req.json() as { apiKey: string; [key: string]: unknown }
     const { apiKey } = body
     apiKeySchema.parse({ apiKey })
+    const rateLimit = checkRateLimit(apiKey)
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: "Rate limit exceeded" }, { 
+        status: 429,
+        headers: {
+          "X-RateLimit-Limit": "100",
+          "X-RateLimit-Remaining": "0",
+          "X-RateLimit-Reset": new Date(rateLimit.resetAt).toISOString()
+        }
+      })
+    }
     const clockify = new ClockifyAPI()
     clockify.setApiKey(apiKey)
     const { slug } = await context.params

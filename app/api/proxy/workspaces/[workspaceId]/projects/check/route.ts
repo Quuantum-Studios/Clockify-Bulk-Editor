@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import { ClockifyAPI } from "../../../../../../../lib/clockify"
+import { checkRateLimit } from "../../../../../../../lib/ratelimit"
 
 const bodySchema = z.object({
   apiKey: z.string().min(1),
@@ -13,6 +14,17 @@ export async function POST(req: NextRequest, context: { params: Promise<{ worksp
     const body = await req.json() as { apiKey: string; projectNames?: string[] }
     bodySchema.parse(body)
     const { apiKey, projectNames = [] } = body
+    const rateLimit = checkRateLimit(apiKey)
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: "Rate limit exceeded" }, { 
+        status: 429,
+        headers: {
+          "X-RateLimit-Limit": "100",
+          "X-RateLimit-Remaining": "0",
+          "X-RateLimit-Reset": new Date(rateLimit.resetAt).toISOString()
+        }
+      })
+    }
     const clockify = new ClockifyAPI()
     clockify.setApiKey(apiKey)
 

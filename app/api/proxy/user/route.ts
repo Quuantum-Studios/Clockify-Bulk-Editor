@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
+import { checkRateLimit } from "../../../../lib/ratelimit"
 
 const apiKeySchema = z.object({ apiKey: z.string().min(10) })
 
@@ -9,6 +10,17 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url)
     const apiKey = searchParams.get("apiKey")
     apiKeySchema.parse({ apiKey })
+    const rateLimit = checkRateLimit(apiKey!)
+    if (!rateLimit.allowed) {
+      return NextResponse.json({ error: "Rate limit exceeded" }, { 
+        status: 429,
+        headers: {
+          "X-RateLimit-Limit": "100",
+          "X-RateLimit-Remaining": "0",
+          "X-RateLimit-Reset": new Date(rateLimit.resetAt).toISOString()
+        }
+      })
+    }
     // https://api.clockify.me/api/v1/user
     const res = await fetch("https://api.clockify.me/api/v1/user", {
       headers: { "X-Api-Key": apiKey! }
