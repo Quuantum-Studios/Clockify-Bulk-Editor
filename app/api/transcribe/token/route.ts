@@ -1,8 +1,6 @@
-import { NextRequest } from "next/server"
-
 export const runtime = "nodejs"
 
-export async function GET(_req: NextRequest) {
+export async function GET() {
   try {
     const apiKey = process.env.ASSEMBLYAI_API_KEY
     if (!apiKey) return new Response(JSON.stringify({ error: "missing ASSEMBLYAI_API_KEY" }), { status: 500 })
@@ -15,12 +13,13 @@ export async function GET(_req: NextRequest) {
       const body = await res.text().catch(() => "")
       return new Response(JSON.stringify({ error: "token request failed", details: body }), { status: 500 })
     }
-    const data = await res.json() as any
+    const data = await res.json() as { token?: string }
     const token = data?.token
     if (!token) return new Response(JSON.stringify({ error: "no token" }), { status: 500 })
     return Response.json({ token })
-  } catch (e: any) {
-    return new Response(JSON.stringify({ error: String(e?.message || e) }), { status: 500 })
+  } catch (e: unknown) {
+    const error = e as { message?: string }
+    return new Response(JSON.stringify({ error: String(error?.message || e) }), { status: 500 })
   }
 }
 

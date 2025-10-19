@@ -49,12 +49,12 @@ export default function Home() {
               >
                 {mounted && theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
               </button>
-              <Link href="/app">
+              <Link href="/editor">
                 <Button variant="outline" className="hidden sm:inline-flex">
                   Sign In
                 </Button>
               </Link>
-              <Link href="/app">
+              <Link href="/editor">
                 <Button className="bg-blue-600 hover:bg-blue-700 text-white">
                   Get Started Free
                 </Button>
@@ -77,7 +77,7 @@ export default function Home() {
               What used to take hours now takes minutes.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
-              <Link href="/app">
+              <Link href="/editor">
                 <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 text-lg">
                   Start Free Trial
                   <ArrowRight className="ml-2 h-5 w-5" />
@@ -332,7 +332,7 @@ export default function Home() {
             Start your free trial today.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <Link href="/app">
+            <Link href="/editor">
               <Button size="lg" className="bg-white text-blue-600 hover:bg-gray-100 px-8 py-4 text-lg">
                 Start Free Trial
                 <ArrowRight className="ml-2 h-5 w-5" />

@@ -26,8 +26,9 @@ export async function POST(req: NextRequest) {
       return new Response(JSON.stringify({ error: "timeout" }), { status: 504 })
     }
     return Response.json({ text: transcript.text || "" })
-  } catch (e: any) {
-    return new Response(JSON.stringify({ error: String(e?.message || e) }), { status: 500 })
+  } catch (e: unknown) {
+    const error = e as { message?: string }
+    return new Response(JSON.stringify({ error: String(error?.message || e) }), { status: 500 })
   }
 }
 

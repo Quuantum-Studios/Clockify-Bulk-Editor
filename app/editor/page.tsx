@@ -16,6 +16,9 @@ import { Save, RotateCcw, Trash2, XCircle, Calendar, DollarSign } from "lucide-r
 
 import { ClockifyAPI } from "../../lib/clockify"
 import type { Task, TimeEntry } from "../../lib/store"
+import MagicButton from "@/components/MagicButton"
+
+export const dynamic = 'force-dynamic'
 
 export default function AppPage() {
   const apiKey = useClockifyStore(state => state.apiKey)
@@ -287,21 +290,15 @@ export default function AppPage() {
     setLoading(true)
     // Interpret the dateRange start/end as wall time in selected timezone and send as UTC Z strings
     const toUtcIso = (d: Date) => {
-      const yyyy = d.getFullYear().toString().padStart(4, '0')
-      const mm = (d.getMonth() + 1).toString().padStart(2, '0')
-      const dd = d.getDate().toString().padStart(2, '0')
-      const HH = d.getHours().toString().padStart(2, '0')
-      const MM = d.getMinutes().toString().padStart(2, '0')
-      const naive = `${yyyy}-${mm}-${dd}T${HH}:${MM}`
       // Reuse server normalization by letting API convert timezone? We convert client-side to be consistent with UI
       try {
         const dtf = new Intl.DateTimeFormat('en-US', { timeZone: defaultTimezone || 'UTC', hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })
         const parts = dtf.formatToParts(d)
-        const y = Number(parts.find(p => p.type === 'year')?.value || yyyy)
-        const mo = Number(parts.find(p => p.type === 'month')?.value || mm)
-        const da = Number(parts.find(p => p.type === 'day')?.value || dd)
-        const ho = Number(parts.find(p => p.type === 'hour')?.value || HH)
-        const mi = Number(parts.find(p => p.type === 'minute')?.value || MM)
+        const y = Number(parts.find(p => p.type === 'year')?.value)
+        const mo = Number(parts.find(p => p.type === 'month')?.value)
+        const da = Number(parts.find(p => p.type === 'day')?.value)
+        const ho = Number(parts.find(p => p.type === 'hour')?.value)
+        const mi = Number(parts.find(p => p.type === 'minute')?.value)
         const se = Number(parts.find(p => p.type === 'second')?.value || '0')
         const ms = Date.UTC(y, mo - 1, da, ho, mi, se)
         return new Date(ms).toISOString()
@@ -326,7 +323,7 @@ export default function AppPage() {
         setToast({ type: "error", message: errorMessage }); 
         setLoading(false) 
       })
-  }, [apiKey, workspaceId, userId, dateRange, projectId, setTimeEntries])
+  }, [apiKey, workspaceId, userId, dateRange, projectId, defaultTimezone, setTimeEntries])
 
   const refreshAllReferenceData = useCallback(async () => {
     if (!apiKey) { setToast({ type: "error", message: "API key required." }); return }
@@ -815,9 +812,10 @@ export default function AppPage() {
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Time Entries</h2>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">  
           <Button onClick={addNewRow} type="button" variant="outline" className="h-9">+ Add New Entry</Button>
           <Button onClick={() => setBulkDialogOpen(true)} type="button" variant="outline" className="h-9">📁 Bulk Upload</Button>
+          <MagicButton />
           </div>
         </div>
         <div className="overflow-x-auto">

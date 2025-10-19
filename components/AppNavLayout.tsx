@@ -50,7 +50,9 @@ export default function AppNavLayout({ children }: { children: React.ReactNode }
       <main className="flex-1 p-6">
         {children}
       </main>
+      {/* <div className="fixed bottom-6 right-6 z-50">
       <MagicButton />
+      </div> */}
       
       {/* Settings Dialog */}
       <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />

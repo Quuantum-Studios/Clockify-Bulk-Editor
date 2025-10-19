@@ -1,4 +1,4 @@
-export const runtime = "edge"
+export const runtime = "nodejs"
 
 function toAssemblyWsUrl(sampleRate: number, formatTurns = true): string {
   const params = new URLSearchParams()
@@ -29,7 +29,8 @@ export async function GET(request: Request) {
 
   ;(async () => {
     try {
-      upstream = new WebSocket(upstreamUrl, { headers: { Authorization: apiKey } } as any)
+      // @ts-expect-error - Cloudflare Workers WebSocket supports headers option
+      upstream = new WebSocket(upstreamUrl, { headers: { Authorization: apiKey } })
 
       upstream.accept?.()
 
@@ -76,7 +77,7 @@ export async function GET(request: Request) {
       serverSocket.addEventListener("error", () => {
         try { upstream?.close(1011, "client error") } catch {}
       })
-    } catch (e) {
+    } catch {
       try { serverSocket.close(1011, "init error") } catch {}
     }
   })()
