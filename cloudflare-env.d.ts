@@ -10,6 +10,7 @@ declare namespace Cloudflare {
 		NEXT_PUBLIC_API_URL: string;
 		NEXT_PUBLIC_CLOCKIFY_KEY: string;
 		ASSETS: Fetcher;
+		KV: KVNamespace;
 	}
 }
 interface CloudflareEnv extends Cloudflare.Env {}

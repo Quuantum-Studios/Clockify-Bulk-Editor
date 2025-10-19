@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { getCloudflareContext } from "@opennextjs/cloudflare"
 import { z } from "zod"
 
 const settingsSchema = z.object({
@@ -17,14 +18,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Invalid API key" }, { status: 400 })
     }
 
-    // @ts-expect-error - KV binding available in Cloudflare Workers context
-    const KV = process.env.KV || globalThis.KV
-    if (!KV) {
+    const { env } = getCloudflareContext()
+    if (!env.KV) {
       return NextResponse.json({ error: "KV not available" }, { status: 500 })
     }
 
     const key = `settings:${apiKey}`
-    const settings = await KV.get(key, "json")
+    const settings = await env.KV.get(key, "json")
     
     return NextResponse.json({ settings: settings || {} })
   } catch (e) {
@@ -38,9 +38,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json() as { apiKey: string; userPrompt?: string; defaultTimezone?: string }
     settingsSchema.parse(body)
     
-    // @ts-expect-error - KV binding available in Cloudflare Workers context
-    const KV = process.env.KV || globalThis.KV
-    if (!KV) {
+    const { env } = getCloudflareContext()
+    if (!env.KV) {
       return NextResponse.json({ error: "KV not available" }, { status: 500 })
     }
 
@@ -51,7 +50,7 @@ export async function POST(req: NextRequest) {
       updatedAt: new Date().toISOString()
     }
     
-    await KV.put(key, JSON.stringify(settings))
+    await env.KV.put(key, JSON.stringify(settings))
     
     return NextResponse.json({ success: true, settings })
   } catch (e) {

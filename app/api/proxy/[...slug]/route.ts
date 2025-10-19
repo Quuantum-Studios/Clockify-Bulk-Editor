@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
+import { getCloudflareContext } from "@opennextjs/cloudflare"
 import { z } from "zod"
 import { ClockifyAPI } from "../../../../lib/clockify"
 import { checkRateLimit } from "../../../../lib/ratelimit"
@@ -22,6 +23,7 @@ const timeEntryPayloadSchema = z.object({
 
 export async function GET(req: NextRequest, context: { params: Promise<{ slug: string[] }> }) {
   try {
+    const { env } = getCloudflareContext()
     const { searchParams } = new URL(req.url)
     const apiKey = searchParams.get("apiKey")
     apiKeySchema.parse({ apiKey })
@@ -42,6 +44,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ slug: s
     const [resource, ...rest] = slug
     if (resource === "workspaces") {
       const data = await getCachedData(
+        env.KV,
         `workspaces:${apiKey}`,
         () => clockify.getWorkspaces(),
         3600 // 1 hour
@@ -51,6 +54,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ slug: s
     if (resource === "projects") {
       const [workspaceId] = rest
       const data = await getCachedData(
+        env.KV,
         `projects:${apiKey}:${workspaceId}`,
         () => clockify.getProjects(workspaceId),
         1800 // 30 minutes
@@ -60,6 +64,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ slug: s
     if (resource === "tasks") {
       const [workspaceId, projectId] = rest
       const data = await getCachedData(
+        env.KV,
         `tasks:${apiKey}:${workspaceId}:${projectId}`,
         () => clockify.getTasks(workspaceId, projectId),
         900 // 15 minutes
