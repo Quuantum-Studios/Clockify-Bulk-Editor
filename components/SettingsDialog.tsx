@@ -16,7 +16,7 @@ interface SettingsDialogProps {
 }
 
 export default function SettingsDialog({ open, onClose, canClose = true }: SettingsDialogProps) {
-  const { apiKey, setApiKey, userPrompt, setUserPrompt, defaultTimezone, setDefaultTimezone, setUserProfile } = useClockifyStore()
+  const { apiKey, setApiKey, userPrompt, setUserPrompt, defaultTimezone, setDefaultTimezone, userProfile, setUserProfile } = useClockifyStore()
   const [apiKeyInput, setApiKeyInput] = useState("")
   const [promptInput, setPromptInput] = useState("")
   const [tzInput, setTzInput] = useState("")
@@ -50,15 +50,15 @@ export default function SettingsDialog({ open, onClose, canClose = true }: Setti
     setIsValidated(!!apiKey)
   }, [apiKey])
 
-  const loadSettings = useCallback(async (key?: string) => {
-    const keyToUse = key || apiKey
-    if (!keyToUse || keyToUse.length < 10) {
+  const loadSettings = useCallback(async (email?: string) => {
+    const emailToUse = email || userProfile?.email
+    if (!emailToUse) {
       setPromptInput(userPrompt || "")
       setTzInput(defaultTimezone || "")
       return
     }
     try {
-      const res = await fetch(`/api/kv/settings?apiKey=${encodeURIComponent(keyToUse)}`)
+      const res = await fetch(`/api/kv/settings?email=${encodeURIComponent(emailToUse)}`)
       const data = await res.json() as { settings?: { userPrompt?: string; defaultTimezone?: string } }
       if (data.settings) {
         setPromptInput(data.settings.userPrompt || "")
@@ -73,13 +73,13 @@ export default function SettingsDialog({ open, onClose, canClose = true }: Setti
       setPromptInput(userPrompt || "")
       setTzInput(defaultTimezone || "")
     }
-  }, [apiKey, userPrompt, defaultTimezone, setUserPrompt, setDefaultTimezone])
+  }, [userProfile?.email, userPrompt, defaultTimezone, setUserPrompt, setDefaultTimezone])
 
   useEffect(() => {
-    if (apiKey && open) {
+    if (userProfile?.email && open) {
       loadSettings()
     }
-  }, [apiKey, open, loadSettings])
+  }, [userProfile?.email, open, loadSettings])
 
   const handleSaveSettings = async () => {
     if (!apiKeyInput || apiKeyInput.length < 10) {
@@ -96,7 +96,20 @@ export default function SettingsDialog({ open, onClose, canClose = true }: Setti
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ apiKey: apiKeyInput })
         })
-        const data = await res.json() as { valid: boolean; error?: string; user?: { id: string; email: string; name: string; profilePicture?: string } }
+        const data = await res.json() as { 
+          valid: boolean; 
+          error?: string; 
+          user?: { 
+            id: string; 
+            email: string; 
+            name: string; 
+            profilePicture?: string;
+            activeWorkspace?: string;
+            settings?: {
+              timeZone?: string;
+            }
+          } 
+        }
         if (!data.valid) {
           setToast({ type: "error", message: data.error || "Invalid API key" })
           setIsLoading(false)
@@ -111,15 +124,30 @@ export default function SettingsDialog({ open, onClose, canClose = true }: Setti
             id: data.user.id,
             email: data.user.email,
             name: data.user.name,
-            profilePicture: data.user.profilePicture
+            profilePicture: data.user.profilePicture,
+            activeWorkspace: data.user.activeWorkspace
           })
+          
+          // Set default timezone from Clockify account settings
+          if (data.user.settings?.timeZone) {
+            const clockifyTz = data.user.settings.timeZone
+            if (!defaultTimezone) {
+              setDefaultTimezone(clockifyTz)
+            }
+            // Always pre-fill the input with Clockify timezone if not already set
+            if (!tzInput) {
+              setTzInput(clockifyTz)
+            }
+          }
         }
 
-        await loadSettings(apiKeyInput)
-
-        // Show welcome popup (settings will auto-close via parent useEffect)
-        setWelcomeName(data.user?.name || "User")
-        setShowWelcome(true)
+        if (data.user) {
+          await loadSettings(data.user.email)
+          
+          // Show welcome popup (settings will auto-close via parent useEffect)
+          setWelcomeName(data.user.name || "User")
+          setShowWelcome(true)
+        }
       } else {
         // Step 2: Save settings if already validated
         const tz = tzInput || (Intl && new Intl.DateTimeFormat().resolvedOptions().timeZone) || "UTC"
@@ -128,7 +156,7 @@ export default function SettingsDialog({ open, onClose, canClose = true }: Setti
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            apiKey: apiKeyInput,
+            email: userProfile?.email,
             userPrompt: promptInput,
             defaultTimezone: tz
           })

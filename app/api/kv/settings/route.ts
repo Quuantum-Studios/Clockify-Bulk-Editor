@@ -3,7 +3,7 @@ import { getCloudflareContext } from "@opennextjs/cloudflare"
 import { z } from "zod"
 
 const settingsSchema = z.object({
-  apiKey: z.string().min(10),
+  email: z.string().email(),
   userPrompt: z.string().optional(),
   defaultTimezone: z.string().optional(),
 })
@@ -12,10 +12,10 @@ const settingsSchema = z.object({
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
-    const apiKey = searchParams.get("apiKey")
+    const email = searchParams.get("email")
     
-    if (!apiKey || apiKey.length < 10) {
-      return NextResponse.json({ error: "Invalid API key" }, { status: 400 })
+    if (!email || !email.includes("@")) {
+      return NextResponse.json({ error: "Invalid email" }, { status: 400 })
     }
 
     const { env } = getCloudflareContext()
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "KV not available" }, { status: 500 })
     }
 
-    const key = `settings:${apiKey}`
+    const key = `settings:${email}`
     const settings = await env.KV.get(key, "json")
     
     return NextResponse.json({ settings: settings || {} })
@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
 // Save user settings to KV
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json() as { apiKey: string; userPrompt?: string; defaultTimezone?: string }
+    const body = await req.json() as { email: string; userPrompt?: string; defaultTimezone?: string }
     settingsSchema.parse(body)
     
     const { env } = getCloudflareContext()
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "KV not available" }, { status: 500 })
     }
 
-    const key = `settings:${body.apiKey}`
+    const key = `settings:${body.email}`
     const settings = {
       userPrompt: body.userPrompt || "",
       defaultTimezone: body.defaultTimezone || "UTC",

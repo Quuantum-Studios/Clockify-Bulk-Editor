@@ -22,6 +22,7 @@ export type UserProfile = {
   email: string
   name: string
   profilePicture?: string
+  activeWorkspace?: string
 }
 
 type State = {
