@@ -24,6 +24,13 @@ export default function AppNavLayout({ children }: { children: React.ReactNode }
     }
   }, [])
 
+  // Auto-close settings when API key is set
+  useEffect(() => {
+    if (apiKey && settingsOpen) {
+      setSettingsOpen(false)
+    }
+  }, [apiKey])
+
   useEffect(() => { 
     if (mounted) {
       document.documentElement.classList.toggle("dark", theme === "dark")
