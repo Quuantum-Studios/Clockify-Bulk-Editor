@@ -1,4 +1,4 @@
-# Clockify Manager
+# ClockifyManager
 
 A Next.js application for bulk editing Clockify time entries, built with OpenNext.js for Cloudflare Workers deployment.
 
@@ -46,7 +46,7 @@ wrangler login
 
 The following environment variables are configured in `wrangler.toml`:
 
-- `NEXT_PUBLIC_APP_NAME`: Application name (default: "Clockify Manager")
+- `NEXT_PUBLIC_APP_NAME`: Application name (default: "ClockifyManager")
 - `NEXT_PUBLIC_API_URL`: API URL for the deployed worker
 
 ### Deployment Commands

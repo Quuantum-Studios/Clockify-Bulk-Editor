@@ -1,11 +1,12 @@
 "use client"
-import { Sun, Moon, Settings } from "lucide-react"
+import { Sun, Moon, Settings, Clock } from "lucide-react"
 import { useState, useEffect } from "react"
 import SettingsDialog from "./SettingsDialog"
-import MagicButton from "./MagicButton"
 import { useClockifyStore } from "../lib/store"
+import Link from "next/link"
+import Image from "next/image"
 
-const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "Clockify Manager"
+const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "ClockifyManager"
 
 export default function AppNavLayout({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState("light")
@@ -17,7 +18,7 @@ export default function AppNavLayout({ children }: { children: React.ReactNode }
     setMounted(true)
     const savedTheme = window.localStorage.getItem("theme") || "light"
     setTheme(savedTheme)
-    
+
     // Auto-open settings if no API key
     if (!apiKey) {
       setSettingsOpen(true)
@@ -31,7 +32,7 @@ export default function AppNavLayout({ children }: { children: React.ReactNode }
     }
   }, [apiKey])
 
-  useEffect(() => { 
+  useEffect(() => {
     if (mounted) {
       document.documentElement.classList.toggle("dark", theme === "dark")
       window.localStorage.setItem("theme", theme)
@@ -48,15 +49,24 @@ export default function AppNavLayout({ children }: { children: React.ReactNode }
     <div className={"min-h-screen flex flex-col bg-background text-foreground " + (theme === 'dark' ? 'dark' : '')}>
       {/* Top navbar */}
       <header className="w-full flex items-center justify-between px-6 py-4 border-b border-border bg-card shadow-sm">
-        <div className="font-bold text-xl text-primary">{APP_NAME}</div>
+        <Link href="/">
+          <div className="flex items-center">
+            <Clock className="h-8 w-8 text-primary" />
+            <span className="ml-2 text-xl font-bold text-gray-900 dark:text-white">{APP_NAME}</span>
+          </div>
+          {/* <div className="font-bold text-xl text-primary">{APP_NAME}</div> */}
+        </Link>
         <div className="flex items-center gap-3">
           {userProfile && (
             <div className="flex items-center gap-2 px-3 py-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800">
               {userProfile.profilePicture && (
-                <img 
-                  src={userProfile.profilePicture} 
+                <Image
+                  src={userProfile.profilePicture}
                   alt={userProfile.name}
+                  width={24}
+                  height={24}
                   className="w-6 h-6 rounded-full"
+                  priority
                 />
               )}
               <div className="text-sm">
@@ -88,10 +98,10 @@ export default function AppNavLayout({ children }: { children: React.ReactNode }
       {/* <div className="fixed bottom-6 right-6 z-50">
       <MagicButton />
       </div> */}
-      
+
       {/* Settings Dialog */}
-      <SettingsDialog 
-        open={settingsOpen} 
+      <SettingsDialog
+        open={settingsOpen}
         onClose={handleCloseSettings}
         canClose={!!apiKey}
       />

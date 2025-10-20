@@ -1,8 +1,11 @@
 "use client"
 import { Button } from "../components/ui/button"
-import { CheckCircle, Clock, Upload, Zap, Star, ArrowRight, Shield, BarChart3, Sun, Moon } from "lucide-react"
+import { CheckCircle, Clock, Upload, Zap, Star, ArrowRight, Shield, BarChart3, Sun, Moon, Bot, Sparkles, Wand2 } from "lucide-react"
+import Image from "next/image"
 import Link from "next/link"
 import { useState, useEffect } from "react"
+
+const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "ClockifyManager"
 
 export default function Home() {
   const [theme, setTheme] = useState("light")
@@ -31,8 +34,8 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <Clock className="h-8 w-8 text-blue-600" />
-              <span className="ml-2 text-xl font-bold text-gray-900 dark:text-white">ClockifyPro</span>
+              <Clock className="h-8 w-8 text-primary" />
+              <span className="ml-2 text-xl font-bold text-gray-900 dark:text-white">{APP_NAME}</span>
             </div>
             <div className="hidden md:block">
               <div className="ml-10 flex items-baseline space-x-4">
@@ -50,13 +53,8 @@ export default function Home() {
                 {mounted && theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
               </button>
               <Link href="/editor">
-                <Button variant="outline" className="hidden sm:inline-flex">
-                  Sign In
-                </Button>
-              </Link>
-              <Link href="/editor">
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white">
-                  Get Started Free
+                <Button className="bg-primary hover:opacity-90 text-primary-foreground">
+                  Open the Editor
                 </Button>
               </Link>
             </div>
@@ -67,38 +65,66 @@ export default function Home() {
       {/* Hero Section */}
       <section className="relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-20 pb-16">
-          <div className="text-center">
-            <h1 className="text-4xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6">
-              Stop Wasting Time on
-              <span className="text-blue-600"> Clockify Management</span>
-            </h1>
-            <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 mb-8 max-w-3xl mx-auto">
-              Bulk edit, upload, and manage your Clockify time entries in seconds. 
-              What used to take hours now takes minutes.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
-              <Link href="/editor">
-                <Button size="lg" className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 text-lg">
-                  Start Free Trial
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
-              </Link>
-              <Button variant="outline" size="lg" className="px-8 py-4 text-lg">
-                Watch Demo
-              </Button>
+          <div className="flex flex-col items-center text-center gap-8">
+            <div className="text-center">
+              <div className="flex flex-wrap gap-2 mb-4 justify-center">
+                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 text-primary text-sm font-medium">
+                  100% free for a limited time
+                </span>
+                <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-sm font-medium">
+                  <Sparkles className="h-4 w-4" /> AI-powered
+                </span>
+              </div>
+              <h1 className="text-4xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6">
+                Manage Clockify in bulk.
+                <span className="text-primary"> Faster.</span>
+              </h1>
+              <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 mb-8 max-w-2xl md:max-w-none mx-auto md:mx-0">
+                Bulk edit, upload, and clean up time entries, tags, tasks, and projects—now with AI assistance for faster categorization and cleanup.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-6">
+                <Link href="/editor">
+                  <Button size="lg" className="bg-primary hover:opacity-90 text-primary-foreground px-8 py-4 text-lg">
+                    Open the Editor
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Button>
+                </Link>
+              </div>
+              <div className="flex flex-col sm:flex-row justify-center items-center gap-6 text-sm text-gray-500 dark:text-gray-400">
+                <div className="flex items-center">
+                  <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                  No signup/signin needed
+                </div>
+                <div className="flex items-center">
+                  <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                  Setup in 2 minutes
+                </div>
+                <div className="flex items-center">
+                  <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                  Secure, key-based access
+                </div>
+              </div>
             </div>
-            <div className="flex items-center justify-center space-x-8 text-sm text-gray-500 dark:text-gray-400">
-              <div className="flex items-center">
-                <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                No credit card required
-              </div>
-              <div className="flex items-center">
-                <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                Setup in 2 minutes
-              </div>
-              <div className="flex items-center">
-                <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                Cancel anytime
+            <div className="relative w-full">
+              <div className="absolute -inset-4 -z-10 bg-gradient-to-tr from-primary/20 to-transparent blur-2xl rounded-3xl" />
+              <div className="mx-auto w-full max-w-5xl rounded-2xl shadow-2xl ring-1 ring-black/10 overflow-hidden bg-black/90">
+                {/* <div className="h-10 bg-white/5 border-b border-white/10 flex items-center gap-2 px-4">
+                  <span className="h-3 w-3 rounded-full bg-red-500/80" />
+                  <span className="h-3 w-3 rounded-full bg-yellow-500/80" />
+                  <span className="h-3 w-3 rounded-full bg-green-500/80" />
+                  <span className="ml-3 text-xs text-white/60">{APP_NAME}</span>
+                </div> */}
+                <div className="relative">
+                  <Image
+                    src="/clockify-manager-hero.png"
+                    alt={APP_NAME + " screenshot"}
+                    width={1600}
+                    height={900}
+                    className="w-full object-cover"
+                    priority
+                  />
+                  <div className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-slate-50 dark:from-slate-900 to-transparent" />
+                </div>
               </div>
             </div>
           </div>
@@ -125,23 +151,23 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
-              Everything you need to manage Clockify efficiently
+              The fastest way to fix and manage Clockify at scale
             </h2>
             <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-              Powerful features designed to save you hours every week
+              Built for ops, admins, and teams who need bulk actions without the busywork
             </p>
           </div>
           
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
             <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700">
-              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center mb-4">
-                <Upload className="h-6 w-6 text-blue-600" />
+              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center mb-4">
+                <Upload className="h-6 w-6 text-primary" />
               </div>
               <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                Bulk Upload
+                Bulk CSV Upload
               </h3>
               <p className="text-gray-600 dark:text-gray-300">
-                Upload hundreds of time entries at once via CSV. Perfect for migrating data or bulk corrections.
+                Import hundreds of time entries via CSV with instant validation and preview.
               </p>
             </div>
 
@@ -162,10 +188,34 @@ export default function Home() {
                 <BarChart3 className="h-6 w-6 text-purple-600" />
               </div>
               <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                Smart Analytics
+                Tags, Tasks & Cleanup
               </h3>
               <p className="text-gray-600 dark:text-gray-300">
-                Get insights into your time tracking patterns and identify areas for improvement.
+                Create or bulk-delete tasks and tags, and quickly clean messy data.
+              </p>
+            </div>
+
+            <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700">
+              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center mb-4">
+                <Bot className="h-6 w-6 text-blue-600" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                AI Tag Suggestions
+              </h3>
+              <p className="text-gray-600 dark:text-gray-300">
+                Let AI suggest tags and tasks from entry descriptions to speed up organization.
+              </p>
+            </div>
+
+            <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700">
+              <div className="w-12 h-12 bg-amber-100 dark:bg-amber-900 rounded-lg flex items-center justify-center mb-4">
+                <Wand2 className="h-6 w-6 text-amber-600" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                AI Cleanup & Autofix
+              </h3>
+              <p className="text-gray-600 dark:text-gray-300">
+                Detect duplicates, normalize text, and auto-correct common inconsistencies with one click.
               </p>
             </div>
 
@@ -174,10 +224,10 @@ export default function Home() {
                 <Shield className="h-6 w-6 text-orange-600" />
               </div>
               <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                Enterprise Security
+                Safe by Design
               </h3>
               <p className="text-gray-600 dark:text-gray-300">
-                Bank-level security with encrypted data transmission and secure API integration.
+                Your API key stays on-device storage. Encrypted requests with rate-limit friendly retries.
               </p>
             </div>
           </div>
@@ -189,11 +239,9 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
-              Loved by teams worldwide
+              Loved by busy teams
             </h2>
-            <p className="text-xl text-gray-600 dark:text-gray-300">
-              See what our users are saying
-            </p>
+            <p className="text-xl text-gray-600 dark:text-gray-300">Real results from real workflows</p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
@@ -268,7 +316,7 @@ export default function Home() {
               Frequently Asked Questions
             </h2>
             <p className="text-xl text-gray-600 dark:text-gray-300">
-              Everything you need to know about ClockifyPro
+              Everything you need to know about {APP_NAME}
             </p>
           </div>
 
@@ -293,10 +341,10 @@ export default function Home() {
 
             <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                Can I try it before purchasing?
+                Is it really free?
               </h3>
               <p className="text-gray-600 dark:text-gray-300">
-                Yes! We offer a 14-day free trial with full access to all features. No credit card required to get started. You can cancel anytime during the trial period.
+                Yes—{APP_NAME} is 100% free for a limited time. No signup or credit card required.
               </p>
             </div>
 
@@ -322,28 +370,24 @@ export default function Home() {
       </section>
 
       {/* Final CTA Section */}
-      <section className="py-20 bg-blue-600 dark:bg-blue-700">
+      <section className="py-20 bg-primary">
         <div className="max-w-4xl mx-auto text-center px-4 sm:px-6 lg:px-8">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-            Ready to transform your time tracking workflow?
+            Ready to fix Clockify in minutes, not hours?
           </h2>
-          <p className="text-xl text-blue-100 mb-8 max-w-2xl mx-auto">
-            Join thousands of teams who&apos;ve already saved hundreds of hours with ClockifyPro. 
-            Start your free trial today.
+          <p className="text-xl text-white/80 mb-8 max-w-2xl mx-auto">
+            Open the editor now—no signup. 100% free for a limited time.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <Link href="/editor">
-              <Button size="lg" className="bg-white text-blue-600 hover:bg-gray-100 px-8 py-4 text-lg">
-                Start Free Trial
+              <Button size="lg" className="bg-white text-primary hover:bg-gray-100 px-8 py-4 text-lg">
+                Open the Editor
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </Link>
-            <Button variant="outline" size="lg" className="border-white text-white hover:bg-white hover:text-blue-600 px-8 py-4 text-lg">
-              Schedule Demo
-            </Button>
           </div>
-          <p className="text-blue-100 text-sm mt-4">
-            No credit card required • 14-day free trial • Cancel anytime
+          <p className="text-white/80 text-sm mt-4">
+            No signup/signin needed
           </p>
         </div>
       </section>
@@ -354,8 +398,8 @@ export default function Home() {
           <div className="grid md:grid-cols-4 gap-8">
             <div>
               <div className="flex items-center mb-4">
-                <Clock className="h-8 w-8 text-blue-400" />
-                <span className="ml-2 text-xl font-bold">ClockifyPro</span>
+                <Clock className="h-8 w-8 text-primary" />
+                <span className="ml-2 text-xl font-bold">{APP_NAME}</span>
               </div>
               <p className="text-gray-400">
                 The ultimate tool for efficient Clockify management.
@@ -387,7 +431,7 @@ export default function Home() {
             </div>
           </div>
           <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; 2024 ClockifyPro. All rights reserved.</p>
+            <p>&copy; 2024 {APP_NAME}. All rights reserved.</p>
           </div>
         </div>
       </footer>

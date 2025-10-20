@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
+const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "ClockifyManager"
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -13,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ClockifyPro - Bulk Edit Your Clockify Data",
-  description: "Stop wasting time on Clockify management. Bulk edit, upload, and manage your time entries in seconds.",
+  title: APP_NAME + " — Bulk edit, upload, and clean Clockify faster",
+  description: "Bulk edit, upload, and clean up time entries, tags, tasks, and projects—no signup needed. 100% free for a limited time.",
 };
 
 export default function RootLayout({

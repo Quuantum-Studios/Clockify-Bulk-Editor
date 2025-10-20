@@ -4,7 +4,7 @@ compatibility_date = "2025-03-25"
 compatibility_flags = ["nodejs_compat"]
 
 [vars]
-NEXT_PUBLIC_APP_NAME = "Clockify Manager"
+NEXT_PUBLIC_APP_NAME = "ClockifyManager"
 NEXT_PUBLIC_API_URL = "https://clockify-manager.quuantum.com"
 
 [assets]

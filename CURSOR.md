@@ -1,4 +1,4 @@
-# Clockify Manager – Next.js + shadcn/ui App (Cursor Prompts)
+# ClockifyManager – Next.js + shadcn/ui App (Cursor Prompts)
 
 This document contains step-by-step prompts to scaffold a Next.js dashboard for bulk-editing Clockify time entries, including automatic task creation.
 
@@ -91,6 +91,6 @@ Include optimistic UI updates for inline edits and newly created tasks.
 ```
 - Add loading skeletons and toast notifications
 - Add dark/light mode toggle
-- Set environment variable NEXT_PUBLIC_APP_NAME="Clockify Manager"
+- Set environment variable NEXT_PUBLIC_APP_NAME="ClockifyManager"
 - Configure Vercel deployment with NEXT_PUBLIC_API_URL
 ```
