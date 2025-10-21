@@ -15,6 +15,7 @@
     "@google/generative-ai": "^0.24.1",
     "@opennextjs/cloudflare": "^1.10.1",
     "@radix-ui/react-slot": "^1.2.3",
+    "@sentry/nextjs": "^10.20.0",
     "assemblyai": "^4.17.0",
     "audiomotion-analyzer": "^4.5.1",
     "axios": "^1.12.2",
