@@ -1,6 +1,6 @@
 "use client"
 import { Button } from "../components/ui/button"
-import { CheckCircle, Clock, Upload, Zap, Star, ArrowRight, Shield, BarChart3, Sun, Moon, Bot, Sparkles, Wand2 } from "lucide-react"
+import { CheckCircle, Clock, Upload, Zap, Star, ArrowRight, Shield, BarChart3, Sun, Moon, Bot, Sparkles, Wand2, MicVocal } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
 import { useState, useEffect } from "react"
@@ -97,7 +97,7 @@ export default function Home() {
                 </div>
                 <div className="flex items-center">
                   <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                  Setup in 2 minutes
+                  Setup in 30 seconds
                 </div>
                 <div className="flex items-center">
                   <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
@@ -151,7 +151,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
-              The fastest way to fix and manage Clockify at scale
+              The fastest way to manage your Clockify data at scale
             </h2>
             <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
               Built for ops, admins, and teams who need bulk actions without the busywork
@@ -171,7 +171,7 @@ export default function Home() {
               </p>
             </div>
 
-            <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700">
+            {/* <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700">
               <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center mb-4">
                 <Zap className="h-6 w-6 text-green-600" />
               </div>
@@ -180,6 +180,18 @@ export default function Home() {
               </h3>
               <p className="text-gray-600 dark:text-gray-300">
                 Edit multiple entries simultaneously with our intuitive table interface. Save hours of manual work.
+              </p>
+            </div> */}
+
+            <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700">
+              <div className="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center mb-4">
+                <MicVocal className="h-6 w-6 text-green-600" />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                Speech to Entry
+              </h3>
+              <p className="text-gray-600 dark:text-gray-300">
+                Automatically add time entries by speaking into your microphone.
               </p>
             </div>
 
@@ -335,7 +347,7 @@ export default function Home() {
                 Is my data secure?
               </h3>
               <p className="text-gray-600 dark:text-gray-300">
-                Absolutely. We use enterprise-grade encryption for all data transmission and storage. Your API keys are encrypted and never stored in plain text. We&apos;re SOC 2 compliant and follow industry best practices.
+                Absolutely. We use enterprise-grade encryption for all data transmission and storage. Your API keys are stored on-device in your browser. We follow industry best practices.
               </p>
             </div>
 
@@ -393,45 +405,45 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-900 dark:bg-slate-950 text-white py-12">
+      <footer className="bg-gray-900 dark:bg-slate-950 text-white py-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid md:grid-cols-4 gap-8">
-            <div>
-              <div className="flex items-center mb-4">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-8">
+
+            {/* Logo & Description */}
+            <div className="text-center md:text-left max-w-md">
+              <div className="flex items-center justify-center md:justify-start mb-3">
                 <Clock className="h-8 w-8 text-primary" />
-                <span className="ml-2 text-xl font-bold">{APP_NAME}</span>
+                <span className="ml-2 text-2xl font-extrabold tracking-tight">
+                  {APP_NAME}
+                </span>
               </div>
-              <p className="text-gray-400">
-                The ultimate tool for efficient Clockify management.
+              <p className="text-gray-400 text-sm md:text-base leading-relaxed">
+                {APP_NAME} helps teams manage Clockify data up to 10x faster.
               </p>
             </div>
-            <div>
-              <h3 className="font-semibold mb-4">Product</h3>
-              <ul className="space-y-2 text-gray-400">
-                <li><a href="#features" className="hover:text-white">Features</a></li>
-                <li><a href="#" className="hover:text-white">Pricing</a></li>
-                <li><a href="#" className="hover:text-white">API</a></li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="font-semibold mb-4">Support</h3>
-              <ul className="space-y-2 text-gray-400">
-                <li><a href="#" className="hover:text-white">Documentation</a></li>
-                <li><a href="#" className="hover:text-white">Help Center</a></li>
-                <li><a href="#" className="hover:text-white">Contact</a></li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="font-semibold mb-4">Company</h3>
-              <ul className="space-y-2 text-gray-400">
-                <li><a href="#" className="hover:text-white">About</a></li>
-                <li><a href="#" className="hover:text-white">Privacy</a></li>
-                <li><a href="#" className="hover:text-white">Terms</a></li>
-              </ul>
-            </div>
+
+            {/* Links */}
+            <ul className="flex flex-wrap items-center justify-center gap-6 text-gray-400 text-sm">
+              <li>
+                <Link href="mailto:support.clockifymanager@quuantum.com" className="hover:text-primary transition">
+                  Contact
+                </Link>
+              </li>
+              <li>
+                <Link href="/privacy" className="hover:text-primary transition">
+                  Privacy
+                </Link>
+              </li>
+              <li>
+                <Link href="/terms" className="hover:text-primary transition">
+                  Terms
+                </Link>
+              </li>
+            </ul>
           </div>
-          <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; 2024 {APP_NAME}. All rights reserved.</p>
+
+          <div className="border-t border-gray-800 mt-8 pt-6 text-center text-gray-500 text-sm">
+            <p>&copy; {new Date().getFullYear()} {APP_NAME}. All rights reserved.</p>
           </div>
         </div>
       </footer>
