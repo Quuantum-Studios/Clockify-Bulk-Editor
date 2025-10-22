@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { GoogleAnalytics } from '@next/third-parties/google';
 
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "ClockifyManager"
 
@@ -31,6 +32,7 @@ export default function RootLayout({
       >
         {children}
       </body>
+      <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID || ''} />
     </html>
   );
 }
