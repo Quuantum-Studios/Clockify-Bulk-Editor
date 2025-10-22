@@ -7,6 +7,7 @@ import { Button } from "./ui/button"
 import { Toast } from "./ui/toast"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog"
 import { useClockifyStore } from "../lib/store"
+import { capture, identify, AnalyticsEvents } from "../lib/analytics"
 import WelcomeDialog from "./WelcomeDialog"
 
 interface SettingsDialogProps {
@@ -127,6 +128,9 @@ export default function SettingsDialog({ open, onClose, canClose = true }: Setti
             profilePicture: data.user.profilePicture,
             activeWorkspace: data.user.activeWorkspace
           })
+          // Identify user in analytics and capture validation event
+          identify(data.user.id, { email: data.user.email, name: data.user.name })
+          capture(AnalyticsEvents.API_KEY_VALIDATED, { hasActiveWorkspace: !!data.user.activeWorkspace })
           
           // Set default timezone from Clockify account settings
           if (data.user.settings?.timeZone) {
@@ -165,6 +169,7 @@ export default function SettingsDialog({ open, onClose, canClose = true }: Setti
         setUserPrompt(promptInput || "")
         setDefaultTimezone(tz)
         setToast({ type: "success", message: "Settings saved successfully" })
+        capture(AnalyticsEvents.SETTINGS_SAVED, { tzSet: !!tz, hasPrompt: !!promptInput })
 
         setTimeout(() => {
           onClose()

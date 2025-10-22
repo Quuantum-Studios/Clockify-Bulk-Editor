@@ -5,6 +5,7 @@ import { Sheet } from "./ui/sheet"
 import { Button } from "./ui/button"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "./ui/table"
 import { Toast } from "./ui/toast"
+import { capture, AnalyticsEvents } from "../lib/analytics"
 
 interface BulkUploadDialogProps {
   open: boolean
@@ -74,6 +75,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
       return
     }
     setFileName(file.name)
+    capture(AnalyticsEvents.BULK_UPLOAD_STARTED, { source: 'file', name: file.name, size: file.size })
     setParsing(true)
     Papa.parse(file, {
       header: true,
@@ -128,6 +130,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
         const data = await res.json() as { error?: string }
         if (res.ok) {
           setToast({ type: "success", message: "Bulk upload successful" })
+          capture(AnalyticsEvents.BULK_UPLOAD_SUCCESS, { count: normalized.length })
           setRows([])
           onSuccess()
         } else {
@@ -209,6 +212,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
       for (const p of existing) map[p.name.toLowerCase().trim()] = p.id
       setProjectsMap(map)
       setProjectCheck({ existing, missing: data.missing || [] })
+      capture(AnalyticsEvents.VERIFY_PROJECTS, { existingCount: existing.length, missingCount: (data.missing || []).length })
       return data
     } catch (e) {
       console.error('[BulkUploadDialog] verifyProjects: caught', e)
@@ -245,6 +249,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
         throw new Error(data.error || 'Task check failed')
       }
       setTaskCheck(prev => ({ ...prev, [projectNameOrId]: { existing: (data.existing || []).map((t: { id: string; name: string }) => t.name), missing: data.missing || [] } }))
+      capture(AnalyticsEvents.VERIFY_TASKS, { projectKey: projectNameOrId, existingCount: (data.existing || []).length, missingCount: (data.missing || []).length })
       return data
     } catch (e) {
       console.error('[BulkUploadDialog] verifyTasksForProject: caught', e)
@@ -296,6 +301,8 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
       await createTasksForProject(projectId, projectKey)
     }
     if (skipped.length) throw new Error(`Could not resolve project IDs for: ${skipped.join(', ')}`)
+    const totalCreated = Object.values(taskCheck).reduce((acc, v) => acc + ((v.missing || []).length), 0)
+    capture(AnalyticsEvents.CREATE_MISSING_TASKS, { totalCreated })
   }
 
   const refreshAllTasks = async () => {
@@ -322,6 +329,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
         throw new Error(data.error || 'Tag check failed')
       }
       setTagCheck({ existing: (data.existing || []).map((t: { id: string; name: string }) => t.name), missing: data.missing || [] })
+      capture(AnalyticsEvents.VERIFY_TAGS, { existingCount: (data.existing || []).length, missingCount: (data.missing || []).length })
       return data
     } catch (e) {
       console.error('[BulkUploadDialog] verifyTags: caught', e)
@@ -338,6 +346,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
     const data = await res.json() as { error?: string }
     if (!res.ok) throw new Error(data.error || 'Tag create failed')
     await verifyTags()
+    capture(AnalyticsEvents.CREATE_MISSING_TAGS, { createdCount: missing.length })
     return data
   }
 

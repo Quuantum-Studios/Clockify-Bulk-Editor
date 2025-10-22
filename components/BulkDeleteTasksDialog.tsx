@@ -6,6 +6,7 @@ import { Toast } from "./ui/toast"
 import { ClockifyAPI } from "../lib/clockify"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "./ui/table"
 import { Skeleton } from "./ui/skeleton"
+import { capture, AnalyticsEvents } from "../lib/analytics"
 
 interface BulkDeleteTasksDialogProps {
   open: boolean
@@ -58,6 +59,7 @@ export function BulkDeleteTasksDialog({ open, onClose, workspaceId, apiKey, proj
       const data = await res.json() as { error?: string }
       if (res.ok) {
         setToast({ type: "success", message: "Tasks deleted successfully." })
+        capture(AnalyticsEvents.BULK_DELETE_TASKS, { count: selectedTasks.size })
         setSelectedTasks(new Set())
         onSuccess()
         onClose()

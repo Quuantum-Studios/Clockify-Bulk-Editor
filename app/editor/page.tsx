@@ -13,6 +13,7 @@ import { Skeleton } from "../../components/ui/skeleton"
 import { Toast } from "../../components/ui/toast"
 import { Input } from "../../components/ui/input"
 import { Save, RotateCcw, Trash2, XCircle, Calendar, DollarSign } from "lucide-react"
+import { capture, identify, AnalyticsEvents } from "../../lib/analytics"
 
 import { ClockifyAPI } from "../../lib/clockify"
 import type { Task, TimeEntry } from "../../lib/store"
@@ -146,12 +147,16 @@ export default function AppPage() {
 
   // NOTE: removed global overlay loader; using inline spinners per-control instead
   useEffect(() => {
+      capture(AnalyticsEvents.APP_OPEN, { page: "editor" })
     if (!apiKey) return;
     fetch(`/api/proxy/user?apiKey=${apiKey}`)
       .then(r => r.json())
       .then((data: unknown) => {
-        const userData = data as { id?: string }
-        if (userData && userData.id) setUserId(userData.id)
+        const userData = data as { id?: string; email?: string; name?: string }
+        if (userData && userData.id) {
+          setUserId(userData.id)
+          identify(userData.id, { email: userData.email, name: userData.name })
+        }
         else setUserId("")
       })
       .catch(() => setUserId(""))

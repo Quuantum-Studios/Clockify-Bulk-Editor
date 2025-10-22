@@ -3,15 +3,9 @@
 // https://docs.sentry.io/platforms/javascript/guides/nextjs/
 
 import * as Sentry from "@sentry/nextjs";
-import posthog from "posthog-js"
+import { initAnalytics } from "./lib/analytics";
 
-posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY!, {
-  api_host: "/ingest",
-  ui_host: "https://us.posthog.com",
-  defaults: '2025-05-24',
-  capture_exceptions: true, // This enables capturing exceptions using Error Tracking, set to false if you don't want this
-  debug: process.env.NODE_ENV === "development",
-});
+initAnalytics();
 
 Sentry.init({
     dsn: "https://d5598e6c4fa3771c64711008899328e3@o4510228070268928.ingest.us.sentry.io/4510228072955905",
