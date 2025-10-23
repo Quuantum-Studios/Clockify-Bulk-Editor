@@ -1,0 +1,15 @@
+# Exclude large directories that aren't needed for the worker
+.open-next/server-functions/
+.open-next/.build/
+.open-next/cache/
+.open-next/dynamodb-provider/
+.open-next/middleware/
+.open-next/cloudflare-templates/
+node_modules/
+.next/
+*.log
+*.tmp
+.git/
+.gitignore
+README.md
+*.md
