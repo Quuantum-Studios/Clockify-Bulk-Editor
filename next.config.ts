@@ -22,7 +22,7 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ['lucide-react', 'date-fns', 'react-date-range', 'papaparse', 'audiomotion-analyzer'],
   },
-  serverExternalPackages: ['@google/generative-ai', 'assemblyai', 'posthog-node'],
+  serverExternalPackages: ['@google/generative-ai', 'assemblyai', 'posthog-node', '@sentry/nextjs', 'axios', 'axios-logger'],
   webpack: (config, { isServer, webpack }) => {
     // Optimize bundle size
     config.optimization = {
@@ -65,6 +65,9 @@ const nextConfig: NextConfig = {
         '@google/generative-ai': 'commonjs @google/generative-ai',
         'assemblyai': 'commonjs assemblyai',
         'posthog-node': 'commonjs posthog-node',
+        '@sentry/nextjs': 'commonjs @sentry/nextjs',
+        'axios': 'commonjs axios',
+        'axios-logger': 'commonjs axios-logger',
       });
     }
     
@@ -74,6 +77,7 @@ const nextConfig: NextConfig = {
 
 const withBundleAnalyzerConfig = withBundleAnalyzer({
   enabled: process.env.ANALYZE === 'true',
+  openAnalyzer: false
 });
 
 export default withBundleAnalyzerConfig(
@@ -84,6 +88,8 @@ export default withBundleAnalyzerConfig(
     org: process.env.SENTRY_ORG || "",
 
     project: process.env.SENTRY_PROJECT || "",
+
+    authToken: process.env.SENTRY_AUTH_TOKEN || undefined,
 
     // Only print logs for uploading source maps in CI
     silent: !process.env.CI,
