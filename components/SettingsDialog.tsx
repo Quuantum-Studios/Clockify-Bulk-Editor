@@ -97,19 +97,19 @@ export default function SettingsDialog({ open, onClose, canClose = true }: Setti
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ apiKey: apiKeyInput })
         })
-        const data = await res.json() as { 
-          valid: boolean; 
-          error?: string; 
-          user?: { 
-            id: string; 
-            email: string; 
-            name: string; 
+        const data = await res.json() as {
+          valid: boolean;
+          error?: string;
+          user?: {
+            id: string;
+            email: string;
+            name: string;
             profilePicture?: string;
             activeWorkspace?: string;
             settings?: {
               timeZone?: string;
             }
-          } 
+          }
         }
         if (!data.valid) {
           setToast({ type: "error", message: data.error || "Invalid API key" })
@@ -131,7 +131,7 @@ export default function SettingsDialog({ open, onClose, canClose = true }: Setti
           // Identify user in analytics and capture validation event
           identify(data.user.id, { email: data.user.email, name: data.user.name })
           capture(AnalyticsEvents.API_KEY_VALIDATED, { hasActiveWorkspace: !!data.user.activeWorkspace })
-          
+
           // Set default timezone from Clockify account settings
           if (data.user.settings?.timeZone) {
             const clockifyTz = data.user.settings.timeZone
@@ -146,11 +146,11 @@ export default function SettingsDialog({ open, onClose, canClose = true }: Setti
         }
 
         if (data.user) {
-          await loadSettings(data.user.email)
-          
           // Show welcome popup (settings will auto-close via parent useEffect)
           setWelcomeName(data.user.name || "User")
           setShowWelcome(true)
+
+          await loadSettings(data.user.email)
         }
       } else {
         // Step 2: Save settings if already validated
@@ -257,19 +257,20 @@ export default function SettingsDialog({ open, onClose, canClose = true }: Setti
               </Button>
             </div>
           </div>
-
-          {toast && (
-            <Toast
-              open={!!toast}
-              onClose={() => setToast(null)}
-              duration={4000}
-              className={toast.type === "success" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}
-            >
-              {toast.message}
-            </Toast>
-          )}
         </DialogContent>
       </Dialog>
+
+      {toast && (
+        <Toast
+          open={!!toast}
+          onClose={() => setToast(null)}
+          duration={4000}
+          className={toast.type === "success" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}
+        >
+          {toast.message}
+        </Toast>
+      )}
+
       <WelcomeDialog
         open={showWelcome}
         userName={welcomeName}
