@@ -27,7 +27,13 @@ const nextConfig: NextConfig = {
     // Optimize bundle size
     config.optimization = {
       ...config.optimization,
-      splitChunks: {
+      usedExports: true,
+      sideEffects: false,
+    };
+
+    // Only apply chunk splitting for client-side builds
+    if (!isServer) {
+      config.optimization.splitChunks = {
         chunks: 'all',
         maxSize: 200000, // 200KB chunks
         cacheGroups: {
@@ -44,10 +50,8 @@ const nextConfig: NextConfig = {
             maxSize: 200000,
           },
         },
-      },
-      usedExports: true,
-      sideEffects: false,
-    };
+      };
+    }
 
     // Tree shaking optimization
     config.resolve = {
