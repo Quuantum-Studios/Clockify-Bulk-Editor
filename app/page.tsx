@@ -4,6 +4,7 @@ import { CheckCircle, Clock, Upload, Star, ArrowRight, Shield, BarChart3, Sun, M
 import Image from "next/image"
 import Link from "next/link"
 import { useState, useEffect } from "react"
+import { capture, AnalyticsEvents } from "../lib/analytics"
 
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "ClockifyManager"
 
@@ -13,6 +14,7 @@ export default function Home() {
 
   useEffect(() => {
     setMounted(true)
+      capture(AnalyticsEvents.APP_OPEN, { page: "home" })
     const savedTheme = window.localStorage.getItem("theme") || "light"
     setTheme(savedTheme)
   }, [])

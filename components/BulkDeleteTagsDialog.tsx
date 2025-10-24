@@ -20,6 +20,7 @@ import {
   TableCell,
 } from "./ui/table"
 import { Skeleton } from "./ui/skeleton"
+import { capture, AnalyticsEvents } from "../lib/analytics"
 
 interface BulkDeleteTagsDialogProps {
   open: boolean
@@ -100,6 +101,7 @@ export function BulkDeleteTagsDialog({
       const data = await res.json() as { error?: string }
       if (res.ok) {
         setToast({ type: "success", message: "Tags deleted successfully." })
+        capture(AnalyticsEvents.BULK_DELETE_TAGS, { count: selectedTags.size })
         setSelectedTags(new Set())
         onSuccess()
         onClose()
