@@ -1,6 +1,6 @@
 "use client"
 import { Sun, Moon, Settings, Clock } from "lucide-react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import SettingsDialog from "./SettingsDialog"
 import { useClockifyStore } from "../lib/store"
 import Link from "next/link"
@@ -13,24 +13,26 @@ export default function AppNavLayout({ children }: { children: React.ReactNode }
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const { apiKey, userProfile } = useClockifyStore()
+  const userOpenedSettings = useRef(false)
 
   useEffect(() => {
     setMounted(true)
     const savedTheme = window.localStorage.getItem("theme") || "light"
     setTheme(savedTheme)
-
-    // Auto-open settings if no API key
-    if (!apiKey) {
-      setSettingsOpen(true)
-    }
   }, [])
 
-  // Auto-close settings when API key is set
   useEffect(() => {
-    if (apiKey && settingsOpen) {
+    if (!apiKey && !userOpenedSettings.current) {
+      setSettingsOpen(true)
+    }
+  }, [apiKey]) 
+
+  // Auto-close settings when API key is set (but not if user manually opened it)
+  useEffect(() => {
+    if (apiKey && settingsOpen && !userOpenedSettings.current) {
       setSettingsOpen(false)
     }
-  }, [apiKey])
+  }, [apiKey, settingsOpen])
 
   useEffect(() => {
     if (mounted) {
@@ -40,6 +42,7 @@ export default function AppNavLayout({ children }: { children: React.ReactNode }
   }, [theme, mounted])
 
   const handleCloseSettings = () => {
+    userOpenedSettings.current = false
     if (apiKey) {
       setSettingsOpen(false)
     }
@@ -85,7 +88,10 @@ export default function AppNavLayout({ children }: { children: React.ReactNode }
           <button
             className="p-2 rounded-lg border border-gray-300 bg-white dark:bg-gray-800 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             aria-label="Settings"
-            onClick={() => setSettingsOpen(true)}
+            onClick={() => {
+              userOpenedSettings.current = true
+              setSettingsOpen(true)
+            }}
           >
             <Settings size={18} />
           </button>

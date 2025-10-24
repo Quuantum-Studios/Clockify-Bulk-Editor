@@ -12,7 +12,7 @@ export default function TermsPage() {
       </p>
       <ul className="list-disc pl-6 space-y-2 text-gray-600 dark:text-gray-300">
         <li>Use the app responsibly and comply with Clockify’s API terms.</li>
-        <li>The app is provided "as is" without warranties; use at your own risk.</li>
+        <li>The app is provided &quot;as is&quot; without warranties; use at your own risk.</li>
         <li>We may update features and these terms at any time.</li>
         <li>Contact: <a href="mailto:support.clockifymanager@quuantum.com" className="text-primary underline">support.clockifymanager@quuantum.com</a></li>
       </ul>
