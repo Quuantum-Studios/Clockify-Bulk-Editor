@@ -1,17 +1,85 @@
 main = ".open-next/worker.js"
 name = "clockify-manager"
-compatibility_date = "2025-03-25"
+compatibility_date = "2025-01-27"
 compatibility_flags = ["nodejs_compat"]
 
-[vars]
+# Production environment (default for CI/CD)
+[env.production]
+name = "clockify-manager"
+zone_id = "eab53d86a300310824b21c6693437a91"
+routes = [
+  { pattern = "clockify-manager.quuantum.com/*", zone_id = "eab53d86a300310824b21c6693437a91" }
+] 
+
+[env.production.vars]
 NEXT_PUBLIC_APP_NAME = "ClockifyManager"
 NEXT_PUBLIC_API_URL = "https://clockify-manager.quuantum.com"
 
+# AI Provider Configuration
+CHAT_AI_PROVIDER = "google"
+GEMINI_MODEL = "gemini-2.5-flash"
+
+# Required secrets (set via: wrangler secret put SECRET_NAME)
+# GEMINI_API_KEY
+# ASSEMBLYAI_API_KEY
+
+# Sentry (CDN-based)
+NEXT_PUBLIC_SENTRY_DSN = "https://d5598e6c4fa3771c64711008899328e3@o4510228070268928.ingest.us.sentry.io/4510228072955905"
+NEXT_PUBLIC_SENTRY_PROJECT_KEY = "d5598e6c4fa3771c64711008899328e3"
+SENTRY_DSN = "https://d5598e6c4fa3771c64711008899328e3@o4510228070268928.ingest.us.sentry.io/4510228072955905"
+
+# PostHog (CDN-based)
+NEXT_PUBLIC_POSTHOG_KEY = "phc_yfbRXcdT7ynC6TWIfPKBUX1x6jp9D6wAcSAKilpa3N0"
+NEXT_PUBLIC_POSTHOG_HOST = "https://us.i.posthog.com"
+
+# Google Analytics
+NEXT_PUBLIC_GOOGLE_ANALYTICS_ID = "G-V6PNZ9D46Y"
+
+[[env.production.kv_namespaces]]
+binding = "KV"
+id = "83a3c43ebc8f447f8e9f76dbbd400fca"
+
+# Assets binding
 [assets]
 directory = ".open-next/assets"
 binding = "ASSETS"
 
+# KV namespace (included in free tier)
 [[kv_namespaces]]
 binding = "KV"
 id = "83a3c43ebc8f447f8e9f76dbbd400fca"
 preview_id = "e0d674cb2180476e804c2e9a4ec0426e"
+
+# Staging environment
+[env.staging]
+name = "clockify-manager-staging"
+workers_dev = true
+
+[env.staging.vars]
+NEXT_PUBLIC_APP_NAME = "ClockifyManager (Staging)"
+NEXT_PUBLIC_API_URL = "https://staging.clockify-manager.quuantum.com"
+CHAT_AI_PROVIDER = "google"
+GEMINI_MODEL = "gemini-2.5-flash"
+
+# Required secrets (set via: wrangler secret put SECRET_NAME)
+# GEMINI_API_KEY
+# ASSEMBLYAI_API_KEY
+
+NEXT_PUBLIC_SENTRY_DSN = "https://d5598e6c4fa3771c64711008899328e3@o4510228070268928.ingest.us.sentry.io/4510228072955905"
+NEXT_PUBLIC_SENTRY_PROJECT_KEY = "d5598e6c4fa3771c64711008899328e3"
+SENTRY_DSN = "https://d5598e6c4fa3771c64711008899328e3@o4510228070268928.ingest.us.sentry.io/4510228072955905"
+NEXT_PUBLIC_POSTHOG_KEY = "phc_yfbRXcdT7ynC6TWIfPKBUX1x6jp9D6wAcSAKilpa3N0"
+NEXT_PUBLIC_POSTHOG_HOST = "https://us.i.posthog.com"
+NEXT_PUBLIC_GOOGLE_ANALYTICS_ID = "G-V6PNZ9D46Y"
+
+[[env.staging.kv_namespaces]]
+binding = "KV"
+id = "e0d674cb2180476e804c2e9a4ec0426e"
+
+# Performance optimizations
+[placement]
+mode = "smart"
+
+# Observability settings
+[observability]
+enabled = true

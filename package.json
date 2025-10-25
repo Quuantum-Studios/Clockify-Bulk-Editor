@@ -7,12 +7,24 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
-    "deploy": "opennextjs-cloudflare build && wrangler deploy --minify",
-    "analyze": "next build && next bundle-analyzer",
-    "analyze:watch": "next build && next bundle-analyzer --watch",
-    "analyze:server": "next build && next bundle-analyzer --server",
-    "deploy:test": "wrangler deploy --minify --dry-run",
+    
+    "build:cf": "opennextjs-cloudflare build",
+    "build:next": "next build",
+    
+    "preview": "npm run build:cf && opennextjs-cloudflare preview",
+    "preview:staging": "npm run build:cf && wrangler dev --env staging",
+    
+    "deploy": "npm run build:cf && wrangler deploy --env production --minify",
+    "deploy:staging": "npm run build:cf && wrangler deploy --env staging --minify",
+    "deploy:preview": "npm run build:cf && wrangler deploy --env staging --minify --dry-run",
+    
+    "deploy:quick": "wrangler deploy --env production --minify",
+    "deploy:staging:quick": "wrangler deploy --env staging --minify",
+    
+    "analyze": "npm run build:next && next bundle-analyzer",
+    "analyze:watch": "npm run build:next && next bundle-analyzer --watch",
+    "analyze:server": "npm run build:next && next bundle-analyzer --server",
+    
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
   },
   "dependencies": {
@@ -20,7 +32,6 @@
     "@next/third-parties": "^16.0.0",
     "@opennextjs/cloudflare": "^1.10.1",
     "@radix-ui/react-slot": "^1.2.3",
-    "@sentry/nextjs": "^10.20.0",
     "assemblyai": "^4.17.0",
     "audiomotion-analyzer": "^4.5.1",
     "axios": "^1.12.2",
@@ -31,8 +42,6 @@
     "lucide-react": "^0.544.0",
     "next": "15.5.4",
     "papaparse": "^5.5.3",
-    "posthog-js": "^1.279.3",
-    "posthog-node": "^5.10.2",
     "react": "19.1.0",
     "react-date-range": "^2.0.1",
     "react-dom": "19.1.0",
