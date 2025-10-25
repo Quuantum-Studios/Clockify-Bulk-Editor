@@ -128,6 +128,7 @@ export function BulkDeleteTagsDialog({
                 <TableHead className="w-[50px]">
                   <input
                     type="checkbox"
+                    className="cursor-pointer"
                     onChange={(e) => {
                       if (e.target.checked) {
                         setSelectedTags(new Set(tags.map((t) => t.id)))
@@ -167,6 +168,7 @@ export function BulkDeleteTagsDialog({
                         id={`tag-${tag.id}`}
                         checked={selectedTags.has(tag.id)}
                         onChange={() => handleSelectTag(tag.id)}
+                        className="cursor-pointer"
                       />
                     </TableCell>
                     <TableCell>
@@ -187,12 +189,13 @@ export function BulkDeleteTagsDialog({
           </Table>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} className="cursor-pointer">
             Cancel
           </Button>
           <Button
             onClick={handleDelete}
             disabled={deleting || selectedTags.size === 0}
+            className="cursor-pointer"
           >
             {deleting
               ? "Deleting..."

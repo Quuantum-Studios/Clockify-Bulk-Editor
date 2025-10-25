@@ -75,8 +75,11 @@ export class ClockifyAPI {
       baseURL: this.baseUrl,
       headers: { "X-Api-Key": apiKey }
     })
-    this.axiosInstance.interceptors.request.use(requestLogger);
-    this.axiosInstance.interceptors.response.use(responseLogger, errorLogger);
+    // Only enable logging in development
+    if (process.env.NODE_ENV === 'development') {
+      this.axiosInstance.interceptors.request.use(requestLogger);
+      this.axiosInstance.interceptors.response.use(responseLogger, errorLogger);
+    }
   }
 
   setDefaultTimezone(tz: string) {

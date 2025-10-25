@@ -40,6 +40,7 @@ export default function AppPage() {
   const [dateRange, setDateRange] = useState<null | { startDate: Date; endDate: Date }>(null)
   const [showDatePicker, setShowDatePicker] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const [editing, setEditing] = useState<Record<string, Partial<typeof timeEntries[number]>>>({})
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false)
   const bulkOpen = useClockifyStore(state => state.bulkUploadOpen)
@@ -73,6 +74,13 @@ export default function AppPage() {
   useEffect(() => {
     const handleDocClick = (e: MouseEvent) => {
       const targetNode = e.target as Node
+      // Date picker
+      if (showDatePicker) {
+        const datePickerContainer = document.querySelector('.date-picker-container')
+        if (datePickerContainer && !datePickerContainer.contains(targetNode)) {
+          setShowDatePicker(false)
+        }
+      }
       // Time editors
       Object.entries(timeEditOpen).forEach(([id, open]) => {
         if (!(open?.start || open?.end)) return
@@ -100,7 +108,7 @@ export default function AppPage() {
     }
     document.addEventListener('mousedown', handleDocClick)
     return () => document.removeEventListener('mousedown', handleDocClick)
-  }, [timeEditOpen, projectTaskEditOpen, tagsEditOpen])
+  }, [timeEditOpen, projectTaskEditOpen, tagsEditOpen, showDatePicker])
 
   const toggleCreateTaskUI = (entryId: string, show?: boolean) => {
     setCreateTaskState(prev => ({ ...prev, [entryId]: { ...(prev[entryId] || { showCreate: false, name: "", loading: false }), showCreate: typeof show === 'boolean' ? show : !((prev[entryId] || {}).showCreate) } }))
@@ -147,7 +155,7 @@ export default function AppPage() {
 
   // NOTE: removed global overlay loader; using inline spinners per-control instead
   useEffect(() => {
-      capture(AnalyticsEvents.APP_OPEN, { page: "editor" })
+    capture(AnalyticsEvents.APP_OPEN, { page: "editor" })
     if (!apiKey) return;
     fetch(`/api/proxy/user?apiKey=${apiKey}`)
       .then(r => r.json())
@@ -191,13 +199,13 @@ export default function AppPage() {
   useEffect(() => {
     try {
       window.localStorage.setItem("clockify_selected_workspace", workspaceId || "")
-    } catch {}
+    } catch { }
   }, [workspaceId])
 
   useEffect(() => {
     try {
       window.localStorage.setItem("clockify_selected_project", projectId || "")
-    } catch {}
+    } catch { }
   }, [projectId])
 
   useEffect(() => {
@@ -206,7 +214,7 @@ export default function AppPage() {
         window.localStorage.setItem("clockify_selected_start", dateRange.startDate.toISOString())
         window.localStorage.setItem("clockify_selected_end", dateRange.endDate.toISOString())
       }
-    } catch {}
+    } catch { }
   }, [dateRange])
 
   useEffect(() => {
@@ -322,16 +330,17 @@ export default function AppPage() {
         return r.json();
       })
       .then((data: unknown) => { setTimeEntries(Array.isArray(data) ? data : []); setSelectedIds(new Set()); setLoading(false) })
-      .catch((error) => { 
-        setTimeEntries([]); 
+      .catch((error) => {
+        setTimeEntries([]);
         const errorMessage = error instanceof Error ? error.message : "Failed to load entries";
-        setToast({ type: "error", message: errorMessage }); 
-        setLoading(false) 
+        setToast({ type: "error", message: errorMessage });
+        setLoading(false)
       })
   }, [apiKey, workspaceId, userId, dateRange, projectId, defaultTimezone, setTimeEntries])
 
   const refreshAllReferenceData = useCallback(async () => {
     if (!apiKey) { setToast({ type: "error", message: "API key required." }); return }
+    setRefreshing(true)
     try {
       // Workspaces
       const wsRes = await fetch(`/api/proxy/workspaces?apiKey=${apiKey}`)
@@ -347,7 +356,7 @@ export default function AppPage() {
         setProjects(projectsData)
         const api = new ClockifyAPI(); api.setApiKey(apiKey)
         for (const p of projectsData) {
-          try { const projectTasks = await api.getTasks(workspaceId, p.id); setTasks(p.id, projectTasks) } catch {}
+          try { const projectTasks = await api.getTasks(workspaceId, p.id); setTasks(p.id, projectTasks) } catch { }
         }
       }
       // Tags
@@ -361,6 +370,8 @@ export default function AppPage() {
       setToast({ type: 'success', message: 'Refreshed data' })
     } catch {
       setToast({ type: 'error', message: 'Refresh failed' })
+    } finally {
+      setRefreshing(false)
     }
   }, [apiKey, workspaceId, setWorkspaces, setProjects, setTasks, fetchEntries])
 
@@ -521,10 +532,10 @@ export default function AppPage() {
       if (normalized) patch.end = normalized;
       else delete patch.end;
     }
-    
+
     if (patch.start && patch.end && patch.start >= patch.end) {
       setToast({ type: "error", message: `Start time must be before end time` });
-        setSavingRows(s => { const n = new Set(s); n.delete(entry.id); return n })
+      setSavingRows(s => { const n = new Set(s); n.delete(entry.id); return n })
       return;
     }
     let tagIdsFromPatch: string[] | undefined = undefined;
@@ -579,10 +590,10 @@ export default function AppPage() {
       if (!createPayload.type) createPayload.type = 'REGULAR'
       // If tags were provided as names they were converted into tagIds earlier
       try {
-      const res = await fetch(`/api/proxy/time-entries/${workspaceId}/${userId}`, {
+        const res = await fetch(`/api/proxy/time-entries/${workspaceId}/${userId}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey, timezone: defaultTimezone, ...createPayload })
+          body: JSON.stringify({ apiKey, timezone: defaultTimezone, ...createPayload })
         })
         if (!res.ok) {
           const errorData = await res.json().catch(() => ({})) as { error?: string };
@@ -774,53 +785,79 @@ export default function AppPage() {
 
   return (
     <div className="max-w-7xl mx-auto">
-      {/* Controls Section (compact single row) */}
+      {/* Controls Section (mobile responsive) */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-4">
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Workspace */}
-          <Select value={workspaceId} onChange={e => setWorkspaceId(e.target.value)} className="h-9 w-[200px]">
-            <option value="">Workspace</option>
-            {Array.isArray(workspaces) && workspaces.map((ws: { id: string; name: string }) => (
-              <option key={ws.id} value={ws.id}>{ws.name}</option>
-            ))}
-          </Select>
-          {/* Project */}
-          <Select value={projectId} onChange={e => setProjectId(e.target.value)} className="h-9 w-[220px]">
-            <option value="">All Projects</option>
-            {Array.isArray(projects) && projects.map((p: { id: string; name: string }) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </Select>
-          {/* Date Range */}
-          <div className="relative">
-            <Button onClick={() => setShowDatePicker(v => !v)} type="button" className="h-9 min-w-[200px] justify-start">
-              {dateRange ? `${dateRange.startDate.toLocaleDateString()} - ${dateRange.endDate.toLocaleDateString()}` : 'Pick Date Range'}
-            </Button>
-            {showDatePicker && (
-              <div className="absolute z-20 mt-2 left-0 bg-white dark:bg-gray-900 rounded shadow-lg border p-2">
-                <DateRangePicker value={dateRange || { startDate: new Date(), endDate: new Date() }} onChange={val => { setDateRange(val); }} />
-              </div>
-            )}
+        <div className="flex flex-col lg:flex-row lg:flex-wrap items-stretch lg:items-center gap-3">
+          {/* Filters Row */}
+          <div className="flex flex-col sm:flex-row gap-3 flex-1">
+            {/* Workspace */}
+            <Select value={workspaceId} onChange={e => setWorkspaceId(e.target.value)} className="h-9 w-full sm:w-[200px] cursor-pointer">
+              <option value="">Workspace</option>
+              {Array.isArray(workspaces) && workspaces.map((ws: { id: string; name: string }) => (
+                <option key={ws.id} value={ws.id}>{ws.name}</option>
+              ))}
+            </Select>
+            {/* Project */}
+            <Select value={projectId} onChange={e => setProjectId(e.target.value)} className="h-9 w-full sm:w-[220px] cursor-pointer">
+              <option value="">All Projects</option>
+              {Array.isArray(projects) && projects.map((p: { id: string; name: string }) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </Select>
+            {/* Date Range */}
+            <div className="relative date-picker-container">
+              <button
+                type="button"
+                onClick={() => setShowDatePicker(v => !v)}
+                className="h-9 w-full sm:w-[200px] px-3 py-2 border rounded-md bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700 text-sm text-left cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center"
+              >
+                {dateRange
+                  ? `${dateRange.startDate.toLocaleDateString()} - ${dateRange.endDate.toLocaleDateString()}`
+                  : 'Pick Date Range'}
+              </button>
+              {showDatePicker && (
+                <div className="absolute z-20 mt-2 left-0 right-0 sm:right-auto bg-white dark:bg-gray-900 rounded shadow-lg border p-2">
+                  <DateRangePicker value={dateRange || { startDate: new Date(), endDate: new Date() }} onChange={val => { setDateRange(val); }} />
+                </div>
+              )}
+            </div>
           </div>
           {/* Actions */}
-          <div className="flex items-center gap-2 ml-auto">
-            <Button onClick={refreshAllReferenceData} type="button" variant="outline" className="h-9" title="Refresh data">
-              <RotateCcw className="h-4 w-4 mr-1" /> Refresh
+          <div className="flex flex-wrap items-center gap-2 lg:ml-auto">
+            <Button onClick={refreshAllReferenceData} type="button" variant="outline" className="h-9 cursor-pointer" title="Refresh data" disabled={refreshing}>
+              {refreshing ? (
+                <span className="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-1" />
+              ) : (
+                <RotateCcw className="h-4 w-4 mr-1" />
+              )}
+              <span className="hidden sm:inline">Refresh</span>
             </Button>
-            <Button onClick={() => setBulkDeleteTagsDialogOpen(true)} type="button" variant="outline" className="h-9">🏷️ Manage Tags</Button>
-            <Button onClick={() => setBulkDeleteTasksDialogOpen(true)} type="button" variant="outline" className="h-9" disabled={!projectId}>✅ Manage Tasks</Button>
+            <Button onClick={() => setBulkDeleteTagsDialogOpen(true)} type="button" variant="outline" className="h-9 cursor-pointer">
+              <span className="hidden sm:inline">🏷️ Manage Tags</span>
+              <span className="sm:hidden">🏷️</span>
+            </Button>
+            <Button onClick={() => setBulkDeleteTasksDialogOpen(true)} type="button" variant="outline" className="h-9 cursor-pointer" disabled={!projectId}>
+              <span className="hidden sm:inline">✅ Manage Tasks</span>
+              <span className="sm:hidden">✅</span>
+            </Button>
           </div>
         </div>
       </div>
 
       {/* Table Section */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+        <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Time Entries</h2>
-          <div className="flex items-center gap-2">  
-          <Button onClick={addNewRow} type="button" variant="outline" className="h-9">+ Add New Entry</Button>
-          <Button onClick={() => setBulkDialogOpen(true)} type="button" variant="outline" className="h-9">📁 Bulk Upload</Button>
-          <MagicButton />
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            <Button onClick={addNewRow} type="button" variant="outline" className="h-9 cursor-pointer flex-1 sm:flex-none">
+              <span className="hidden sm:inline">+ Add New Entry</span>
+              <span className="sm:hidden">+ Add</span>
+            </Button>
+            <Button onClick={() => setBulkDialogOpen(true)} type="button" variant="outline" className="h-9 cursor-pointer flex-1 sm:flex-none">
+              <span className="hidden sm:inline">📁 Bulk Upload</span>
+              <span className="sm:hidden">📁</span>
+            </Button>
+            <MagicButton />
           </div>
         </div>
         <div className="overflow-x-auto">
@@ -830,11 +867,11 @@ export default function AppPage() {
             </div>
           ) : (
             Array.isArray(timeEntries) && timeEntries.length > 0 ? (
-              <Table className="table-fixed">
+              <Table className="table-fixed min-w-[800px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-8">
-                      <input type="checkbox" checked={areAllSelected} onChange={toggleSelectAll} />
+                      <input type="checkbox" checked={areAllSelected} onChange={toggleSelectAll} className="cursor-pointer" />
                     </TableHead>
                     <TableHead className="w-[22%] whitespace-nowrap">Description</TableHead>
                     <TableHead className="w-[280px] whitespace-nowrap">Time (UTC)</TableHead>
@@ -845,12 +882,12 @@ export default function AppPage() {
                 </TableHeader>
                 <TableBody>
                   {timeEntries.map(entry => {
-    const editingEntry = (editing[entry.id] || {}) as Record<string, unknown>;
-    const timeInterval = (entry as unknown as { timeInterval?: { start?: string; end?: string } }).timeInterval;
+                    const editingEntry = (editing[entry.id] || {}) as Record<string, unknown>;
+                    const timeInterval = (entry as unknown as { timeInterval?: { start?: string; end?: string } }).timeInterval;
                     const tiStart = timeInterval?.start;
                     const tiEnd = timeInterval?.end;
                     const taskName = (editing[entry.id]?.taskName as string | undefined) ?? (entry.taskName ?? "");
-                    
+
                     // Get task name from taskId if taskName is not available
                     let resolvedTaskName = taskName;
                     const entryTyped = entry as TimeEntry;
@@ -878,13 +915,13 @@ export default function AppPage() {
                     return (
                       <TableRow key={entry.id} className={`${modifiedRows.has(entry.id) ? "bg-yellow-50 dark:bg-yellow-900/30" : ""} ${rowHasErrors ? "border border-red-200" : ""} relative`}>
                         <TableCell>
-                          <input type="checkbox" checked={selectedIds.has(entry.id)} onChange={() => toggleSelectOne(entry.id)} />
+                          <input type="checkbox" checked={selectedIds.has(entry.id)} onChange={() => toggleSelectOne(entry.id)} className="cursor-pointer" />
                         </TableCell>
                         <TableCell className="min-w-0 overflow-hidden">
                           <Input
                             value={editingEntry.description !== undefined ? String(editingEntry.description) : (entry.description ?? "")}
                             onChange={e => handleEdit(entry.id, "description", e.target.value)}
-                            className="truncate w-full min-w-0"
+                            className="truncate w-full min-w-0 cursor-text"
                           />
                         </TableCell>
                         <TableCell className="whitespace-nowrap overflow-hidden" ref={el => { timeEditorRefs.current[entry.id] = el }}>
@@ -910,7 +947,7 @@ export default function AppPage() {
                                 {open.start ? (
                                   <Input
                                     type="datetime-local"
-                                    className="w-[150px]"
+                                    className="w-[150px] cursor-text"
                                     value={startVal}
                                     onChange={e => handleEdit(entry.id, "start", e.target.value)}
                                     onBlur={() => toggleTimeEditor(entry.id, 'start', false)}
@@ -918,7 +955,7 @@ export default function AppPage() {
                                 ) : (
                                   <button
                                     type="button"
-                                    className="text-xs text-gray-600 dark:text-gray-300 hover:underline"
+                                    className="text-xs text-gray-600 dark:text-gray-300 hover:underline cursor-pointer"
                                     onClick={() => toggleTimeEditor(entry.id, 'start', true)}
                                     title="Edit start"
                                   >{displayStart || '—'}</button>
@@ -928,7 +965,7 @@ export default function AppPage() {
                                 {open.end ? (
                                   <Input
                                     type="datetime-local"
-                                    className="w-[150px]"
+                                    className="w-[150px] cursor-text"
                                     value={endVal}
                                     onChange={e => handleEdit(entry.id, "end", e.target.value)}
                                     onBlur={() => toggleTimeEditor(entry.id, 'end', false)}
@@ -936,14 +973,14 @@ export default function AppPage() {
                                 ) : (
                                   <button
                                     type="button"
-                                    className="text-xs text-gray-600 dark:text-gray-300 hover:underline"
+                                    className="text-xs text-gray-600 dark:text-gray-300 hover:underline cursor-pointer"
                                     onClick={() => toggleTimeEditor(entry.id, 'end', true)}
                                     title="Edit end"
                                   >{displayEnd || '—'}</button>
                                 )}
                                 <Button
                                   type="button"
-                                  className="h-7 w-7 p-0 rounded-full bg-transparent"
+                                  className="h-7 w-7 p-0 rounded-full bg-transparent cursor-pointer"
                                   onClick={() => setTimeEditOpen(prev => ({ ...prev, [entry.id]: { start: true, end: true } }))}
                                   title="Open date editors"
                                   aria-label="Open date editors"
@@ -969,7 +1006,7 @@ export default function AppPage() {
                               return (
                                 <button
                                   type="button"
-                                  className="text-xs text-gray-700 dark:text-gray-200 hover:underline truncate max-w-[420px]"
+                                  className="text-xs text-gray-700 dark:text-gray-200 hover:underline truncate max-w-[420px] cursor-pointer"
                                   onClick={() => setProjectTaskEditOpen(prev => ({ ...prev, [entry.id]: true }))}
                                   title="Edit project and task"
                                 >{projectLabel}{taskLabel && taskLabel !== 'None' ? ` • ${taskLabel}` : ''}</button>
@@ -980,7 +1017,7 @@ export default function AppPage() {
                                 <Select
                                   value={entryProjectId}
                                   onChange={e => handleEdit(entry.id, "projectId", e.target.value)}
-                                  className="min-w-[140px] max-w-[220px] truncate"
+                                  className="min-w-[140px] max-w-[220px] truncate cursor-pointer"
                                 >
                                   <option value="">None</option>
                                   {Array.isArray(projects) ? projects.map(p => (
@@ -999,7 +1036,7 @@ export default function AppPage() {
                                       handleEdit(entry.id, "taskName", t ? t.name : "")
                                     }
                                   }}
-                                  className="min-w-[140px] max-w-[220px] truncate"
+                                  className="min-w-[140px] max-w-[220px] truncate cursor-pointer"
                                 >
                                   <option value="">None</option>
                                   {Array.isArray(taskList) && taskList.map((t) => (
@@ -1007,12 +1044,12 @@ export default function AppPage() {
                                   ))}
                                   <option value="__create_new__">Create new...</option>
                                 </Select>
-                                <Button className="bg-transparent text-xs" onClick={() => setProjectTaskEditOpen(prev => ({ ...prev, [entry.id]: false }))}>Done</Button>
+                                <Button className="bg-transparent text-xs cursor-pointer" onClick={() => setProjectTaskEditOpen(prev => ({ ...prev, [entry.id]: false }))}>Done</Button>
                                 {createState.showCreate && (
                                   <div className="mt-2 flex gap-2">
-                                    <Input value={createState.name} onChange={e => setCreateTaskName(entry.id, e.target.value)} placeholder="New task name" />
-                                    <Button onClick={() => createTaskForEntry(entry.id, entryProjectId)} disabled={createState.loading}>{createState.loading ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Create'}</Button>
-                                    <Button className="bg-transparent text-sm" onClick={() => toggleCreateTaskUI(entry.id, false)}>Cancel</Button>
+                                    <Input value={createState.name} onChange={e => setCreateTaskName(entry.id, e.target.value)} placeholder="New task name" className="cursor-text" />
+                                    <Button onClick={() => createTaskForEntry(entry.id, entryProjectId)} disabled={createState.loading} className="cursor-pointer">{createState.loading ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Create'}</Button>
+                                    <Button className="bg-transparent text-sm cursor-pointer" onClick={() => toggleCreateTaskUI(entry.id, false)}>Cancel</Button>
                                   </div>
                                 )}
                               </div>
@@ -1027,19 +1064,19 @@ export default function AppPage() {
                               onChange={(newTags) => handleEdit(entry.id, "tags", newTags)}
                               onCreateTag={handleCreateTag}
                               placeholder="Select tags..."
-                              className="min-w-[140px] max-w-[260px] truncate"
+                              className="min-w-[140px] max-w-[260px] truncate cursor-pointer"
                             />
                           ) : (
                             <button
                               type="button"
-                              className="text-xs text-gray-700 dark:text-gray-200 hover:underline truncate max-w-[260px]"
+                              className="text-xs text-gray-700 dark:text-gray-200 hover:underline truncate max-w-[260px] cursor-pointer"
                               onClick={() => setTagsEditOpen(prev => ({ ...prev, [entry.id]: true }))}
                               title="Edit tags"
                             >{tagLabels && tagLabels.length > 0 ? tagLabels.join(", ") : 'No tags'}</button>
                           )}
                           {tagsEditOpen[entry.id] && (
                             <div className="mt-2">
-                              <Button className="bg-transparent text-xs" onClick={() => setTagsEditOpen(prev => ({ ...prev, [entry.id]: false }))}>Done</Button>
+                              <Button className="bg-transparent text-xs cursor-pointer" onClick={() => setTagsEditOpen(prev => ({ ...prev, [entry.id]: false }))}>Done</Button>
                             </div>
                           )}
                         </TableCell>
@@ -1047,7 +1084,7 @@ export default function AppPage() {
                           <Button
                             onClick={() => handleSaveRow(entry)}
                             disabled={!modifiedRows.has(entry.id)}
-                            className={`h-8 w-8 p-0 rounded-full ${modifiedRows.has(entry.id) ? "bg-green-50 text-green-700 hover:bg-green-100" : "bg-transparent"}`}
+                            className={`h-8 w-8 p-0 rounded-full cursor-pointer ${modifiedRows.has(entry.id) ? "bg-green-50 text-green-700 hover:bg-green-100" : "bg-transparent"}`}
                             title="Save"
                             aria-label="Save"
                           >
@@ -1057,7 +1094,7 @@ export default function AppPage() {
                           </Button>
 
                           <Button
-                            className={`h-8 w-8 p-0 rounded-full bg-transparent ${modifiedRows.has(entry.id) ? "ring-2 ring-amber-400 bg-amber-50 text-amber-700" : ""}`}
+                            className={`h-8 w-8 p-0 rounded-full bg-transparent cursor-pointer ${modifiedRows.has(entry.id) ? "ring-2 ring-amber-400 bg-amber-50 text-amber-700" : ""}`}
                             onClick={() => undoEdits(entry.id)}
                             title="Undo changes"
                             aria-label="Undo changes"
@@ -1067,7 +1104,7 @@ export default function AppPage() {
 
                           {((entry as unknown as { _isNew?: boolean })._isNew) && (
                             <Button
-                              className="h-8 w-8 p-0 rounded-full bg-transparent text-red-600 hover:bg-red-50"
+                              className="h-8 w-8 p-0 rounded-full bg-transparent text-red-600 hover:bg-red-50 cursor-pointer"
                               onClick={() => removeRow(entry.id)}
                               title="Remove new row"
                               aria-label="Remove new row"
@@ -1077,7 +1114,7 @@ export default function AppPage() {
                           )}
 
                           <Button
-                            className="h-8 w-8 p-0 rounded-full bg-transparent text-red-600 hover:bg-red-50"
+                            className="h-8 w-8 p-0 rounded-full bg-transparent text-red-600 hover:bg-red-50 cursor-pointer"
                             onClick={() => handleDeleteRow(entry)}
                             disabled={savingRows.has(entry.id)}
                             title="Delete"
@@ -1097,7 +1134,7 @@ export default function AppPage() {
                         <button
                           type="button"
                           onClick={() => handleEdit(entry.id, 'billable', !isBillable)}
-                          className={`absolute left-3 top-2 p-0 bg-transparent ${isBillable ? 'text-green-600' : 'text-red-500'}`}
+                          className={`absolute left-3 top-2 p-0 bg-transparent cursor-pointer ${isBillable ? 'text-green-600' : 'text-red-500'}`}
                           title={isBillable ? 'Billable (click to mark non-billable)' : 'Non-billable (click to mark billable)'}
                           aria-label={isBillable ? 'Toggle to non-billable' : 'Toggle to billable'}
                         >
@@ -1117,14 +1154,28 @@ export default function AppPage() {
 
       {/* Bulk Actions */}
       {Array.isArray(timeEntries) && timeEntries.length > 0 && (
-        <div className="flex justify-between mt-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-          <div className="flex items-center gap-3 text-sm text-muted-foreground">
+        <div className="flex flex-col sm:flex-row justify-between mt-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg gap-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 text-sm text-muted-foreground">
             <span>Selected: {selectedIds.size}</span>
-            <Button className="bg-transparent text-red-600" onClick={handleBulkDeleteSelected} disabled={selectedIds.size === 0 || savingRows.size > 0}>{savingRows.size > 0 ? <span className="inline-block w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" /> : 'Bulk Delete Selected'}</Button>
+            <Button className="bg-transparent text-red-600 cursor-pointer" onClick={handleBulkDeleteSelected} disabled={selectedIds.size === 0 || savingRows.size > 0}>{savingRows.size > 0 ? <span className="inline-block w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" /> : 'Bulk Delete Selected'}</Button>
           </div>
-          <Button onClick={handleBulkSave} disabled={modifiedRows.size === 0}>{/* show spinner if any rows saving */savingRows.size > 0 ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Bulk Save All'}</Button>
+          <Button onClick={handleBulkSave} disabled={modifiedRows.size === 0} className="cursor-pointer">{/* show spinner if any rows saving */savingRows.size > 0 ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Bulk Save All'}</Button>
         </div>
       )}
+
+      {/* Editor Instructions */}
+      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4 mt-4">
+        <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">How to use the editor:</h3>
+        <ul className="text-xs text-blue-800 dark:text-blue-200 space-y-1">
+          <li>• <strong>Click on any field</strong> to edit it inline (description, time, project/task, tags)</li>
+          <li>• <strong>Time editing:</strong> Click on start/end times or use the calendar icon to open date pickers</li>
+          <li>• <strong>Project/Task:</strong> Click to select from dropdowns or create new tasks</li>
+          <li>• <strong>Tags:</strong> Click to select existing tags or create new ones</li>
+          <li>• <strong>Save:</strong> Click the green save button (✓) to save individual changes</li>
+          <li>• <strong>Bulk actions:</strong> Select multiple entries and use bulk save/delete</li>
+          <li>• <strong>Billable toggle:</strong> Click the $ icon in the top-left of each row</li>
+        </ul>
+      </div>
 
       {/* Bulk Upload Dialog */}
       <BulkUploadDialog
@@ -1171,8 +1222,8 @@ export default function AppPage() {
           try {
             const api = new ClockifyAPI();
             api.setApiKey(apiKey);
-            api.getTasks(workspaceId, projectId).then(projectTasks => setTasks(projectId, projectTasks)).catch(() => {})
-          } catch {}
+            api.getTasks(workspaceId, projectId).then(projectTasks => setTasks(projectId, projectTasks)).catch(() => { })
+          } catch { }
           fetchEntries();
         }}
       />

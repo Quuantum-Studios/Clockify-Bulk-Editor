@@ -41,22 +41,23 @@ export default function Home() {
             </div>
             <div className="hidden md:block">
               <div className="ml-10 flex items-baseline space-x-4">
-                <a href="#features" className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white px-3 py-2 rounded-md text-sm font-medium">Features</a>
-                <a href="#testimonials" className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white px-3 py-2 rounded-md text-sm font-medium">Testimonials</a>
-                <a href="#faq" className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white px-3 py-2 rounded-md text-sm font-medium">FAQ</a>
+                <a href="#features" className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white px-3 py-2 rounded-md text-sm font-medium cursor-pointer">Features</a>
+                <a href="#testimonials" className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white px-3 py-2 rounded-md text-sm font-medium cursor-pointer">Testimonials</a>
+                <a href="#faq" className="text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white px-3 py-2 rounded-md text-sm font-medium cursor-pointer">FAQ</a>
               </div>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 sm:space-x-4">
               <button
-                className="p-2 rounded-lg border border-gray-300 bg-white dark:bg-gray-800 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                className="p-2 rounded-lg border border-gray-300 bg-white dark:bg-gray-800 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
                 aria-label="Toggle dark mode"
                 onClick={toggleTheme}
               >
                 {mounted && theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
               </button>
               <Link href="/editor">
-                <Button className="bg-primary hover:opacity-90 text-primary-foreground">
-                  Open the Editor
+                <Button className="bg-primary hover:opacity-90 text-primary-foreground cursor-pointer">
+                  <span className="hidden sm:inline">Open the Editor</span>
+                  <span className="sm:hidden">Editor</span>
                 </Button>
               </Link>
             </div>

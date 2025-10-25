@@ -232,7 +232,7 @@ export default function VoiceDialog({ open, onOpenChange }: Props) {
       <div className={"relative z-10 w-full rounded-xl border border-border bg-card shadow-xl p-4 md:p-6 " + (csvPreview !== null ? "max-w-6xl max-h-[90vh] overflow-y-auto" : "max-w-2xl") }>
         <div className="flex items-center justify-between mb-3">
           <div className="font-semibold">Magic Assistant</div>
-          <button onClick={close} className="text-sm opacity-70 hover:opacity-100">Close</button>
+          <button onClick={close} className="text-sm opacity-70 hover:opacity-100 cursor-pointer">Close</button>
         </div>
         {csvPreview === null && (
           <div>
@@ -242,7 +242,7 @@ export default function VoiceDialog({ open, onOpenChange }: Props) {
             onChange={(e) => setText(e.target.value)}
             placeholder="Type here or use the mic"
             ref={textareaRef}
-            className="w-full h-56 md:h-64 resize-none rounded-md border border-input bg-background p-3 outline-none focus:ring-2 focus:ring-primary"
+            className="w-full h-56 md:h-64 resize-none rounded-md border border-input bg-background p-3 outline-none focus:ring-2 focus:ring-primary cursor-text"
           />
           {recording && (
             <div ref={vizContainerRef} className="pointer-events-none absolute inset-0 rounded-md z-10" />
@@ -256,7 +256,7 @@ export default function VoiceDialog({ open, onOpenChange }: Props) {
         <div className="mt-3 flex items-center justify-between gap-3">
           <button
             onClick={() => (recording ? stopRecording() : startRecording())}
-            className={`inline-flex items-center gap-2 rounded-md px-3 py-2 border transition ${recording ? "bg-red-500 text-white border-red-500" : "bg-white dark:bg-gray-800 border-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"}`}
+            className={`inline-flex items-center gap-2 rounded-md px-3 py-2 border transition cursor-pointer ${recording ? "bg-red-500 text-white border-red-500" : "bg-white dark:bg-gray-800 border-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"}`}
             aria-pressed={recording}
           >
             {recording ? <MicOff size={16} /> : <Mic size={16} />}
@@ -265,7 +265,7 @@ export default function VoiceDialog({ open, onOpenChange }: Props) {
           <button
             onClick={onAnalyze}
             disabled={busy}
-            className="ml-auto rounded-md bg-primary text-primary-foreground px-4 py-2 hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
+            className="ml-auto rounded-md bg-primary text-primary-foreground px-4 py-2 hover:opacity-90 disabled:opacity-50 flex items-center gap-2 cursor-pointer"
           >
             {busy ? (
               <>
@@ -340,14 +340,14 @@ export default function VoiceDialog({ open, onOpenChange }: Props) {
             <div className="flex items-center justify-between gap-2 px-3 py-2 border-t">
               <button
                 onClick={() => setCsvPreview(null)}
-                className="rounded-md px-3 py-2 border bg-background"
+                className="rounded-md px-3 py-2 border bg-background cursor-pointer"
               >
                 Back
               </button>
               <button
                 onClick={onProceedToBulk}
                 disabled={!csvHeaders.length}
-                className="rounded-md bg-primary text-primary-foreground px-4 py-2 hover:opacity-90 disabled:opacity-50"
+                className="rounded-md bg-primary text-primary-foreground px-4 py-2 hover:opacity-90 disabled:opacity-50 cursor-pointer"
               >
                 Proceed to Bulk Upload
               </button>

@@ -416,17 +416,17 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
           if (step === 3) { setTaskCheck({}); setStep(2) }
           if (step === 4) setStep(3)
           if (step === 5) setStep(4)
-        }}>Back</Button>
+        }} className="cursor-pointer">Back</Button>
       )
     } else {
       left.push(
-        <Button key="cancel" variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button key="cancel" variant="secondary" onClick={onClose} className="cursor-pointer">Cancel</Button>
       )
     }
 
     if (step === 1) {
       right.push(
-        <Button key="next" onClick={async () => { try { await verifyProjects(); setStep(2) } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } }} disabled={rows.length === 0 || missingHeaders.length > 0}>
+        <Button key="next" onClick={async () => { try { await verifyProjects(); setStep(2) } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } }} disabled={rows.length === 0 || missingHeaders.length > 0} className="cursor-pointer">
           {verifyingProjects ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Next: Verify Projects'}
         </Button>
       )
@@ -434,7 +434,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
 
     if (step === 2) {
       right.push(
-        <Button key="reverify" onClick={reverifyProjects}>
+        <Button key="reverify" onClick={reverifyProjects} className="cursor-pointer">
           {verifyingProjects ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Reverify'}
         </Button>
       )
@@ -448,7 +448,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
             }
             setStep(3)
           } catch (e) { setToast({ type: 'error', message: (e as Error).message }) }
-        }}>
+        }} className="cursor-pointer">
           {verifyingAllTasks ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Next: Verify Tasks'}
         </Button>
       )
@@ -456,20 +456,20 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
 
     if (step === 3) {
       right.push(
-        <Button key="reverifyTasks" onClick={refreshAllTasks}>
+        <Button key="reverifyTasks" onClick={refreshAllTasks} className="cursor-pointer">
           {verifyingAllTasks ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Reverify'}
         </Button>
       )
       const anyMissingTasks = Object.values(taskCheck).some(v => (v.missing?.length || 0) > 0)
       if (anyMissingTasks) {
         right.push(
-          <Button key="createMissingTasks" disabled={creatingTasks} onClick={async () => { setCreatingTasks(true); try { await createAllMissingTasks(); setToast({ type: 'success', message: 'Tasks created' }); } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } finally { setCreatingTasks(false) } }}>
+          <Button key="createMissingTasks" disabled={creatingTasks} onClick={async () => { setCreatingTasks(true); try { await createAllMissingTasks(); setToast({ type: 'success', message: 'Tasks created' }); } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } finally { setCreatingTasks(false) } }} className="cursor-pointer">
             {creatingTasks ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Create missing tasks'}
           </Button>
         )
       }
       right.push(
-        <Button key="toTags" disabled={Object.values(taskCheck).some(v => (v.missing?.length || 0) > 0)} onClick={async () => { try { await verifyTags(); setStep(4) } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } }}>
+        <Button key="toTags" disabled={Object.values(taskCheck).some(v => (v.missing?.length || 0) > 0)} onClick={async () => { try { await verifyTags(); setStep(4) } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } }} className="cursor-pointer">
           {verifyingTags ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Next: Verify Tags'}
         </Button>
       )
@@ -477,19 +477,19 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
 
     if (step === 4) {
       right.push(
-        <Button key="reverifyTags" onClick={async () => { try { await verifyTags(); } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } }}>
+        <Button key="reverifyTags" onClick={async () => { try { await verifyTags(); } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } }} className="cursor-pointer">
           {verifyingTags ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Reverify'}
         </Button>
       )
       if (tagCheck && tagCheck.missing.length > 0) {
         right.push(
-          <Button key="createMissingTags" disabled={creatingTags} onClick={async () => { setCreatingTags(true); try { await createTags(); setToast({ type: 'success', message: 'Tags created' }) } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } finally { setCreatingTags(false) } }}>
+          <Button key="createMissingTags" disabled={creatingTags} onClick={async () => { setCreatingTags(true); try { await createTags(); setToast({ type: 'success', message: 'Tags created' }) } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } finally { setCreatingTags(false) } }} className="cursor-pointer">
             {creatingTags ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Create missing tags'}
           </Button>
         )
       }
       right.push(
-        <Button key="toPreview" disabled={!!(tagCheck && tagCheck.missing.length > 0)} onClick={() => setStep(5)}>
+        <Button key="toPreview" disabled={!!(tagCheck && tagCheck.missing.length > 0)} onClick={() => setStep(5)} className="cursor-pointer">
           Next: Preview
         </Button>
       )
@@ -497,7 +497,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
 
     if (step === 5) {
       right.push(
-        <Button key="populate" onClick={handleUpload}>
+        <Button key="populate" onClick={handleUpload} className="cursor-pointer">
           {uploading ? 'Uploading...' : (typeof onPopulate === 'function' ? 'Populate to Dashboard' : 'Proceed to Upload')}
         </Button>
       )
@@ -517,7 +517,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
         className="bg-background rounded-lg w-[98vw] max-w-4xl flex flex-col gap-4 p-6 shadow-xl relative"
         onClick={e => e.stopPropagation()}
       >
-        <div className="grid grid-cols-1 md:grid-cols-[1fr,auto] md:items-start gap-6 bg-gradient-to-r from-blue-50/80 via-primary/5 to-transparent rounded-lg shadow-sm px-4 py-3 border border-gray-200 dark:border-gray-800">
+        <div className="grid grid-cols-1 md:grid-cols-[1fr,auto] md:items-start gap-6 bg-white dark:bg-gray-900 rounded-lg shadow-sm px-4 py-3 border border-gray-200 dark:border-gray-700">
           <div className="flex-1 min-w-0 md:pr-2">
             <h2 className="text-2xl font-bold text-primary mb-0.5 flex items-center gap-2 leading-tight">
               <svg className="w-5 h-5 text-blue-500 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">

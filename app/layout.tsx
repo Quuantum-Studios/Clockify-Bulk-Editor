@@ -50,11 +50,11 @@ export default function RootLayout({
                             error?.message?.includes('invalid')) {
                           return null; // PostHog tracks user errors
                         }
-                        // Link to PostHog user
-                        if (window.posthog) {
+                        // Link to PostHog user (only if fully initialized)
+                        if (window.posthog && typeof window.posthog.get_distinct_id === 'function' && !window.posthog._i) {
                           event.user = { 
                             id: window.posthog.get_distinct_id(),
-                            posthog_session: window.posthog.get_session_replay_url?.() || ''
+                            posthog_session: window.posthog.get_session_id?.() || ''
                           };
                         }
                         return event;
@@ -143,8 +143,8 @@ export default function RootLayout({
                     
                     // Add session replay URL to events
                     before_send: function(event) {
-                      if (event.properties) {
-                        event.properties.$session_recording_url = this.get_session_replay_url();
+                      if (event.properties && window.posthog && typeof window.posthog.get_session_replay_url === 'function') {
+                        event.properties.$session_recording_url = window.posthog.get_session_replay_url();
                       }
                       return event;
                     }
@@ -173,14 +173,16 @@ export default function RootLayout({
                           });
                         }
                         
-                        // Add PostHog context to Sentry error
+                        // Add PostHog context to Sentry error (only if fully initialized)
                         var context = captureContext || {};
                         context.contexts = context.contexts || {};
-                        context.contexts.posthog = {
-                          distinct_id: window.posthog.get_distinct_id(),
-                          session_id: window.posthog.get_session_id ? window.posthog.get_session_id() : '',
-                          session_replay_url: window.posthog.get_session_replay_url ? window.posthog.get_session_replay_url() : '',
-                        };
+                        if (window.posthog && typeof window.posthog.get_distinct_id === 'function' && !window.posthog._i) {
+                          context.contexts.posthog = {
+                            distinct_id: window.posthog.get_distinct_id(),
+                            session_id: window.posthog.get_session_id ? window.posthog.get_session_id() : '',
+                            session_replay_url: window.posthog.get_session_replay_url ? window.posthog.get_session_replay_url() : '',
+                          };
+                        }
                         
                         return originalCaptureException.call(this, error, context);
                       };

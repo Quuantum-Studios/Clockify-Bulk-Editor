@@ -137,7 +137,7 @@ export function TagSelector({
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search tags..."
-              className="text-sm"
+              className="text-sm cursor-text"
               autoFocus
             />
           </div>
@@ -152,7 +152,7 @@ export function TagSelector({
                     key={tag.id}
                     type="button"
                     onClick={() => handleTagToggle(tag.name)}
-                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md flex items-center justify-between"
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md flex items-center justify-between cursor-pointer"
                   >
                     <span>{tag.name}</span>
                     <span className="text-gray-400">+</span>
@@ -172,7 +172,7 @@ export function TagSelector({
                   onChange={(e) => setNewTagName(e.target.value)}
                   onKeyPress={handleKeyPress}
                   placeholder="New tag name..."
-                  className="text-sm"
+                  className="text-sm cursor-text"
                   disabled={isCreating}
                 />
                 <Button
@@ -181,6 +181,7 @@ export function TagSelector({
                   disabled={!newTagName.trim() || isCreating}
                   size="sm"
                   variant="outline"
+                  className="cursor-pointer"
                 >
                   {isCreating ? "..." : "Add"}
                 </Button>

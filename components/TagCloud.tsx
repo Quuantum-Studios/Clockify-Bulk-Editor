@@ -63,7 +63,7 @@ export function TagCloud({ selectedTags, availableTags, onChange, onCreateTag }:
               <button
                 type="button"
                 onClick={() => handleTagToggle(tagName)}
-                className="ml-1 hover:text-blue-600 dark:hover:text-blue-300"
+                className="ml-1 hover:text-blue-600 dark:hover:text-blue-300 cursor-pointer"
               >
                 ×
               </button>
@@ -82,7 +82,7 @@ export function TagCloud({ selectedTags, availableTags, onChange, onCreateTag }:
                 key={tag.id}
                 type="button"
                 onClick={() => handleTagToggle(tag.name)}
-                className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+                className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 cursor-pointer"
               >
                 {tag.name}
               </button>
@@ -98,7 +98,7 @@ export function TagCloud({ selectedTags, availableTags, onChange, onCreateTag }:
             onChange={(e) => setNewTagName(e.target.value)}
             onKeyPress={handleKeyPress}
             placeholder="Add new tag..."
-            className="text-sm"
+            className="text-sm cursor-text"
             disabled={isCreating}
           />
           <Button
@@ -107,6 +107,7 @@ export function TagCloud({ selectedTags, availableTags, onChange, onCreateTag }:
             disabled={!newTagName.trim() || isCreating}
             size="sm"
             variant="outline"
+            className="cursor-pointer"
           >
             {isCreating ? "..." : "Add"}
           </Button>

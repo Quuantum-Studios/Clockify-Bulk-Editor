@@ -86,6 +86,7 @@ export function BulkDeleteTasksDialog({ open, onClose, workspaceId, apiKey, proj
                 <TableHead className="w-[50px]">
                   <input
                     type="checkbox"
+                    className="cursor-pointer"
                     onChange={(e) => {
                       if (e.target.checked) setSelectedTasks(new Set(tasks.map(t => t.id)))
                       else setSelectedTasks(new Set())
@@ -108,7 +109,7 @@ export function BulkDeleteTasksDialog({ open, onClose, workspaceId, apiKey, proj
                 tasks.map(task => (
                   <TableRow key={task.id} data-state={selectedTasks.has(task.id) && "selected"}>
                     <TableCell>
-                      <input type="checkbox" id={`task-${task.id}`} checked={selectedTasks.has(task.id)} onChange={() => handleSelectTask(task.id)} />
+                      <input type="checkbox" id={`task-${task.id}`} checked={selectedTasks.has(task.id)} onChange={() => handleSelectTask(task.id)} className="cursor-pointer" />
                     </TableCell>
                     <TableCell>
                       <label htmlFor={`task-${task.id}`} className="font-medium">{task.name}</label>
@@ -124,8 +125,8 @@ export function BulkDeleteTasksDialog({ open, onClose, workspaceId, apiKey, proj
           </Table>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleDelete} disabled={deleting || selectedTasks.size === 0}>
+          <Button variant="outline" onClick={onClose} className="cursor-pointer">Cancel</Button>
+          <Button onClick={handleDelete} disabled={deleting || selectedTasks.size === 0} className="cursor-pointer">
             {deleting ? "Deleting..." : `Delete Selected (${selectedTasks.size})`}
           </Button>
         </DialogFooter>

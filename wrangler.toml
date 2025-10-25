@@ -1,6 +1,6 @@
 main = ".open-next/worker.js"
 name = "clockify-manager"
-compatibility_date = "2025-01-27"
+compatibility_date = "2025-10-01"
 compatibility_flags = ["nodejs_compat"]
 
 # Production environment (default for CI/CD)
@@ -12,6 +12,7 @@ routes = [
 ] 
 
 [env.production.vars]
+NODE_ENV = "production"
 NEXT_PUBLIC_APP_NAME = "ClockifyManager"
 NEXT_PUBLIC_API_URL = "https://clockify-manager.quuantum.com"
 
@@ -56,6 +57,7 @@ name = "clockify-manager-staging"
 workers_dev = true
 
 [env.staging.vars]
+NODE_ENV = "production"
 NEXT_PUBLIC_APP_NAME = "ClockifyManager (Staging)"
 NEXT_PUBLIC_API_URL = "https://staging.clockify-manager.quuantum.com"
 CHAT_AI_PROVIDER = "google"

@@ -209,7 +209,7 @@ export default function SettingsDialog({ open, onClose, canClose = true }: Setti
                 placeholder="Enter your Clockify API key"
                 value={apiKeyInput}
                 onChange={e => setApiKeyInput(e.target.value)}
-                className="w-full"
+                className="w-full cursor-text"
                 disabled={isValidated}
               />
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -228,7 +228,7 @@ export default function SettingsDialog({ open, onClose, canClose = true }: Setti
                     placeholder="Give the AI extra context for your workspace"
                     value={promptInput}
                     onChange={e => setPromptInput(e.target.value)}
-                    className="w-full"
+                    className="w-full cursor-text"
                   />
                 </div>
 
@@ -239,7 +239,7 @@ export default function SettingsDialog({ open, onClose, canClose = true }: Setti
                   <Select
                     value={tzInput}
                     onChange={e => setTzInput(e.target.value)}
-                    className="w-full"
+                    className="w-full cursor-pointer"
                   >
                     <option value="">Select a timezone</option>
                     {tzOptions.map(tz => (
