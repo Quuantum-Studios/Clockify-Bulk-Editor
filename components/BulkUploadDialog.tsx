@@ -461,16 +461,23 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
         </Button>
       )
       const anyMissingTasks = Object.values(taskCheck).some(v => (v.missing?.length || 0) > 0)
-      if (anyMissingTasks) {
-        right.push(
-          <Button key="createMissingTasks" disabled={creatingTasks} onClick={async () => { setCreatingTasks(true); try { await createAllMissingTasks(); setToast({ type: 'success', message: 'Tasks created' }); } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } finally { setCreatingTasks(false) } }} className="cursor-pointer">
-            {creatingTasks ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Create missing tasks'}
-          </Button>
-        )
-      }
       right.push(
-        <Button key="toTags" disabled={Object.values(taskCheck).some(v => (v.missing?.length || 0) > 0)} onClick={async () => { try { await verifyTags(); setStep(4) } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } }} className="cursor-pointer">
-          {verifyingTags ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Next: Verify Tags'}
+        <Button key="createAndProceed" disabled={creatingTasks} onClick={async () => { 
+          setCreatingTasks(true); 
+          try { 
+            if (anyMissingTasks) {
+              await createAllMissingTasks(); 
+              setToast({ type: 'success', message: 'Tasks created' }); 
+            }
+            await verifyTags(); 
+            setStep(4) 
+          } catch (e) { 
+            setToast({ type: 'error', message: (e as Error).message }) 
+          } finally { 
+            setCreatingTasks(false) 
+          } 
+        }} className="cursor-pointer">
+          {creatingTasks ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : (anyMissingTasks ? 'Create & Proceed' : 'Next: Verify Tags')}
         </Button>
       )
     }
@@ -481,16 +488,23 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
           {verifyingTags ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Reverify'}
         </Button>
       )
-      if (tagCheck && tagCheck.missing.length > 0) {
-        right.push(
-          <Button key="createMissingTags" disabled={creatingTags} onClick={async () => { setCreatingTags(true); try { await createTags(); setToast({ type: 'success', message: 'Tags created' }) } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } finally { setCreatingTags(false) } }} className="cursor-pointer">
-            {creatingTags ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Create missing tags'}
-          </Button>
-        )
-      }
+      const hasMissingTags = tagCheck && tagCheck.missing.length > 0
       right.push(
-        <Button key="toPreview" disabled={!!(tagCheck && tagCheck.missing.length > 0)} onClick={() => setStep(5)} className="cursor-pointer">
-          Next: Preview
+        <Button key="createAndProceedTags" disabled={creatingTags} onClick={async () => { 
+          setCreatingTags(true); 
+          try { 
+            if (hasMissingTags) {
+              await createTags(); 
+              setToast({ type: 'success', message: 'Tags created' }); 
+            }
+            setStep(5) 
+          } catch (e) { 
+            setToast({ type: 'error', message: (e as Error).message }) 
+          } finally { 
+            setCreatingTags(false) 
+          } 
+        }} className="cursor-pointer">
+          {creatingTags ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : (hasMissingTags ? 'Create & Proceed' : 'Next: Preview')}
         </Button>
       )
     }
@@ -701,7 +715,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
             {toast.message}
           </Toast>
         )}
-        <div className="sticky bottom-0 left-0 right-0 -mx-6 mt-4 border-t bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="sticky bottom-0 left-0 right-0 -mx-6 mt-4 border-t bg-background/80 backdrop-blur supports-backdrop-filter:bg-background/60">
           <div className="p-4">
             {renderStepControls()}
           </div>

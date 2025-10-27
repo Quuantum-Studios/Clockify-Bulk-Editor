@@ -60,7 +60,7 @@ Headers must be: description,start,end,projectName,taskName,tags,billable
 Rules:
 - start and end should be timestamps if present (YYYY-MM-DD HH:mm:ss). consider the timestamps provided by user are in ${tz} timezone for start and end. Use the current date if the start or end is not provided.
 - projectName may be used; if unknown leave blank.
-- description may be used; if unknown then add according to the taskName. Don't include projectName.
+- description may be used and should be in past tense; if unknown then add according to the taskName. Don't include projectName.
 - taskName may be used; should be concise if creating a new task, otherwise use the existing taskName. If unknown leave blank. Don't include projectName.
 - tags: labels separated by | in a single cell. Add according to the description, taskName if not provided.
 - billable: true or false (if unknow then decide according  to the taskName, description. default to true if unsure).

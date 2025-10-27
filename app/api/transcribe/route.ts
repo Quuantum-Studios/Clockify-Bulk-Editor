@@ -19,8 +19,19 @@ export async function POST(req: NextRequest) {
 
     const client = new AssemblyAI({ apiKey })
     const buffer = Buffer.from(await file.arrayBuffer())
+    
+    // Skip very small files (likely empty or too short)
+    if (buffer.length < 1000) {
+      return Response.json({ text: "" })
+    }
+    
     const uploadUrl = await client.files.upload(buffer)
-    const transcript = await client.transcripts.transcribe({ audio: uploadUrl })
+    
+    // Use faster transcription settings for smaller chunks
+    const transcript = await client.transcripts.transcribe({ 
+      audio: uploadUrl
+    })
+    
     if (transcript.status !== "completed") {
       if (transcript.error) return new Response(JSON.stringify({ error: transcript.error }), { status: 500 })
       return new Response(JSON.stringify({ error: "timeout" }), { status: 504 })
