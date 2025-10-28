@@ -2,6 +2,8 @@
 
 # dependencies
 /node_modules
+/workers/node_modules
+/workers/*/node_modules
 /.pnp
 .pnp.*
 .yarn/*
@@ -47,3 +49,5 @@ next-env.d.ts
 
 .env.local
 analyze
+
+/workers/*/dist

@@ -1,0 +1,21 @@
+{
+  "name": "assemblyai-worker",
+  "version": "1.0.0",
+  "description": "",
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev --env staging",
+    "build": "wrangler build",
+    "start": "wrangler dev",
+    "deploy": "wrangler deploy --env production --minify",
+    "deploy:staging": "wrangler deploy --env staging --minify",
+    "deploy:preview": "wrangler deploy --env staging --minify --dry-run",
+    "analyze": "wrangler analyze"
+  },
+  "devDependencies": {
+    "wrangler": "^4.45.0"
+  }
+}

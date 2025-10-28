@@ -1,0 +1,22 @@
+name = "assemblyai-worker"
+main = "src/index.ts"
+compatibility_date = "2025-10-01"
+compatibility_flags = ["nodejs_compat"]
+
+[env.production]
+name = "assemblyai-worker"
+routes = [
+  { pattern = "clockify-manager.quuantum.com/api/realtime/*", zone_id = "eab53d86a300310824b21c6693437a91" }
+]
+
+# Staging environment
+[env.staging]
+name = "assemblyai-worker-staging"
+workers_dev = true
+
+# [vars]
+# Must be set in Cloudflare dashboard or via wrangler secret
+# WS_TOKEN_SECRET = ""
+
+[observability]
+enabled = true

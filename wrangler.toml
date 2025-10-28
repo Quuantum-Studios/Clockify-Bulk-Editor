@@ -15,6 +15,7 @@ routes = [
 NODE_ENV = "production"
 NEXT_PUBLIC_APP_NAME = "ClockifyManager"
 NEXT_PUBLIC_API_URL = "https://clockify-manager.quuantum.com"
+NEXT_PUBLIC_ASSEMBLYAI_WORKER="wss://clockify-manager.quuantum.com/api/realtime/speech/"
 
 # AI Provider Configuration
 CHAT_AI_PROVIDER = "google"
@@ -60,6 +61,8 @@ workers_dev = true
 NODE_ENV = "production"
 NEXT_PUBLIC_APP_NAME = "ClockifyManager (Staging)"
 NEXT_PUBLIC_API_URL = "https://staging.clockify-manager.quuantum.com"
+NEXT_PUBLIC_ASSEMBLYAI_WORKER="wss://clockify-manager.quuantum.com/api/realtime/speech/"
+
 CHAT_AI_PROVIDER = "google"
 GEMINI_MODEL = "gemini-2.5-flash"
 
