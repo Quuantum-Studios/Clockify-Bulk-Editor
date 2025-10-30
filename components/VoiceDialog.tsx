@@ -10,19 +10,16 @@ type Props = { open: boolean; onOpenChange: (v: boolean) => void }
 
 export default function VoiceDialog({ open, onOpenChange }: Props) {
   const [text, setText] = useState("")
-  const [recording, setRecording] = useState(false)
+  const [isTranscribing, setIsTranscribing] = useState(false)
+  const [isConnecting, setIsConnecting] = useState(false)
   const [busy, startTransition] = useTransition()
-  const [transcribing, setTranscribing] = useState(false)
   const [csvPreview, setCsvPreview] = useState<string | null>(null)
   const [csvHeaders, setCsvHeaders] = useState<string[]>([])
   const [csvRows, setCsvRows] = useState<string[][]>([])
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
-  const audioChunksRef = useRef<Blob[]>([])
+  const wsRef = useRef<WebSocket | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
-  const vadRef = useRef<{ processor: ScriptProcessorNode | null; silentMs: number; lastSpeechAt: number }>({ processor: null, silentMs: 1200, lastSpeechAt: Date.now() })
-  const analyserRef = useRef<AnalyserNode | null>(null)
+  const audioContextRef = useRef<AudioContext | null>(null)
   const audioMotionRef = useRef<AudioMotionAnalyzer | null>(null)
-  const audioCtxRef = useRef<AudioContext | null>(null)
   const vizContainerRef = useRef<HTMLDivElement | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const openBulk = useClockifyStore(s => s.openBulkUploadWithCsv)
@@ -30,45 +27,91 @@ export default function VoiceDialog({ open, onOpenChange }: Props) {
 
   const close = useCallback(() => onOpenChange(false), [onOpenChange])
 
-  const stopRecording = useCallback(() => {
-    if (!recording) return
-    mediaRecorderRef.current?.stop()
-    streamRef.current?.getTracks().forEach(t => t.stop())
-    setRecording(false)
-    if (vadRef.current.processor) {
-      try { vadRef.current.processor.disconnect() } catch {}
-      vadRef.current.processor = null
+  async function startTranscription() {
+    if (isTranscribing || isConnecting) return;
+    
+    setIsConnecting(true);
+    
+    const tokenRes = await fetch("/api/transcribe/token");
+    const { token } = (await tokenRes.json()) as { token: string };
+
+    const ws = new WebSocket(`${process.env.NEXT_PUBLIC_ASSEMBLYAI_WORKER}?token=${encodeURIComponent(token)}`);
+    wsRef.current = ws;
+
+    ws.onopen = async () => {
+      console.log("Connected to WebSocket");
+      await startMicStream(ws);
+      setIsConnecting(false);
+      setIsTranscribing(true);
+    };
+
+    ws.onerror = (error) => {
+      console.error("WebSocket error:", error);
+      setIsConnecting(false);
+    };
+
+    ws.onclose = () => {
+      setIsConnecting(false);
+    };
+
+    let partial = "";
+    let finalText = text;
+
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+
+      // Handle only messages with transcripts
+      if (!data || !data.transcript) return;
+
+      // When it's a partial update
+      if (data.type === "PartialTranscript" || !data.end_of_turn) {
+        partial = data.transcript;
+      }
+
+      // When it's a final segment
+      if (data.type === "FinalTranscript" || data.end_of_turn) {
+        finalText += (finalText ? " " : "") + data.transcript.trim();
+        partial = "";
+      }
+
+      // Display both together — final + current partial
+      setText(`${finalText} ${partial}`.trim());
+    };
+  }
+
+  const stopTranscription = useCallback(() => {
+    if (!isTranscribing) return;
+    
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
     }
-  }, [recording])
+    
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+    
+    if (audioMotionRef.current) {
+      audioMotionRef.current.disconnectInput();
+      audioMotionRef.current = null;
+    }
+    
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+    
+    setIsTranscribing(false);
+    setIsConnecting(false);
+  }, [isTranscribing])
 
   useEffect(() => {
     if (!open) return
     return () => {
-      stopRecording()
+      stopTranscription()
     }
-  }, [open, stopRecording])
-
-  const setupVAD = useCallback(async (stream: MediaStream, audioContext: AudioContext) => {
-    const source = audioContext.createMediaStreamSource(stream)
-    const analyser = audioContext.createAnalyser()
-    analyser.fftSize = 2048
-    source.connect(analyser)
-    analyserRef.current = analyser
-    const data = new Float32Array(analyser.fftSize)
-    const threshold = 0.01
-    const tick = () => {
-      analyser.getFloatTimeDomainData(data)
-      let rms = 0
-      for (let i = 0; i < data.length; i++) rms += data[i] * data[i]
-      rms = Math.sqrt(rms / data.length)
-      const now = Date.now()
-      if (rms > threshold) vadRef.current.lastSpeechAt = now
-      if (recording && now - vadRef.current.lastSpeechAt > vadRef.current.silentMs) stopRecording()
-      if (recording) requestAnimationFrame(tick)
-    }
-    requestAnimationFrame(tick)
-    vadRef.current.processor = analyser as unknown as ScriptProcessorNode
-  }, [recording, stopRecording])
+  }, [open, stopTranscription])
 
   const startVisualizer = useCallback(() => {
     const container = vizContainerRef.current
@@ -103,54 +146,47 @@ export default function VoiceDialog({ open, onOpenChange }: Props) {
     } catch {}
   }, [])
 
-  const startRecording = useCallback(async () => {
-    if (recording) return
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-    streamRef.current = stream
-    const mr = new MediaRecorder(stream)
-    mediaRecorderRef.current = mr
-    audioChunksRef.current = []
-    const audioContext = new AudioContext({ sampleRate: 16000 })
-    audioCtxRef.current = audioContext
-    vadRef.current.lastSpeechAt = Date.now()
-    await setupVAD(stream, audioContext)
-    mr.ondataavailable = (e) => { if (e.data && e.data.size > 0) audioChunksRef.current.push(e.data) }
-    mr.onstop = async () => {
-      try {
-    try { audioMotionRef.current?.disconnectInput() } catch {}
-    try { audioMotionRef.current?.pause() } catch {}
-        if (audioChunksRef.current.length === 0) return
-        const blob = new Blob(audioChunksRef.current, { type: "audio/webm" })
-        audioChunksRef.current = []
-        const form = new FormData()
-        form.append("file", blob, "audio.webm")
-        setTranscribing(true)
-        const res = await fetch("/api/transcribe", { method: "POST", body: form })
-        if (!res.ok) throw new Error("transcription failed")
-        const data = (await res.json()) as { text?: string }
-        const transcript = data?.text || ""
-        if (transcript) setText(t => (t ? t + "\n" : "") + transcript)
-      } catch (err) {
-        console.error(err)
-      } finally {
-        setTranscribing(false)
+  async function startMicStream(ws: WebSocket) {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    streamRef.current = stream;
+    
+    const audioContext = new AudioContext({ sampleRate: 16000 });
+    audioContextRef.current = audioContext;
+    
+    const source = audioContext.createMediaStreamSource(stream);
+    const processor = audioContext.createScriptProcessor(4096, 1, 1);
+
+    source.connect(processor);
+    processor.connect(audioContext.destination);
+
+    processor.onaudioprocess = (e) => {
+      const input = e.inputBuffer.getChannelData(0);
+      const int16 = floatTo16BitPCM(input);
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(int16);
       }
+    };
+  }
+
+  function floatTo16BitPCM(float32Array: Float32Array) {
+    const buffer = new ArrayBuffer(float32Array.length * 2);
+    const view = new DataView(buffer);
+    let offset = 0;
+    for (let i = 0; i < float32Array.length; i++, offset += 2) {
+      const s = Math.max(-1, Math.min(1, float32Array[i]));
+      view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
     }
-    mr.onstart = () => {
-      setRecording(true)
-    }
-    mr.start()
-    setRecording(true)
-  }, [recording, setupVAD])
+    return buffer;
+  }
 
   useEffect(() => {
-    if (!recording) return
+    if (!isTranscribing) return
     // ensure DOM has rendered the container
     const id = requestAnimationFrame(() => {
-      if (audioCtxRef.current) startVisualizer()
+      if (audioContextRef.current) startVisualizer()
     })
     return () => cancelAnimationFrame(id)
-  }, [recording, startVisualizer])
+  }, [isTranscribing, startVisualizer])
 
   const onAnalyze = useCallback(async () => {
     const state = useClockifyStore.getState()
@@ -244,23 +280,33 @@ export default function VoiceDialog({ open, onOpenChange }: Props) {
             ref={textareaRef}
             className="w-full h-56 md:h-64 resize-none rounded-md border border-input bg-background p-3 outline-none focus:ring-2 focus:ring-primary cursor-text"
           />
-          {recording && (
+          {isTranscribing && (
             <div ref={vizContainerRef} className="pointer-events-none absolute inset-0 rounded-md z-10" />
-          )}
-          {transcribing && (
-            <div className="absolute inset-0 flex items-center justify-center rounded-md bg-black/10">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-            </div>
           )}
         </div>
         <div className="mt-3 flex items-center justify-between gap-3">
           <button
-            onClick={() => (recording ? stopRecording() : startRecording())}
-            className={`inline-flex items-center gap-2 rounded-md px-3 py-2 border transition cursor-pointer ${recording ? "bg-red-500 text-white border-red-500" : "bg-white dark:bg-gray-800 border-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"}`}
-            aria-pressed={recording}
+            onClick={() => (isTranscribing ? stopTranscription() : startTranscription())}
+            disabled={isConnecting}
+            className={`inline-flex items-center gap-2 rounded-md px-3 py-2 border transition cursor-pointer ${isTranscribing ? "bg-red-500 text-white border-red-500" : "bg-white dark:bg-gray-800 border-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"} disabled:opacity-50`}
+            aria-pressed={isTranscribing}
           >
-            {recording ? <MicOff size={16} /> : <Mic size={16} />}
-            {recording ? "Stop" : "Mic"}
+            {isConnecting ? (
+              <>
+                <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-600 dark:border-gray-300 border-t-transparent" />
+                <span>Connecting...</span>
+              </>
+            ) : isTranscribing ? (
+              <>
+                <MicOff size={16} />
+                <span>Stop</span>
+              </>
+            ) : (
+              <>
+                <Mic size={16} />
+                <span>Mic</span>
+              </>
+            )}
           </button>
           <button
             onClick={onAnalyze}
@@ -311,7 +357,7 @@ export default function VoiceDialog({ open, onOpenChange }: Props) {
                           <textarea
                             value={row[ci] ?? ''}
                             onChange={(e) => setCell(ri, ci, e.target.value)}
-                            className="w-full min-w-[160px] bg-background border rounded px-2 py-1 text-sm whitespace-pre-wrap break-words leading-snug resize-none overflow-hidden"
+                            className="w-full min-w-[160px] bg-background border rounded px-2 py-1 text-sm whitespace-pre-wrap wrap-break-word leading-snug resize-none overflow-hidden"
                             style={{
                               height: 'auto',
                               maxHeight: 'none',
