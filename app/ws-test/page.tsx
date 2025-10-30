@@ -12,7 +12,7 @@ export default function LiveTranscribe() {
     async function startTranscription() {
         if (isTranscribing) return;
         
-        const tokenRes = await fetch("/api/ws");
+        const tokenRes = await fetch("/api/transcribe/token");
         const { token } = (await tokenRes.json()) as { token: string };
 
         // const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";

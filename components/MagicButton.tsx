@@ -9,11 +9,18 @@ export default function MagicButton() {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="rounded-full bg-gradient-to-r from-fuchsia-500 to-indigo-500 text-white shadow-lg hover:opacity-90 active:opacity-80 transition px-4 py-2 flex items-center gap-2"
+        className="group relative overflow-hidden rounded-full bg-gradient-to-r from-fuchsia-500 to-indigo-500 text-white shadow-lg hover:shadow-xl transition-all duration-300 px-4 py-2 flex items-center gap-2 hover:scale-105 active:scale-95 cursor-pointer"
         aria-label="Open Magic"
       >
-        <Sparkles size={18} />
-        <span>Magic Upload</span>
+        {/* Animated gradient overlay on hover */}
+        <div className="absolute inset-0 bg-gradient-to-r from-fuchsia-600 via-purple-500 to-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+        {/* Shimmer effect */}
+        <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/30 to-transparent" />
+
+        {/* Content */}
+        <Sparkles size={18} className="relative z-10 group-hover:rotate-12 transition-transform duration-300" />
+        <span className="relative z-10">Magic Upload</span>
       </button>
       <VoiceDialog open={open} onOpenChange={setOpen} />
     </>
