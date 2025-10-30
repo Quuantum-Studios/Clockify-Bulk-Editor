@@ -7,6 +7,7 @@ compatibility_flags = ["nodejs_compat"]
 [env.production]
 name = "clockify-manager"
 zone_id = "eab53d86a300310824b21c6693437a91"
+workers_dev = false
 routes = [
   { pattern = "clockify-manager.quuantum.com/*", zone_id = "eab53d86a300310824b21c6693437a91" }
 ] 
@@ -55,13 +56,16 @@ preview_id = "e0d674cb2180476e804c2e9a4ec0426e"
 # Staging environment
 [env.staging]
 name = "clockify-manager-staging"
-workers_dev = true
+workers_dev = false
+routes = [
+  { pattern = "staging.clockify-manager.quuantum.com/*", zone_id = "eab53d86a300310824b21c6693437a91" }
+] 
 
 [env.staging.vars]
 NODE_ENV = "production"
 NEXT_PUBLIC_APP_NAME = "ClockifyManager (Staging)"
 NEXT_PUBLIC_API_URL = "https://staging.clockify-manager.quuantum.com"
-NEXT_PUBLIC_ASSEMBLYAI_WORKER="wss://clockify-manager.quuantum.com/api/realtime/speech/"
+NEXT_PUBLIC_ASSEMBLYAI_WORKER="wss://staging.clockify-manager.quuantum.com/api/realtime/speech/"
 
 CHAT_AI_PROVIDER = "google"
 GEMINI_MODEL = "gemini-2.5-flash"
@@ -69,6 +73,7 @@ GEMINI_MODEL = "gemini-2.5-flash"
 # Required secrets (set via: wrangler secret put SECRET_NAME)
 # GEMINI_API_KEY
 # ASSEMBLYAI_API_KEY
+# WS_TOKEN_SECRET
 
 NEXT_PUBLIC_SENTRY_DSN = "https://d5598e6c4fa3771c64711008899328e3@o4510228070268928.ingest.us.sentry.io/4510228072955905"
 NEXT_PUBLIC_SENTRY_PROJECT_KEY = "d5598e6c4fa3771c64711008899328e3"

@@ -5,6 +5,7 @@ compatibility_flags = ["nodejs_compat"]
 
 [env.production]
 name = "assemblyai-worker"
+workers_dev = false
 routes = [
   { pattern = "clockify-manager.quuantum.com/api/realtime/*", zone_id = "eab53d86a300310824b21c6693437a91" }
 ]
@@ -12,7 +13,10 @@ routes = [
 # Staging environment
 [env.staging]
 name = "assemblyai-worker-staging"
-workers_dev = true
+workers_dev = false
+routes = [
+  { pattern = "staging.clockify-manager.quuantum.com/api/realtime/*", zone_id = "eab53d86a300310824b21c6693437a91" }
+]
 
 # [vars]
 # Must be set in Cloudflare dashboard or via wrangler secret
