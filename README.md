@@ -18,6 +18,8 @@ First, install dependencies:
 npm install
 ```
 
+> **Note:** The `postinstall` script automatically sets up git hooks for automatic worker deployment.
+
 Then, run the development server:
 
 ```bash
@@ -49,6 +51,22 @@ The following environment variables are configured in `wrangler.toml`:
 - `NEXT_PUBLIC_APP_NAME`: Application name (default: "ClockifyManager")
 - `NEXT_PUBLIC_API_URL`: API URL for the deployed worker
 
+### Automatic Worker Deployment
+
+The project includes a **git pre-push hook** that automatically deploys the realtime-worker if changes are detected:
+
+- When you push commits, the hook checks for changes in `workers/realtime-worker/`
+- If changes are found in the unpushed commits, it deploys the worker first
+- Deployment environment is determined by branch:
+  - `master`/`main` → Production
+  - `staging`/`develop` → Staging
+- After worker deployment, Cloudflare auto-deploys the main application
+
+The hook is automatically installed when you run `npm install`. To manually reinstall:
+```bash
+./scripts/setup-git-hooks.sh
+```
+
 ### Deployment Commands
 
 1. **Preview locally** (test the Cloudflare Worker locally):
@@ -61,7 +79,13 @@ npm run preview
 npm run deploy
 ```
 
-3. **Generate Cloudflare types** (if you modify wrangler.toml):
+3. **Deploy worker only**:
+```bash
+npm run deploy:worker          # Production
+npm run deploy:worker:staging  # Staging
+```
+
+4. **Generate Cloudflare types** (if you modify wrangler.toml):
 ```bash
 npm run cf-typegen
 ```

@@ -1,0 +1,88 @@
+#!/bin/bash
+
+# Pre-push hook to deploy realtime-worker if there are changes
+# This runs automatically when you push commits
+
+echo "🔍 Checking for realtime-worker changes in unpushed commits..."
+
+# Get the remote and URL being pushed to
+remote="$1"
+url="$2"
+
+# Read stdin to get the range of commits being pushed
+while read local_ref local_sha remote_ref remote_sha
+do
+    if [ "$local_sha" = "0000000000000000000000000000000000000000" ]; then
+        # Branch is being deleted, skip
+        continue
+    fi
+    
+    if [ "$remote_sha" = "0000000000000000000000000000000000000000" ]; then
+        # New branch, check all unpushed commits
+        # Find commits that don't exist on any remote branch
+        range="$local_sha --not --remotes"
+    else
+        # Existing branch, check unpushed commits
+        range="$remote_sha..$local_sha"
+    fi
+    
+    # Check if there are changes in workers/realtime-worker in the unpushed commits
+    if [ "$remote_sha" = "0000000000000000000000000000000000000000" ]; then
+        # For new branches, use git log to check
+        if ! git log $range --format="" --name-only -- workers/realtime-worker 2>/dev/null | grep -q .; then
+            has_changes=false
+        else
+            has_changes=true
+        fi
+    else
+        # For existing branches, use git diff
+        if git diff --quiet "$range" -- workers/realtime-worker 2>/dev/null; then
+            has_changes=false
+        else
+            has_changes=true
+        fi
+    fi
+    
+    if [ "$has_changes" = "false" ]; then
+        echo "✓ No changes in realtime-worker in unpushed commits, skipping worker deployment"
+    else
+        echo "🚀 Changes detected in realtime-worker, deploying..."
+        
+        # Determine environment based on branch
+        current_branch=$(git rev-parse --abbrev-ref HEAD)
+        
+        if [ "$current_branch" = "master" ] || [ "$current_branch" = "main" ]; then
+            echo "📦 Deploying to PRODUCTION..."
+            cd workers/realtime-worker
+            npm ci
+            npm run deploy
+            exit_code=$?
+            cd ../..
+            
+            if [ $exit_code -ne 0 ]; then
+                echo "❌ Worker deployment failed, aborting push"
+                exit 1
+            fi
+            echo "✅ Worker deployed successfully to production"
+        elif [ "$current_branch" = "staging" ] || [ "$current_branch" = "develop" ]; then
+            echo "📦 Deploying to STAGING..."
+            cd workers/realtime-worker
+            npm ci
+            npm run deploy:staging
+            exit_code=$?
+            cd ../..
+            
+            if [ $exit_code -ne 0 ]; then
+                echo "❌ Worker deployment failed, aborting push"
+                exit 1
+            fi
+            echo "✅ Worker deployed successfully to staging"
+        else
+            echo "⚠️  Not on master/main/staging/develop branch, skipping worker deployment"
+        fi
+    fi
+done
+
+echo "✅ Pre-push checks complete, proceeding with push..."
+exit 0
+

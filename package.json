@@ -14,15 +14,16 @@
     "preview:staging": "npm run build:cf && npm run dev:cf",
     "deploy:worker": "npm run deploy --prefix workers/realtime-worker",
     "deploy:worker:staging": "npm run deploy:staging --prefix workers/realtime-worker",
-    "deploy": "bash -c 'if ! git diff --quiet HEAD~5 HEAD -- workers/realtime-worker 2>/dev/null || ! git diff --quiet HEAD -- workers/realtime-worker || git ls-files --others --exclude-standard workers/realtime-worker | grep -q .; then echo \"Deploying realtime-worker first...\"; npm run deploy:worker; else echo \"No changes in realtime-worker in last 5 commits, skipping worker deployment\"; fi' && npm run build:cf && wrangler deploy --env production --minify",
-    "deploy:staging": "bash -c 'if ! git diff --quiet HEAD~5 HEAD -- workers/realtime-worker 2>/dev/null || ! git diff --quiet HEAD -- workers/realtime-worker || git ls-files --others --exclude-standard workers/realtime-worker | grep -q .; then echo \"Deploying realtime-worker first...\"; npm run deploy:worker:staging; else echo \"No changes in realtime-worker in last 5 commits, skipping worker deployment\"; fi' && npm run build:cf && wrangler deploy --env staging --minify",
+    "deploy": "npm run build:cf && wrangler deploy --env production --minify",
+    "deploy:staging": "npm run build:cf && wrangler deploy --env staging --minify",
     "deploy:preview": "npm run build:cf && wrangler deploy --env staging --minify --dry-run",
     "deploy:quick": "wrangler deploy --env production --minify",
     "deploy:staging:quick": "wrangler deploy --env staging --minify",
     "analyze": "npm run build:next && next bundle-analyzer",
     "analyze:watch": "npm run build:next && next bundle-analyzer --watch",
     "analyze:server": "npm run build:next && next bundle-analyzer --server",
-    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
+    "postinstall": "bash ./scripts/setup-git-hooks.sh || true"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
