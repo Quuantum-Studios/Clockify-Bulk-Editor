@@ -76,7 +76,7 @@ export class ClockifyAPI {
       headers: { "X-Api-Key": apiKey }
     })
     // Only enable logging in development
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
       this.axiosInstance.interceptors.request.use(requestLogger);
       this.axiosInstance.interceptors.response.use(responseLogger, errorLogger);
     }

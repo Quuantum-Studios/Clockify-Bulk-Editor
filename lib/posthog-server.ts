@@ -4,7 +4,7 @@ export async function captureServerEvent(
   event: string,
   properties?: Record<string, unknown>
 ) {
-  if (process.env.NODE_ENV !== 'production') return;
+  if (process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'test') return;
 
   const apiKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
   const apiHost = process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com';
@@ -50,7 +50,7 @@ export async function identifyServerUser(
   distinctId: string,
   properties?: Record<string, unknown>
 ) {
-  if (process.env.NODE_ENV !== 'production') return;
+  if (process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'test') return;
 
   const apiKey = process.env.NEXT_PUBLIC_POSTHOG_KEY;
   const apiHost = process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com';

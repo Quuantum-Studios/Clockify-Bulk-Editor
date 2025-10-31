@@ -62,7 +62,7 @@ routes = [
 ] 
 
 [env.staging.vars]
-NODE_ENV = "production"
+NODE_ENV = "test"
 NEXT_PUBLIC_APP_NAME = "ClockifyManager (Staging)"
 NEXT_PUBLIC_API_URL = "https://staging.clockify-manager.quuantum.com"
 NEXT_PUBLIC_ASSEMBLYAI_WORKER="wss://staging.clockify-manager.quuantum.com/api/realtime/speech/"

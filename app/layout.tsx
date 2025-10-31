@@ -29,7 +29,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        {process.env.NODE_ENV === 'production' && (
+        {(process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'test') && (
           <>
             {/* Sentry Lazy Loader - 0KB until error occurs */}
             <Script

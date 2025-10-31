@@ -3,7 +3,7 @@ export async function captureServerException(
   error: Error,
   context?: Record<string, unknown>
 ) {
-  if (process.env.NODE_ENV !== 'production') {
+  if (process.env.NODE_ENV !== 'production' && process.env.NODE_ENV !== 'test') {
     console.error('Server error:', error, context);
     return;
   }
