@@ -10,6 +10,8 @@
     "lint": "eslint",
     "build:cf": "opennextjs-cloudflare build",
     "build:next": "next build",
+    "build:cf:with-env:prod": "cp -f example.env.production .env.production && npm run build:cf",
+    "build:cf:with-env:staging": "cp -f example.env.test .env.test && npm run build:cf",
     "preview": "NODE_ENV=production npm run build:cf && NODE_ENV=production opennextjs-cloudflare preview",
     "preview:staging": "NODE_ENV=test npm run build:cf && NODE_ENV=test npm run dev:cf",
     "deploy:worker": "npm run deploy --prefix workers/realtime-worker",
@@ -23,7 +25,8 @@
     "analyze:watch": "npm run build:next && next bundle-analyzer --watch",
     "analyze:server": "npm run build:next && next bundle-analyzer --server",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
-    "postinstall": "bash ./scripts/setup-git-hooks.sh || true"
+    "postinstall": "bash ./scripts/setup-git-hooks.sh || true",
+    "validate:env": "node scripts/validate-env.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

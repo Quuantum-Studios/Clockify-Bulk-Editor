@@ -46,10 +46,14 @@ wrangler login
 
 ### Environment Variables
 
-The following environment variables are configured in `wrangler.toml`:
-
-- `NEXT_PUBLIC_APP_NAME`: Application name (default: "ClockifyManager")
-- `NEXT_PUBLIC_API_URL`: API URL for the deployed worker
+- Public build-time vars (`NEXT_PUBLIC_*`) live in per-env files:
+  - `example.env.local`, `example.env.staging`, `example.env.production`
+  - Copy to `.env.local` for dev; in CI, write a `.env.staging`/`.env.production` before build
+- Server-only/runtime vars stay in `wrangler.toml`/Wrangler secrets (e.g. `SENTRY_DSN`)
+- Validate required envs:
+```bash
+npm run validate:env
+```
 
 ### Automatic Worker Deployment
 
