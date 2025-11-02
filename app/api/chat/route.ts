@@ -93,11 +93,27 @@ export async function POST(req: NextRequest) {
       taskName?: string
       description?: string
       projects?: Array<{ name?: string; tasks?: Array<{ name?: string; descriptions?: string[] }> }>
+      selectedProjectIds?: string[]
     }
     const userText = body?.messages?.[0]?.content || body?.text || ""
     if (!userText || typeof userText !== 'string') {
       return new Response(JSON.stringify({ error: "missing text" }), { status: 400 })
     }
+
+    // Validate that projects are selected and provided
+    const selectedIds = body.selectedProjectIds || []
+    if (!selectedIds || selectedIds.length === 0) {
+      return new Response(JSON.stringify({ error: "project selection is required" }), { status: 400 })
+    }
+
+    const projects = body.projects || []
+    if (!projects || projects.length === 0) {
+      return new Response(JSON.stringify({ error: "no projects provided" }), { status: 400 })
+    }
+
+    console.log(`Using filtered projects: ${projects.length} project(s) included in prompt (from ${selectedIds.length} selected)`)
+    console.log(`Selected project IDs:`, selectedIds)
+    console.log(`Projects in prompt:`, projects.map(p => p.name).join(', ') || 'none')
 
     const systemPrompt = buildSystemPrompt({
       userTimezone: body.timezone,
@@ -106,7 +122,7 @@ export async function POST(req: NextRequest) {
       projectName: body.projectName,
       taskName: body.taskName,
       description: body.description,
-      projects: body.projects,
+      projects: projects,
     })
 
     const provider = (process.env.CHAT_AI_PROVIDER || '').toLowerCase()
@@ -133,7 +149,7 @@ export async function POST(req: NextRequest) {
           model,
           generationConfig: {
             temperature: 0.2,
-            maxOutputTokens: 2048,
+            // maxOutputTokens: 2048,
           }
         })
         

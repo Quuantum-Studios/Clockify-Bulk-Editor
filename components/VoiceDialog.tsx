@@ -5,6 +5,7 @@ import { Mic, MicOff, Sparkles } from "lucide-react"
 import { useClockifyStore } from "../lib/store"
 import Papa from "papaparse"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "./ui/table"
+import { ProjectSelector } from "./ProjectSelector"
 
 type Props = { open: boolean; onOpenChange: (v: boolean) => void }
 
@@ -16,6 +17,8 @@ export default function VoiceDialog({ open, onOpenChange }: Props) {
   const [csvPreview, setCsvPreview] = useState<string | null>(null)
   const [csvHeaders, setCsvHeaders] = useState<string[]>([])
   const [csvRows, setCsvRows] = useState<string[][]>([])
+  const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([])
+  const [error, setError] = useState<string | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
@@ -23,15 +26,16 @@ export default function VoiceDialog({ open, onOpenChange }: Props) {
   const vizContainerRef = useRef<HTMLDivElement | null>(null)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const openBulk = useClockifyStore(s => s.openBulkUploadWithCsv)
-  
+  const availableProjects = useClockifyStore(s => s.projects)
+
 
   const close = useCallback(() => onOpenChange(false), [onOpenChange])
 
   async function startTranscription() {
     if (isTranscribing || isConnecting) return;
-    
+
     setIsConnecting(true);
-    
+
     const tokenRes = await fetch("/api/transcribe/token");
     const { token } = (await tokenRes.json()) as { token: string };
 
@@ -81,37 +85,46 @@ export default function VoiceDialog({ open, onOpenChange }: Props) {
 
   const stopTranscription = useCallback(() => {
     if (!isTranscribing) return;
-    
+
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
-    
+
     if (audioContextRef.current) {
       audioContextRef.current.close();
       audioContextRef.current = null;
     }
-    
+
     if (audioMotionRef.current) {
       audioMotionRef.current.disconnectInput();
       audioMotionRef.current = null;
     }
-    
+
     if (wsRef.current) {
       wsRef.current.close();
       wsRef.current = null;
     }
-    
+
     setIsTranscribing(false);
     setIsConnecting(false);
   }, [isTranscribing])
 
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      setError(null)
+      return
+    }
     return () => {
       stopTranscription()
     }
   }, [open, stopTranscription])
+
+  useEffect(() => {
+    if (selectedProjectIds.length > 0) {
+      setError(null)
+    }
+  }, [selectedProjectIds])
 
   const startVisualizer = useCallback(() => {
     const container = vizContainerRef.current
@@ -143,16 +156,16 @@ export default function VoiceDialog({ open, onOpenChange }: Props) {
       am.setOptions({ audioCtx: am.audioCtx })
       am.volume = 0
       am.resume()
-    } catch {}
+    } catch { }
   }, [])
 
   async function startMicStream(ws: WebSocket) {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     streamRef.current = stream;
-    
+
     const audioContext = new AudioContext({ sampleRate: 16000 });
     audioContextRef.current = audioContext;
-    
+
     const source = audioContext.createMediaStreamSource(stream);
     const processor = audioContext.createScriptProcessor(4096, 1, 1);
 
@@ -189,15 +202,25 @@ export default function VoiceDialog({ open, onOpenChange }: Props) {
   }, [isTranscribing, startVisualizer])
 
   const onAnalyze = useCallback(async () => {
+    if (selectedProjectIds.length === 0) {
+      return // Prevent analysis if no projects selected
+    }
+
     const state = useClockifyStore.getState()
     const prompt = state.userPrompt || ""
     const content = prompt ? `${prompt}\n\n${text}` : text
-    // Build Existing Data block
     const wsProjects = state.projects || []
-    const projWithTasks = (wsProjects as { id: string; name: string }[]).map(p => ({
+    const filteredProjects = wsProjects.filter(p => selectedProjectIds.includes(p.id))
+
+    if (filteredProjects.length === 0) {
+      return // Prevent analysis if no valid projects found
+    }
+
+    const projWithTasks = (filteredProjects as { id: string; name: string }[]).map(p => ({
       name: p.name,
       tasks: (state.tasks?.[p.id] || []).map(t => ({ name: t.name, descriptions: [] as string[] }))
     }))
+
     const tagsList: string[] = []
     const timezone = state.defaultTimezone || "UTC"
     const body = {
@@ -205,21 +228,30 @@ export default function VoiceDialog({ open, onOpenChange }: Props) {
       userPrompt: prompt,
       timezone,
       tags: tagsList,
-      projects: projWithTasks
+      projects: projWithTasks,
+      selectedProjectIds: selectedProjectIds
     }
+    setError(null)
     startTransition(async () => {
       try {
         const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
-        if (!res.ok) return
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({})) as { error?: string }
+          setError(errorData.error || "Failed to analyze. Please try again.")
+          return
+        }
         const data = (await res.json()) as { message?: string; content?: string }
         const raw = (data?.message || data?.content) || ""
         if (raw && typeof raw === 'string') {
           const cleaned = raw.replace(/^```[a-zA-Z]*\n?/m, '').replace(/\n?```$/m, '')
           setCsvPreview(cleaned)
+          setError(null)
         }
-      } catch {}
+      } catch (e) {
+        setError("An error occurred. Please try again.")
+      }
     })
-  }, [text])
+  }, [text, selectedProjectIds])
 
   const onProceedToBulk = useCallback(() => {
     if (!csvPreview) return
@@ -265,68 +297,81 @@ export default function VoiceDialog({ open, onOpenChange }: Props) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={close} />
-      <div className={"relative z-10 w-full rounded-xl border border-border bg-card shadow-xl p-4 md:p-6 " + (csvPreview !== null ? "max-w-6xl max-h-[90vh] overflow-y-auto" : "max-w-2xl") }>
+      <div className={"relative z-10 w-full rounded-xl border border-border bg-card shadow-xl p-4 md:p-6 " + (csvPreview !== null ? "max-w-6xl max-h-[90vh] overflow-y-auto" : "max-w-2xl")}>
         <div className="flex items-center justify-between mb-3">
           <div className="font-semibold">Magic Assistant</div>
           <button onClick={close} className="text-sm opacity-70 hover:opacity-100 cursor-pointer">Close</button>
         </div>
         {csvPreview === null && (
-          <div>
-                    <div className="relative">
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="Type here or use the mic"
-            ref={textareaRef}
-            className="w-full h-56 md:h-64 resize-none rounded-md border border-input bg-background p-3 outline-none focus:ring-2 focus:ring-primary cursor-text"
-          />
-          {isTranscribing && (
-            <div ref={vizContainerRef} className="pointer-events-none absolute inset-0 rounded-md z-10" />
-          )}
-        </div>
-        <div className="mt-3 flex items-center justify-between gap-3">
-          <button
-            onClick={() => (isTranscribing ? stopTranscription() : startTranscription())}
-            disabled={isConnecting}
-            className={`inline-flex items-center gap-2 rounded-md px-3 py-2 border transition cursor-pointer ${isTranscribing ? "bg-red-500 text-white border-red-500" : "bg-white dark:bg-gray-800 border-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"} disabled:opacity-50`}
-            aria-pressed={isTranscribing}
-          >
-            {isConnecting ? (
-              <>
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-600 dark:border-gray-300 border-t-transparent" />
-                <span>Connecting...</span>
-              </>
-            ) : isTranscribing ? (
-              <>
-                <MicOff size={16} />
-                <span>Stop</span>
-              </>
-            ) : (
-              <>
-                <Mic size={16} />
-                <span>Mic</span>
-              </>
-            )}
-          </button>
-          <button
-            onClick={onAnalyze}
-            disabled={busy}
-            className="ml-auto rounded-md bg-primary text-primary-foreground px-4 py-2 hover:opacity-90 disabled:opacity-50 flex items-center gap-2 cursor-pointer"
-          >
-            {busy ? (
-              <>
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/70 border-t-transparent" />
-                <span>Analyzing...</span>
-              </>
-            ) : (
-              <>
-                <Sparkles size={18} />
-                <span>Analyze</span>
-              </>
-            )}
-          </button>
-        </div>
-        </div>
+          <div> 
+            <div className="relative">
+              <textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                placeholder="Type here or use the mic"
+                ref={textareaRef}
+                className="w-full h-56 md:h-64 resize-none rounded-md border border-input bg-background p-3 outline-none focus:ring-2 focus:ring-primary cursor-text"
+              />
+              {isTranscribing && (
+                <div ref={vizContainerRef} className="pointer-events-none absolute inset-0 rounded-md z-10" />
+              )}
+            </div>
+            <div className="mb-3">
+              <div className="mb-1 text-xs text-muted-foreground">Select projects (required)</div>
+              <ProjectSelector
+                selectedProjectIds={selectedProjectIds}
+                availableProjects={availableProjects}
+                onChange={setSelectedProjectIds}
+                placeholder="Select at least one project..."
+                className="w-full"
+              />
+              {error && (
+                <div className="mt-2 text-xs text-red-500">{error}</div>
+              )}
+            </div>
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <button
+                onClick={() => (isTranscribing ? stopTranscription() : startTranscription())}
+                disabled={isConnecting}
+                className={`inline-flex items-center gap-2 rounded-md px-3 py-2 border transition cursor-pointer ${isTranscribing ? "bg-red-500 text-white border-red-500" : "bg-white dark:bg-gray-800 border-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"} disabled:opacity-50`}
+                aria-pressed={isTranscribing}
+              >
+                {isConnecting ? (
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-600 dark:border-gray-300 border-t-transparent" />
+                    <span>Connecting...</span>
+                  </>
+                ) : isTranscribing ? (
+                  <>
+                    <MicOff size={16} />
+                    <span>Stop</span>
+                  </>
+                ) : (
+                  <>
+                    <Mic size={16} />
+                    <span>Mic</span>
+                  </>
+                )}
+              </button>
+              <button
+                onClick={onAnalyze}
+                disabled={busy || selectedProjectIds.length === 0}
+                className="ml-auto rounded-md bg-primary text-primary-foreground px-4 py-2 hover:opacity-90 disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+              >
+                {busy ? (
+                  <>
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground/70 border-t-transparent" />
+                    <span>Analyzing...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={18} />
+                    <span>Analyze</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         )}
         {csvPreview !== null && (
           <div className="mt-4 border rounded-md">
