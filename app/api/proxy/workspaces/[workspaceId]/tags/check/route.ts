@@ -29,7 +29,7 @@ export async function POST(
     }
 
     const clockify = new ClockifyAPI()
-    clockify.setApiKey(apiKey)
+    await clockify.setApiKey(apiKey)
 
     const { workspaceId } = await context.params
     const allTags = await clockify.getTags(workspaceId)

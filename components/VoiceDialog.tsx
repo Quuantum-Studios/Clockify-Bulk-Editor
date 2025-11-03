@@ -247,9 +247,11 @@ export default function VoiceDialog({ open, onOpenChange }: Props) {
           setCsvPreview(cleaned)
           setError(null)
         }
-      } catch (e) {
-        setError("An error occurred. Please try again.")
-      }
+      } catch (e: unknown) {
+        console.error('Chat API error:', e)
+        const errorMessage = e instanceof Error ? e.message : String(e)
+        setError("An error occurred. Please try again.\n" + errorMessage)
+}
     })
   }, [text, selectedProjectIds])
 

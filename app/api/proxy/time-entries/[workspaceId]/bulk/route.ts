@@ -37,7 +37,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ worksp
     if (!userId) throw new Error("userId required")
     if (!Array.isArray(entries)) throw new Error("Entries must be an array")
     const clockify = new ClockifyAPI()
-    clockify.setApiKey(apiKey)
+    await clockify.setApiKey(apiKey)
     const parsedEntriesRaw = entries.map((e: unknown) => entrySchema.parse(e))
     type MutableEntry = Partial<{
       description: string

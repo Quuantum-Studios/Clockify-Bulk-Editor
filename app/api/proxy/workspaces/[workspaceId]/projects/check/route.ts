@@ -26,7 +26,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ worksp
       })
     }
     const clockify = new ClockifyAPI()
-    clockify.setApiKey(apiKey)
+    await clockify.setApiKey(apiKey)
 
     const allProjects = await clockify.getProjects(workspaceId)
     const normalized = projectNames.map((n: string) => n.toLowerCase().trim())

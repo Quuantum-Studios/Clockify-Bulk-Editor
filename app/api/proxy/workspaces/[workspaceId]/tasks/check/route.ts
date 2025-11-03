@@ -25,7 +25,7 @@ export async function POST(
       })
     }
     const clockify = new ClockifyAPI()
-    clockify.setApiKey(apiKey)
+    await clockify.setApiKey(apiKey)
     const params = await context.params
     const workspaceId = params.workspaceId
     if (!projectId) return NextResponse.json({ existing: [], missing: taskNames })

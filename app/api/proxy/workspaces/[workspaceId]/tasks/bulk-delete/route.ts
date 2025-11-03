@@ -32,7 +32,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Task IDs are required" }, { status: 400 })
 
     const api = new ClockifyAPI()
-    api.setApiKey(apiKey)
+    await api.setApiKey(apiKey)
 
     const failed: { id: string; reason: string }[] = []
     const batchSize = 5

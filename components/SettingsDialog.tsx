@@ -59,7 +59,7 @@ export default function SettingsDialog({ open, onClose, canClose = true }: Setti
       return
     }
     try {
-      const res = await fetch(`/api/kv/settings?email=${encodeURIComponent(emailToUse)}`)
+      const res = await fetch(`/api/settings?email=${encodeURIComponent(emailToUse)}`)
       const data = await res.json() as { settings?: { userPrompt?: string; defaultTimezone?: string } }
       if (data.settings) {
         setPromptInput(data.settings.userPrompt || "")
@@ -156,7 +156,7 @@ export default function SettingsDialog({ open, onClose, canClose = true }: Setti
         // Step 2: Save settings if already validated
         const tz = tzInput || (Intl && new Intl.DateTimeFormat().resolvedOptions().timeZone) || "UTC"
 
-        await fetch("/api/kv/settings", {
+        await fetch("/api/settings", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
