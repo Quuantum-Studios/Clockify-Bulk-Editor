@@ -36,6 +36,16 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
   const [taskCheck, setTaskCheck] = useState<Record<string, { existing: string[]; missing: string[] }>>({})
   const [tagCheck, setTagCheck] = useState<{ existing: string[]; missing: string[] } | null>(null)
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null)
+  const [autoMode, setAutoMode] = useState(false)
+  const [autoRunning, setAutoRunning] = useState(false)
+  const [autoCountdown, setAutoCountdown] = useState<number | null>(null)
+  const autoTimerRef = useRef<number | null>(null)
+  // Refs to primary action buttons per step
+  const step1PrimaryRef = useRef<HTMLButtonElement | null>(null)
+  const step2PrimaryRef = useRef<HTMLButtonElement | null>(null)
+  const step3PrimaryRef = useRef<HTMLButtonElement | null>(null)
+  const step4PrimaryRef = useRef<HTMLButtonElement | null>(null)
+  const step5PrimaryRef = useRef<HTMLButtonElement | null>(null)
 
   // Always start at step 1 when dialog is opened
   useEffect(() => {
@@ -350,6 +360,71 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
     return data
   }
 
+  // Auto progression helpers and effects (must be before early return)
+  const clearAutoTimer = () => {
+    if (autoTimerRef.current !== null) {
+      window.clearInterval(autoTimerRef.current)
+      autoTimerRef.current = null
+    }
+  }
+
+  const isPrimaryDisabledForStep = () => {
+    if (step === 1) return rows.length === 0 || missingHeaders.length > 0
+    if (step === 2) return (projectCheck?.missing?.length || 0) > 0
+    if (step === 3) return creatingTasks
+    if (step === 4) return creatingTags
+    if (step === 5) return uploading
+    return false
+  }
+
+  const triggerPrimaryForStep = () => {
+    if (isPrimaryDisabledForStep()) {
+      setAutoRunning(false)
+      setAutoCountdown(null)
+      clearAutoTimer()
+      return
+    }
+    const ref = step === 1
+      ? step1PrimaryRef
+      : step === 2
+        ? step2PrimaryRef
+        : step === 3
+          ? step3PrimaryRef
+          : step === 4
+            ? step4PrimaryRef
+            : step5PrimaryRef
+    ref.current?.click()
+  }
+
+  useEffect(() => {
+    if (!open) {
+      clearAutoTimer()
+      setAutoRunning(false)
+      setAutoCountdown(null)
+      return
+    }
+  }, [open])
+
+  useEffect(() => {
+    clearAutoTimer()
+    if (!autoMode || !autoRunning) return
+    if (isPrimaryDisabledForStep()) return
+    setAutoCountdown(5)
+    autoTimerRef.current = window.setInterval(() => {
+      setAutoCountdown(prev => {
+        const next = (prev ?? 0) - 1
+        if (next <= 0) {
+          clearAutoTimer()
+          triggerPrimaryForStep()
+          return null
+        }
+        return next
+      })
+    }, 1000)
+    return () => clearAutoTimer()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, autoMode, autoRunning, rows.length, verifyingProjects, verifyingAllTasks, creatingTasks, creatingTags, uploading, projectCheck, taskCheck, tagCheck])
+
   if (!open) return null;
   const stepTitles = ['Upload', 'Projects', 'Tasks', 'Tags', 'Preview']
   const stepDescriptions: Record<number, string> = {
@@ -405,6 +480,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
   // Step UI rendering helpers
   
 
+
   const renderStepControls = () => {
     const left: ReactNode[] = []
     const right: ReactNode[] = []
@@ -426,8 +502,28 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
 
     if (step === 1) {
       right.push(
-        <Button key="next" onClick={async () => { try { await verifyProjects(); setStep(2) } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } }} disabled={rows.length === 0 || missingHeaders.length > 0} className="cursor-pointer">
-          {verifyingProjects ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Next: Verify Projects'}
+        <label key="autoToggle" className="flex items-center gap-1 text-xs text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={autoMode}
+            onChange={(e) => {
+              const enabled = e.target.checked
+              setAutoMode(enabled)
+              if (enabled) {
+                setAutoRunning(true)
+              } else {
+                setAutoRunning(false)
+                setAutoCountdown(null)
+                clearAutoTimer()
+              }
+            }}
+          />
+          <span>auto</span>
+        </label>
+      )
+      right.push(
+        <Button ref={step1PrimaryRef} key="next" onClick={async () => { try { await verifyProjects(); setStep(2) } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } }} disabled={rows.length === 0 || missingHeaders.length > 0} className="cursor-pointer">
+          {verifyingProjects ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : (autoRunning && autoCountdown !== null ? `Next in ${autoCountdown}s` : 'Next: Verify Projects')}
         </Button>
       )
     }
@@ -439,7 +535,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
         </Button>
       )
       right.push(
-        <Button key="toTasks" disabled={(projectCheck?.missing?.length || 0) > 0} onClick={async () => {
+        <Button ref={step2PrimaryRef} key="toTasks" disabled={(projectCheck?.missing?.length || 0) > 0} onClick={async () => {
           try {
             const projectsToCheck = projectCheck ? projectCheck.existing.map(p => p.name) : extractProjectNames(rows)
             for (const p of projectsToCheck) {
@@ -449,7 +545,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
             setStep(3)
           } catch (e) { setToast({ type: 'error', message: (e as Error).message }) }
         }} className="cursor-pointer">
-          {verifyingAllTasks ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Next: Verify Tasks'}
+          {verifyingAllTasks ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : (autoRunning && autoCountdown !== null ? `Next in ${autoCountdown}s` : 'Next: Verify Tasks')}
         </Button>
       )
     }
@@ -462,7 +558,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
       )
       const anyMissingTasks = Object.values(taskCheck).some(v => (v.missing?.length || 0) > 0)
       right.push(
-        <Button key="createAndProceed" disabled={creatingTasks} onClick={async () => { 
+        <Button ref={step3PrimaryRef} key="createAndProceed" disabled={creatingTasks} onClick={async () => { 
           setCreatingTasks(true); 
           try { 
             if (anyMissingTasks) {
@@ -477,7 +573,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
             setCreatingTasks(false) 
           } 
         }} className="cursor-pointer">
-          {creatingTasks ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : (anyMissingTasks ? 'Create & Proceed' : 'Next: Verify Tags')}
+          {creatingTasks ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : (autoRunning && autoCountdown !== null ? `Next in ${autoCountdown}s` : (anyMissingTasks ? 'Create & Proceed' : 'Next: Verify Tags'))}
         </Button>
       )
     }
@@ -490,7 +586,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
       )
       const hasMissingTags = tagCheck && tagCheck.missing.length > 0
       right.push(
-        <Button key="createAndProceedTags" disabled={creatingTags} onClick={async () => { 
+        <Button ref={step4PrimaryRef} key="createAndProceedTags" disabled={creatingTags} onClick={async () => { 
           setCreatingTags(true); 
           try { 
             if (hasMissingTags) {
@@ -504,15 +600,23 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
             setCreatingTags(false) 
           } 
         }} className="cursor-pointer">
-          {creatingTags ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : (hasMissingTags ? 'Create & Proceed' : 'Next: Preview')}
+          {creatingTags ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : (autoRunning && autoCountdown !== null ? `Next in ${autoCountdown}s` : (hasMissingTags ? 'Create & Proceed' : 'Next: Preview'))}
         </Button>
       )
     }
 
     if (step === 5) {
       right.push(
-        <Button key="populate" onClick={handleUpload} className="cursor-pointer">
-          {uploading ? 'Uploading...' : (typeof onPopulate === 'function' ? 'Populate to Dashboard' : 'Proceed to Upload')}
+        <Button ref={step5PrimaryRef} key="populate" onClick={handleUpload} className="cursor-pointer">
+          {uploading ? 'Uploading...' : (autoRunning && autoCountdown !== null ? `Proceed in ${autoCountdown}s` : (typeof onPopulate === 'function' ? 'Populate to Dashboard' : 'Proceed to Upload'))}
+        </Button>
+      )
+    }
+
+    if (autoRunning) {
+      right.push(
+        <Button key="stopAuto" variant="secondary" onClick={() => { setAutoRunning(false); setAutoCountdown(null); clearAutoTimer() }} className="cursor-pointer">
+          Stop
         </Button>
       )
     }

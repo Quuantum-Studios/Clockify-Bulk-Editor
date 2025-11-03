@@ -16,6 +16,8 @@ export default function LogsDialog({ open, onClose }: LogsDialogProps) {
   const [logs, setLogs] = useState<ApiLogEntry[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [showRawId, setShowRawId] = useState<string | null>(null)
+  const [labelCache, setLabelCache] = useState<Record<string, string>>({})
 
   const loadLogs = async () => {
     if (!userProfile?.email && !apiKey) return
@@ -56,6 +58,118 @@ export default function LogsDialog({ open, onClose }: LogsDialogProps) {
       }).format(date)
     } catch {
       return timestamp
+    }
+  }
+
+  const parseAction = (log: ApiLogEntry) => {
+    const method = (log.method || "").toUpperCase()
+    const endpoint = log.endpoint || ""
+    const d = log.details || {}
+    const req = (d.request || {}) as Record<string, unknown>
+    const res = d.response as unknown
+
+    const chips: string[] = []
+    const addIf = (label: string, val?: unknown) => {
+      if (val === undefined || val === null || val === "") return
+      chips.push(`${label}: ${String(val)}`)
+    }
+
+    if (method === 'POST' && /\/user\/[^/]+\/time-entries$/.test(endpoint)) {
+      const title = 'Created time entry'
+      addIf('description', (req as Record<string, unknown>).description)
+      addIf('projectId', (req as Record<string, unknown>).projectId)
+      addIf('taskId', (req as Record<string, unknown>).taskId)
+      addIf('start', (req as Record<string, unknown>).start)
+      addIf('end', (req as Record<string, unknown>).end)
+      const tagIds = (req as Record<string, unknown>).tagIds as unknown[] | undefined
+      if (tagIds && Array.isArray(tagIds)) addIf('tags', tagIds.length)
+      return { title, chips }
+    }
+
+    if (method === 'PUT' && /\/time-entries\//.test(endpoint)) {
+      const idMatch = endpoint.match(/time-entries\/(\w+)/)
+      const title = `Updated time entry${idMatch ? ` ${idMatch[1]}` : ''}`
+      ;['description','projectId','taskId','start','end','billable'].forEach(k => addIf(k, (req as Record<string, unknown>)[k]))
+      const tagIds = (req as Record<string, unknown>).tagIds as unknown[] | undefined
+      if (tagIds && Array.isArray(tagIds)) addIf('tags', tagIds.length)
+      return { title, chips }
+    }
+
+    if (method === 'DELETE' && /\/time-entries\//.test(endpoint)) {
+      const idMatch = endpoint.match(/time-entries\/(\w+)/)
+      const title = `Deleted time entry${idMatch ? ` ${idMatch[1]}` : ''}`
+      return { title, chips }
+    }
+
+    if (method === 'PUT' && /\/user\/[^/]+\/time-entries$/.test(endpoint) && Array.isArray(req)) {
+      const title = `Bulk updated time entries (${(req as unknown[]).length})`
+      return { title, chips }
+    }
+
+    if (method === 'POST' && /\/tags$/.test(endpoint)) {
+      const title = 'Created tag'
+      addIf('name', (req as Record<string, unknown>).name)
+      return { title, chips }
+    }
+
+    if (method === 'DELETE' && /\/tags\//.test(endpoint)) {
+      const idMatch = endpoint.match(/tags\/(\w+)/)
+      const title = `Deleted tag${idMatch ? ` ${idMatch[1]}` : ''}`
+      return { title, chips }
+    }
+
+    if (method === 'POST' && /\/tasks$/.test(endpoint)) {
+      const title = 'Created task'
+      addIf('name', (req as Record<string, unknown>).name)
+      return { title, chips }
+    }
+
+    if (method === 'DELETE' && /\/tasks\//.test(endpoint)) {
+      const idMatch = endpoint.match(/tasks\/(\w+)/)
+      const title = `Deleted task${idMatch ? ` ${idMatch[1]}` : ''}`
+      return { title, chips }
+    }
+
+    // Fallback
+    const title = `${method} ${endpoint}`
+    return { title, chips }
+  }
+
+  const resolveLabelsForLog = async (log: ApiLogEntry) => {
+    if (!apiKey) return
+    const endpoint = log.endpoint || ""
+    const wsMatch = endpoint.match(/\/workspaces\/([^/]+)/)
+    const workspaceId = wsMatch?.[1]
+    if (!workspaceId) return
+    const d = log.details || {}
+    const req = (d.request || {}) as Record<string, unknown>
+
+    const newLabels: Record<string, string> = {}
+
+    // Resolve project name
+    const projectId = req.projectId as string | undefined
+    if (projectId && !labelCache[`project:${projectId}`]) {
+      try {
+        const res = await fetch(`/api/proxy/projects/${workspaceId}?apiKey=${encodeURIComponent(apiKey)}`)
+        const projects = (await res.json()) as { id: string; name: string }[]
+        const p = projects.find(p => p.id === projectId)
+        if (p) newLabels[`project:${projectId}`] = p.name
+      } catch { /* noop */ }
+    }
+
+    // Resolve task name
+    const taskId = req.taskId as string | undefined
+    if (taskId && projectId && !labelCache[`task:${taskId}`]) {
+      try {
+        const res = await fetch(`/api/proxy/tasks/${workspaceId}/${projectId}?apiKey=${encodeURIComponent(apiKey)}`)
+        const tasks = (await res.json()) as { id: string; name: string }[]
+        const t = tasks.find(t => t.id === taskId)
+        if (t) newLabels[`task:${taskId}`] = t.name
+      } catch { /* noop */ }
+    }
+
+    if (Object.keys(newLabels).length) {
+      setLabelCache(prev => ({ ...prev, ...newLabels }))
     }
   }
 
@@ -101,11 +215,19 @@ export default function LogsDialog({ open, onClose }: LogsDialogProps) {
             <div className="p-8 text-center text-gray-500">No logs available</div>
           ) : (
             <div className="divide-y">
-              {logs.map((log) => (
+              {logs.map((log) => {
+                const simplified = parseAction(log)
+                return (
                 <div
                   key={log.id}
                   className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors cursor-pointer"
-                  onClick={() => setExpandedId(expandedId === log.id ? null : log.id)}
+                  onClick={async () => {
+                    const next = expandedId === log.id ? null : log.id
+                    setExpandedId(next)
+                    if (next === log.id) {
+                      await resolveLabelsForLog(log)
+                    }
+                  }}
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
@@ -114,7 +236,7 @@ export default function LogsDialog({ open, onClose }: LogsDialogProps) {
                           {log.method}
                         </span>
                         <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                          {log.endpoint}
+                          {simplified.title}
                         </span>
                         {log.status && (
                           <span className={`text-sm font-semibold ${getStatusColor(log.status)}`}>
@@ -130,6 +252,28 @@ export default function LogsDialog({ open, onClose }: LogsDialogProps) {
                       <div className="text-xs text-gray-500 dark:text-gray-400">
                         {formatTimestamp(log.timestamp)}
                       </div>
+                      {/* Simplified chips */}
+                      {simplified.chips.length > 0 && (
+                        <div className="mt-2">
+                          <div className="mt-1 flex flex-wrap gap-2">
+                            {simplified.chips.map((c, idx) => {
+                              // Replace IDs with labels when available
+                              let display = c
+                              const m = c.match(/^(projectId|taskId):\s*(.+)$/)
+                              if (m) {
+                                const key = m[1] === 'projectId' ? `project:${m[2]}` : `task:${m[2]}`
+                                const label = labelCache[key]
+                                if (label) display = `${m[1] === 'projectId' ? 'project' : 'task'}: ${label}`
+                              }
+                              return (
+                              <span key={idx} className="text-xs font-mono px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-900 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700">
+                                {display}
+                              </span>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
                       {log.error && (
                         <div className="mt-2 text-sm text-red-600 dark:text-red-400 font-mono bg-red-50 dark:bg-red-900/20 p-2 rounded">
                           {log.error}
@@ -139,25 +283,38 @@ export default function LogsDialog({ open, onClose }: LogsDialogProps) {
                   </div>
                   {expandedId === log.id && log.details && (
                     <div className="mt-3 text-sm">
-                      {log.details.summary && (
-                        <div className="mb-2 font-medium">{log.details.summary}</div>
-                      )}
-                      {!!log.details.request && (
-                        <div className="mb-2">
-                          <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Request</div>
-                          <pre className="text-xs p-2 rounded bg-gray-100 dark:bg-gray-900 overflow-auto">{JSON.stringify(log.details.request, null, 2)}</pre>
-                        </div>
-                      )}
-                      {!!log.details.response && (
-                        <div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Response</div>
-                          <pre className="text-xs p-2 rounded bg-gray-100 dark:bg-gray-900 overflow-auto">{JSON.stringify(log.details.response, null, 2)}</pre>
+                      <div className="flex items-center justify-between">
+                        <div className="font-medium">Details</div>
+                        <button
+                          className="text-xs underline"
+                          onClick={(e) => { e.stopPropagation(); setShowRawId(showRawId === log.id ? null : log.id) }}
+                        >
+                          {showRawId === log.id ? 'Hide raw' : 'View raw'}
+                        </button>
+                      </div>
+                      {showRawId === log.id && (
+                        <div className="mt-2">
+                          {log.details.summary && (
+                            <div className="mb-2 font-medium">{log.details.summary}</div>
+                          )}
+                          {!!log.details.request && (
+                            <div className="mb-2">
+                              <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Request</div>
+                              <pre className="text-xs p-2 rounded bg-gray-100 dark:bg-gray-900 overflow-auto">{JSON.stringify(log.details.request, null, 2)}</pre>
+                            </div>
+                          )}
+                          {!!log.details.response && (
+                            <div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Response</div>
+                              <pre className="text-xs p-2 rounded bg-gray-100 dark:bg-gray-900 overflow-auto">{JSON.stringify(log.details.response, null, 2)}</pre>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
                   )}
                 </div>
-              ))}
+              )})}
             </div>
           )}
         </div>
