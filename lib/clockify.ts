@@ -1,5 +1,7 @@
 import axios from "axios"
 import { requestLogger, responseLogger, errorLogger } from 'axios-logger';
+import { logApiCall } from "./logger"
+import { getCloudflareContext } from "@opennextjs/cloudflare"
 
 export interface TimeEntry {
   id: string
@@ -43,6 +45,34 @@ export class ClockifyAPI {
   private axiosInstance: ReturnType<typeof axios.create> | null = null
   private baseUrl = "https://api.clockify.me/api/v1"
   private defaultTimezone: string = "UTC"
+  private userEmail: string | undefined = undefined
+
+  async setUserEmail(apiKey: string): Promise<void> {
+    try {
+      const { env } = getCloudflareContext()
+      if (!env.KV) return
+
+      const userCacheKey = `user:${apiKey}`
+      const cached = await env.KV.get(userCacheKey, "json") as { email?: string } | null
+      if (cached?.email) {
+        this.userEmail = cached.email
+        return
+      }
+
+      const res = await fetch("https://api.clockify.me/api/v1/user", {
+        headers: { "X-Api-Key": apiKey }
+      })
+      if (res.ok) {
+        const user = await res.json() as { email?: string }
+        if (user.email) {
+          this.userEmail = user.email
+          await env.KV.put(userCacheKey, JSON.stringify(user), { expirationTtl: 3600 })
+        }
+      }
+    } catch {
+      // Ignore errors
+    }
+  }
 
   async getTags(workspaceId: string) {
     return (await this.axiosInstance!.get(`/workspaces/${workspaceId}/tags`)).data as { id: string; name: string }[];
@@ -69,17 +99,122 @@ export class ClockifyAPI {
     }
   }
 
-  setApiKey(apiKey: string) {
+  async setApiKey(apiKey: string) {
     this.apiKey = apiKey
     this.axiosInstance = axios.create({
       baseURL: this.baseUrl,
       headers: { "X-Api-Key": apiKey }
     })
-    // Only enable logging in development
-    if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
-      this.axiosInstance.interceptors.request.use(requestLogger);
-      this.axiosInstance.interceptors.response.use(responseLogger, errorLogger);
-    }
+
+    // Set user email for logging
+    await this.setUserEmail(apiKey)
+
+    // Setup request interceptor for logging
+    this.axiosInstance.interceptors.request.use((config) => {
+      // Store start time for duration calculation
+      ;(config as unknown as { startTime?: number }).startTime = Date.now()
+      // Only enable axios-logger in development
+      if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
+        requestLogger(config as unknown as Parameters<typeof requestLogger>[0])
+      }
+      return config
+    })
+
+    // Setup response interceptor for logging
+    this.axiosInstance.interceptors.response.use(
+      (response) => {
+        const startTime = (response.config as unknown as { startTime?: number }).startTime || Date.now()
+        const duration = Date.now() - startTime
+        const endpoint = response.config.url || ""
+        const method = (response.config.method || "GET").toUpperCase()
+
+        // Only log mutating requests (non-GET)
+        if (method !== 'GET') {
+          let requestData: unknown = undefined
+          try {
+            const raw = (response.config as unknown as { data?: unknown }).data
+            if (typeof raw === 'string') {
+              requestData = JSON.parse(raw)
+            } else {
+              requestData = raw
+            }
+          } catch { /* noop */ }
+
+          // redact sensitive
+          if (requestData && typeof requestData === 'object') {
+            try { delete (requestData as Record<string, unknown>).apiKey } catch { /* noop */ }
+          }
+
+          const details = {
+            summary: `${method} ${endpoint}`,
+            request: requestData,
+            response: response.data,
+          }
+
+          // Log to KV storage
+          logApiCall(getCloudflareContext().env?.KV, this.userEmail, {
+            method,
+            endpoint: `https://api.clockify.me/api/v1${endpoint}`,
+            status: response.status,
+            duration,
+            details,
+          }).catch(err => console.error("[Logger] Failed to log:", err))
+        }
+
+        // Only enable axios-logger in development
+        if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
+          responseLogger(response)
+        }
+        return response
+      },
+      (error) => {
+        const config = error?.config as unknown as { startTime?: number; url?: string; method?: string } | undefined
+        const startTime = config?.startTime || Date.now()
+        const duration = Date.now() - startTime
+        const endpoint = config?.url || ""
+        const method = (config?.method || "GET").toUpperCase()
+        const response = error?.response as { status?: number; data?: { message?: string } } | undefined
+        const status = response?.status
+        const errorMessage = response?.data?.message || error?.message || "Unknown error"
+
+        // Only log mutating requests (non-GET)
+        if (method !== 'GET') {
+          let requestData: unknown = undefined
+          try {
+            const raw = (config as unknown as { data?: unknown } | undefined)?.data
+            if (typeof raw === 'string') {
+              requestData = JSON.parse(raw)
+            } else {
+              requestData = raw
+            }
+          } catch { /* noop */ }
+          if (requestData && typeof requestData === 'object') {
+            try { delete (requestData as Record<string, unknown>).apiKey } catch { /* noop */ }
+          }
+          const details = {
+            summary: `${method} ${endpoint}`,
+            request: requestData,
+            response: response?.data,
+          }
+
+          // Log to KV storage
+          logApiCall(getCloudflareContext().env?.KV, this.userEmail, {
+            method,
+            endpoint: `https://api.clockify.me/api/v1${endpoint}`,
+            status,
+            error: errorMessage,
+            duration,
+            details,
+          }).catch(err => console.error("[Logger] Failed to log:", err))
+        }
+
+        // Only enable axios-logger in development
+        if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
+          errorLogger(error)
+        }
+        return Promise.reject(error)
+      }
+    )
   }
 
   setDefaultTimezone(tz: string) {

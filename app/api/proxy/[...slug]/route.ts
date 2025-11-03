@@ -39,7 +39,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ slug: s
       })
     }
     const clockify = new ClockifyAPI()
-    clockify.setApiKey(apiKey!)
+    await clockify.setApiKey(apiKey!)
     const { slug } = await context.params
     const [resource, ...rest] = slug
     if (resource === "workspaces") {
@@ -106,7 +106,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ slug: 
       })
     }
     const clockify = new ClockifyAPI()
-    clockify.setApiKey(apiKey)
+    await clockify.setApiKey(apiKey)
     if (timezone && typeof timezone === 'string') clockify.setDefaultTimezone(timezone)
     const { slug } = await context.params
     const [resource, ...rest] = slug
@@ -149,7 +149,7 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ slug: s
       })
     }
     const clockify = new ClockifyAPI()
-    clockify.setApiKey(apiKey)
+    await clockify.setApiKey(apiKey)
     if (timezone && typeof timezone === 'string') clockify.setDefaultTimezone(timezone)
     const { slug } = await context.params
     const [resource, ...rest] = slug
@@ -185,7 +185,7 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ slug
       })
     }
     const clockify = new ClockifyAPI()
-    clockify.setApiKey(apiKey)
+    await clockify.setApiKey(apiKey)
     const { slug } = await context.params
     const [resource, ...rest] = slug
     if (resource === "time-entries") {

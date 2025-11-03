@@ -1,7 +1,8 @@
 "use client"
-import { Sun, Moon, Settings, Clock } from "lucide-react"
+import { Sun, Moon, Settings, Clock, FileText } from "lucide-react"
 import { useState, useEffect, useRef } from "react"
 import SettingsDialog from "./SettingsDialog"
+import LogsDialog from "./LogsDialog"
 import { useClockifyStore } from "../lib/store"
 import Link from "next/link"
 import Image from "next/image"
@@ -11,6 +12,7 @@ const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "ClockifyManager"
 export default function AppNavLayout({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState("light")
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [logsOpen, setLogsOpen] = useState(false)
   const [mounted, setMounted] = useState(false)
   const { apiKey, userProfile } = useClockifyStore()
   const userOpenedSettings = useRef(false)
@@ -87,6 +89,13 @@ export default function AppNavLayout({ children }: { children: React.ReactNode }
           </button>
           <button
             className="p-2 rounded-lg border border-gray-300 bg-white dark:bg-gray-800 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            aria-label="View Logs"
+            onClick={() => setLogsOpen(true)}
+          >
+            <FileText size={18} />
+          </button>
+          <button
+            className="p-2 rounded-lg border border-gray-300 bg-white dark:bg-gray-800 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             aria-label="Settings"
             onClick={() => {
               userOpenedSettings.current = true
@@ -110,6 +119,11 @@ export default function AppNavLayout({ children }: { children: React.ReactNode }
         open={settingsOpen}
         onClose={handleCloseSettings}
         canClose={!!apiKey}
+      />
+      {/* Logs Dialog */}
+      <LogsDialog
+        open={logsOpen}
+        onClose={() => setLogsOpen(false)}
       />
     </div>
   )
