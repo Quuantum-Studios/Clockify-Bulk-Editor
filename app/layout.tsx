@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { GoogleAnalytics } from '@next/third-parties/google';
 import Script from 'next/script';
+import { Suspense } from 'react'
 import SEO from '@/components/SEO'
+import TrackingConsentGate from '@/components/TrackingConsentGate'
 
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "BulkifyAI"
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
@@ -69,6 +70,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        {/* Search engine verification */}
+        {process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION && (
+          <meta name="google-site-verification" content={process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION} />
+        )}
+        {process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION && (
+          <meta name="msvalidate.01" content={process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION} />
+        )}
         {(process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'test') && (
           <>
             {/* Sentry Lazy Loader - 0KB until error occurs */}
@@ -128,123 +136,6 @@ export default function RootLayout({
               strategy="afterInteractive"
             />
 
-            {/* PostHog Snippet - ~6KB initial */}
-            <Script
-              id="posthog-init"
-              strategy="afterInteractive"
-              dangerouslySetInnerHTML={{
-                __html: `
-                  !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.async=!0,p.src=s.api_host+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="capture identify alias people.set people.set_once set_config register register_once unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys onSessionId".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
-                  
-                  posthog.init('${process.env.NEXT_PUBLIC_POSTHOG_KEY}', {
-                    api_host: '${process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com'}',
-                    
-                    // Manual pageview tracking
-                    capture_pageview: false,
-                    
-                    // Full session replay with smart sampling (responsibility: PostHog)
-                    disable_session_recording: false,
-                    session_recording: {
-                      recordCrossOriginIframes: false,
-                      maskAllInputs: true,
-                      maskTextSelector: '[data-private]',
-                    },
-                    
-                    // Full interaction tracking (responsibility: PostHog)
-                    autocapture: {
-                      dom_event_allowlist: ['click', 'submit', 'change'],
-                      element_allowlist: ['button', 'a', 'input', 'select', 'form'],
-                      css_selector_allowlist: ['[data-ph-capture]'],
-                    },
-                    
-                    // Disable exception tracking (Sentry responsibility)
-                    capture_exception: false,
-                    
-                    // Enable web vitals (responsibility: PostHog)
-                    capture_performance: true,
-                    
-                    // Feature flags support (responsibility: PostHog)
-                    bootstrap: {
-                      featureFlags: {},
-                    },
-                    
-                    loaded: function(ph) {
-                      // Start recording with smart 5% + errors sampling
-                      ph.startSessionRecording({
-                        sampling: {
-                          minimumDuration: 2000,
-                          linkedFlag: 'record-session-on-error',
-                        }
-                      });
-                      
-                      // Track pageview
-                      ph.capture('$pageview');
-                    },
-                    
-                    // Add session replay URL to events
-                    before_send: function(event) {
-                      if (event.properties && window.posthog && typeof window.posthog.get_session_replay_url === 'function') {
-                        event.properties.$session_recording_url = window.posthog.get_session_replay_url();
-                      }
-                      return event;
-                    }
-                  });
-                `
-              }}
-            />
-
-            {/* Sentry-PostHog Integration: Link errors to session replays */}
-            <Script
-              id="sentry-posthog-integration"
-              strategy="afterInteractive"
-              dangerouslySetInnerHTML={{
-                __html: `
-                  window.addEventListener('load', function() {
-                    if (window.Sentry && window.posthog) {
-                      var originalCaptureException = window.Sentry.captureException;
-                      
-                      window.Sentry.captureException = function(error, captureContext) {
-                        // Force PostHog to record this session when error occurs
-                        if (window.posthog) {
-                          window.posthog.capture('$exception', {
-                            error_message: error.message,
-                            error_type: error.name,
-                            $session_recording_force_capture: true,
-                          });
-                        }
-                        
-                        // Add PostHog context to Sentry error (only if fully initialized)
-                        var context = captureContext || {};
-                        context.contexts = context.contexts || {};
-                        if (window.posthog && typeof window.posthog.get_distinct_id === 'function' && !window.posthog._i) {
-                          context.contexts.posthog = {
-                            distinct_id: window.posthog.get_distinct_id(),
-                            session_id: window.posthog.get_session_id ? window.posthog.get_session_id() : '',
-                            session_replay_url: window.posthog.get_session_replay_url ? window.posthog.get_session_replay_url() : '',
-                          };
-                        }
-                        
-                        return originalCaptureException.call(this, error, context);
-                      };
-                    }
-                  });
-                `
-              }}
-            />
-
-            <Script
-              id="ms-clarity"
-              strategy="afterInteractive"
-              dangerouslySetInnerHTML={{
-                __html: `
-              (function(c,l,a,r,i,t,y){
-                c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-                t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
-                y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-              })(window, document, "clarity", "script", "u0tv5jcwo2");
-            `
-              }}
-            />
           </>
         )}
       </head>
@@ -252,9 +143,11 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <SEO />
+        <Suspense fallback={null}>
+          <TrackingConsentGate />
+        </Suspense>
         {children}
       </body>
-      <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID || ''} />
     </html>
   );
 }
