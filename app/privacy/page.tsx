@@ -1,6 +1,12 @@
-export const metadata = {
+import type { Metadata } from 'next'
+
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+
+export const metadata: Metadata = {
   title: "Privacy Policy — BulkifyAI",
   description: "How BulkifyAI handles your data and privacy.",
+  alternates: { canonical: `${SITE_URL.replace(/\/$/, '')}/privacy` },
+  robots: { index: true, follow: true },
 }
 
 export default function PrivacyPage() {

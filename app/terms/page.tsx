@@ -1,6 +1,12 @@
-export const metadata = {
+import type { Metadata } from 'next'
+
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+
+export const metadata: Metadata = {
   title: "Terms of Service — BulkifyAI",
   description: "The terms that govern your use of BulkifyAI.",
+  alternates: { canonical: `${SITE_URL.replace(/\/$/, '')}/terms` },
+  robots: { index: true, follow: true },
 }
 
 export default function TermsPage() {

@@ -26,6 +26,9 @@ export const metadata: Metadata = {
     default: APP_NAME + " — Bulk edit, upload, and clean Clockify faster",
     template: "%s — " + APP_NAME,
   },
+  alternates: {
+    canonical: SITE_URL,
+  },
   description: "Bulk edit, upload, and clean up time entries, tags, tasks, and projects—no signup needed. 100% free for a limited time.",
   robots: {
     index: process.env.NODE_ENV === 'production',
@@ -43,6 +46,7 @@ export const metadata: Metadata = {
     url: SITE_URL,
     siteName: APP_NAME,
     type: 'website',
+    locale: 'en_US',
     images: [
       {
         url: "/opengraph-image",
@@ -70,6 +74,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
+        {/* Performance: Preconnect to external domains */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
+        <link rel="dns-prefetch" href="https://www.google-analytics.com" />
+        <link rel="dns-prefetch" href="https://us.i.posthog.com" />
+        <link rel="dns-prefetch" href="https://www.clarity.ms" />
         {/* Search engine verification */}
         {process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION && (
           <meta name="google-site-verification" content={process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION} />

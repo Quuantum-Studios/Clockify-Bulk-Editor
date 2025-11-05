@@ -38,7 +38,8 @@ const nextConfig: NextConfig = {
     ];
   },
 
-  skipTrailingSlashRedirect: true,
+  // Enforce non-trailing-slash canonical URLs via automatic redirects
+  skipTrailingSlashRedirect: false,
 
   experimental: {
     optimizePackageImports: [
