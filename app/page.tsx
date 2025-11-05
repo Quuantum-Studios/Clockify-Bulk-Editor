@@ -1,6 +1,6 @@
 "use client"
 import { Button } from "../components/ui/button"
-import { CheckCircle, Clock, Upload, Star, ArrowRight, Shield, BarChart3, Sun, Moon, Bot, Sparkles, Wand2, MicVocal } from "lucide-react"
+import { CheckCircle, Upload, Star, ArrowRight, Shield, BarChart3, Sun, Moon, Bot, Sparkles, Wand2, MicVocal } from "lucide-react"
 import Image from "next/image"
 import Logo from "../components/Logo"
 import Link from "next/link"

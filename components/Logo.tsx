@@ -1,7 +1,7 @@
 "use client"
 import React from "react"
 
-export default function Logo({ className = "", title = "BulkifyAI", iconStyle = "" }: { className?: string; title?: string; iconStyle?: string; }) {
+export default function Logo({ className = "", title = "BulkifyAI" }: { className?: string; title?: string }) {
   return (
     <>
       <style>

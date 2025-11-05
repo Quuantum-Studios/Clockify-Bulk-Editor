@@ -1,10 +1,11 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Script from 'next/script';
 import { Suspense } from 'react'
 import SEO from '@/components/SEO'
 import TrackingConsentGate from '@/components/TrackingConsentGate'
+import WebVitalsReporter from '@/components/WebVitalsReporter'
 
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "BulkifyAI"
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
@@ -64,6 +65,21 @@ export const metadata: Metadata = {
     description: "Bulk edit, upload, and clean up time entries, tags, tasks, and projects—no signup needed. 100% free for a limited time.",
     images: ["/twitter-image"],
   },
+  icons: {
+    icon: '/icon.png',
+    apple: '/icon.png',
+  },
+};
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#0B0F1A' },
+  ],
+  colorScheme: 'light dark',
 };
 
 export default function RootLayout({
@@ -156,6 +172,7 @@ export default function RootLayout({
         <SEO />
         <Suspense fallback={null}>
           <TrackingConsentGate />
+          <WebVitalsReporter />
         </Suspense>
         {children}
       </body>

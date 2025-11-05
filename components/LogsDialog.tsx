@@ -66,7 +66,6 @@ export default function LogsDialog({ open, onClose }: LogsDialogProps) {
     const endpoint = log.endpoint || ""
     const d = log.details || {}
     const req = (d.request || {}) as Record<string, unknown>
-    const res = d.response as unknown
 
     const chips: string[] = []
     const addIf = (label: string, val?: unknown) => {

@@ -1,5 +1,5 @@
 "use client"
-import { Sun, Moon, Settings, Clock, FileText } from "lucide-react"
+import { Sun, Moon, Settings, FileText } from "lucide-react"
 import { useState, useEffect, useRef } from "react"
 import SettingsDialog from "./SettingsDialog"
 import LogsDialog from "./LogsDialog"
