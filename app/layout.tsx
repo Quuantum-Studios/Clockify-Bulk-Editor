@@ -3,8 +3,11 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { GoogleAnalytics } from '@next/third-parties/google';
 import Script from 'next/script';
+import SEO from '@/components/SEO'
 
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "BulkifyAI"
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+const TWITTER_HANDLE = process.env.NEXT_PUBLIC_TWITTER_HANDLE || "@bulkifyai";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -17,8 +20,45 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: APP_NAME + " — Bulk edit, upload, and clean Clockify faster",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: APP_NAME + " — Bulk edit, upload, and clean Clockify faster",
+    template: "%s — " + APP_NAME,
+  },
   description: "Bulk edit, upload, and clean up time entries, tags, tasks, and projects—no signup needed. 100% free for a limited time.",
+  robots: {
+    index: process.env.NODE_ENV === 'production',
+    follow: process.env.NODE_ENV === 'production',
+  },
+  referrer: 'strict-origin-when-cross-origin',
+  formatDetection: {
+    email: false,
+    address: false,
+    telephone: false,
+  },
+  openGraph: {
+    title: APP_NAME + " — Bulk edit, upload, and clean Clockify faster",
+    description: "Bulk edit, upload, and clean up time entries, tags, tasks, and projects—no signup needed. 100% free for a limited time.",
+    url: SITE_URL,
+    siteName: APP_NAME,
+    type: 'website',
+    images: [
+      {
+        url: "/opengraph-image",
+        width: 1200,
+        height: 630,
+        alt: APP_NAME,
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    site: TWITTER_HANDLE,
+    creator: TWITTER_HANDLE,
+    title: APP_NAME + " — Bulk edit, upload, and clean Clockify faster",
+    description: "Bulk edit, upload, and clean up time entries, tags, tasks, and projects—no signup needed. 100% free for a limited time.",
+    images: ["/twitter-image"],
+  },
 };
 
 export default function RootLayout({
@@ -211,6 +251,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <SEO />
         {children}
       </body>
       <GoogleAnalytics gaId={process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS_ID || ''} />

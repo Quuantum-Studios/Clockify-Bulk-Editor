@@ -4,6 +4,27 @@ import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 initOpenNextCloudflareForDev();
 
 const nextConfig: NextConfig = {
+  async redirects() {
+    const site = process.env.NEXT_PUBLIC_SITE_URL || ''
+    const host = site ? new URL(site).host : ''
+    const isWwwPreferred = host.startsWith('www.')
+
+    const preferredHost = host || ''
+    const altHost = isWwwPreferred ? host.replace(/^www\./, '') : `www.${host}`
+
+    const redirects = [] as { source: string; destination: string; permanent: boolean; has?: any[] }[]
+
+    if (host) {
+      redirects.push({
+        source: '/:path*',
+        destination: `${new URL(site).protocol}//${preferredHost}/:path*`,
+        permanent: true,
+        has: [{ type: 'host', value: altHost }],
+      })
+    }
+
+    return redirects
+  },
   async rewrites() {
     return [
       {
