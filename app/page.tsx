@@ -2,11 +2,12 @@
 import { Button } from "../components/ui/button"
 import { CheckCircle, Clock, Upload, Star, ArrowRight, Shield, BarChart3, Sun, Moon, Bot, Sparkles, Wand2, MicVocal } from "lucide-react"
 import Image from "next/image"
+import Logo from "../components/Logo"
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import { capture, AnalyticsEvents } from "../lib/analytics"
 
-const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "ClockifyManager"
+const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "BulkifyAI"
 
 export default function Home() {
   const [theme, setTheme] = useState("light")
@@ -36,8 +37,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              <Clock className="h-8 w-8 text-primary" />
-              <span className="ml-2 text-xl font-bold text-gray-900 dark:text-white">{APP_NAME}</span>
+              <Logo className="text-primary dark:text-white p-4 w-1/2 h-auto" title={APP_NAME} />
             </div>
             <div className="hidden md:block">
               <div className="ml-10 flex items-baseline space-x-4">
@@ -87,7 +87,7 @@ export default function Home() {
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-6">
                 <Link href="/editor">
-                  <Button size="lg" className="bg-primary hover:opacity-90 text-primary-foreground px-8 py-4 text-lg">
+                  <Button size="lg" className="bg-primary hover:opacity-90 text-primary-foreground px-8 py-4 text-lg cursor-pointer">
                     Open the Editor
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Button>
@@ -119,7 +119,7 @@ export default function Home() {
                 </div> */}
                 <div className="relative">
                   <Image
-                    src="/clockify-manager-hero.png"
+                    src="/bulkifyai-hero.png"
                     alt={APP_NAME + " screenshot"}
                     width={1600}
                     height={900}
@@ -395,7 +395,7 @@ export default function Home() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
             <Link href="/editor">
-              <Button size="lg" className="bg-white text-primary hover:bg-gray-100 px-8 py-4 text-lg">
+              <Button size="lg" className="bg-white text-primary hover:bg-gray-100 px-8 py-4 text-lg cursor-pointer">
                 Open the Editor
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
@@ -415,10 +415,7 @@ export default function Home() {
             {/* Logo & Description */}
             <div className="text-center md:text-left max-w-md">
               <div className="flex items-center justify-center md:justify-start mb-3">
-                <Clock className="h-8 w-8 text-primary" />
-                <span className="ml-2 text-2xl font-extrabold tracking-tight">
-                  {APP_NAME}
-                </span>
+                <Logo className="p-4 w-3/4 h-auto text-white md:text-white logo-dark" title={APP_NAME} />
               </div>
               <p className="text-gray-400 text-sm md:text-base leading-relaxed">
                 {APP_NAME} helps teams manage Clockify data up to 10x faster.
@@ -428,7 +425,7 @@ export default function Home() {
             {/* Links */}
             <ul className="flex flex-wrap items-center justify-center gap-6 text-gray-400 text-sm">
               <li>
-                <Link href="mailto:support.clockifymanager@quuantum.com" className="hover:text-primary transition">
+                <Link href="mailto:support.bulkifyai@quuantum.com" className="hover:text-primary transition">
                   Contact
                 </Link>
               </li>

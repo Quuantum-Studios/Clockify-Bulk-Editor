@@ -4,7 +4,7 @@ import "./globals.css";
 import { GoogleAnalytics } from '@next/third-parties/google';
 import Script from 'next/script';
 
-const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "ClockifyManager"
+const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "BulkifyAI"
 
 const geistSans = Geist({
   variable: "--font-geist-sans",

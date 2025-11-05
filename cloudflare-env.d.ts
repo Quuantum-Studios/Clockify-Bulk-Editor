@@ -8,9 +8,9 @@ declare namespace Cloudflare {
 	interface Env {
 		KV: KVNamespace;
 		NODE_ENV: "production" | "test";
-		NEXT_PUBLIC_APP_NAME: "ClockifyManager" | "ClockifyManager (Staging)";
-		NEXT_PUBLIC_API_URL: "https://clockify-manager.quuantum.com" | "https://staging.clockify-manager.quuantum.com";
-		NEXT_PUBLIC_ASSEMBLYAI_WORKER: "wss://clockify-manager.quuantum.com/api/realtime/speech/" | "wss://staging.clockify-manager.quuantum.com/api/realtime/speech/";
+		NEXT_PUBLIC_APP_NAME: "BulkifyAI" | "BulkifyAI (Staging)";
+		NEXT_PUBLIC_API_URL: "https://bulkifyai.quuantum.com" | "https://staging.bulkifyai.quuantum.com";
+		NEXT_PUBLIC_ASSEMBLYAI_WORKER: "wss://bulkifyai.quuantum.com/api/realtime/speech/" | "wss://staging.bulkifyai.quuantum.com/api/realtime/speech/";
 		CHAT_AI_PROVIDER: "google";
 		GEMINI_MODEL: "gemini-2.5-flash";
 		NEXT_PUBLIC_SENTRY_DSN: "https://d5598e6c4fa3771c64711008899328e3@o4510228070268928.ingest.us.sentry.io/4510228072955905";

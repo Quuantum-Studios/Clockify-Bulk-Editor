@@ -1,15 +1,15 @@
 main = ".open-next/worker.js"
-name = "clockify-manager"
+name = "bulkifyai"
 compatibility_date = "2025-10-01"
 compatibility_flags = ["nodejs_compat"]
 
 # Production environment (default for CI/CD)
 [env.production]
-name = "clockify-manager"
+name = "bulkifyai"
 zone_id = "eab53d86a300310824b21c6693437a91"
 workers_dev = false
 routes = [
-  { pattern = "clockify-manager.quuantum.com/*", zone_id = "eab53d86a300310824b21c6693437a91" }
+  { pattern = "bulkifyai.quuantum.com/*", zone_id = "eab53d86a300310824b21c6693437a91" }
 ] 
 
 [env.production.vars]
@@ -42,10 +42,10 @@ preview_id = "e0d674cb2180476e804c2e9a4ec0426e"
 
 # Staging environment
 [env.staging]
-name = "clockify-manager-staging"
+name = "bulkifyai-staging"
 workers_dev = false
 routes = [
-  { pattern = "staging.clockify-manager.quuantum.com/*", zone_id = "eab53d86a300310824b21c6693437a91" }
+  { pattern = "staging.bulkifyai.quuantum.com/*", zone_id = "eab53d86a300310824b21c6693437a91" }
 ] 
 
 [env.staging.vars]

@@ -1,4 +1,4 @@
-# ClockifyManager
+# BulkifyAI
 
 A Next.js application for bulk editing Clockify time entries, built with OpenNext.js for Cloudflare Workers deployment.
 
@@ -96,7 +96,7 @@ npm run cf-typegen
 
 ### Configuration
 
-- Worker name: `clockify-manager`
+- Worker name: `bulkifyai`
 - Compatibility date: `2025-03-25`
 - Node.js compatibility enabled
 - Assets served from `.open-next/assets`

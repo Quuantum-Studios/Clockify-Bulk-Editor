@@ -6,8 +6,9 @@ import LogsDialog from "./LogsDialog"
 import { useClockifyStore } from "../lib/store"
 import Link from "next/link"
 import Image from "next/image"
+import Logo from "./Logo"
 
-const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "ClockifyManager"
+const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "BulkifyAI"
 
 export default function AppNavLayout({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState("light")
@@ -56,8 +57,7 @@ export default function AppNavLayout({ children }: { children: React.ReactNode }
       <header className="w-full flex items-center justify-between px-6 py-4 border-b border-border bg-card shadow-sm">
         <Link href="/">
           <div className="flex items-center">
-            <Clock className="h-8 w-8 text-primary" />
-            <span className="ml-2 text-xl font-bold text-gray-900 dark:text-white">{APP_NAME}</span>
+            <Logo className="text-primary dark:text-white p-4 w-1/2 h-auto" title={APP_NAME} />
           </div>
           {/* <div className="font-bold text-xl text-primary">{APP_NAME}</div> */}
         </Link>

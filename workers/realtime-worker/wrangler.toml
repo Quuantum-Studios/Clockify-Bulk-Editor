@@ -7,7 +7,7 @@ compatibility_flags = ["nodejs_compat"]
 name = "assemblyai-worker"
 workers_dev = false
 routes = [
-  { pattern = "clockify-manager.quuantum.com/api/realtime/*", zone_id = "eab53d86a300310824b21c6693437a91" }
+  { pattern = "bulkifyai.quuantum.com/api/realtime/*", zone_id = "eab53d86a300310824b21c6693437a91" }
 ]
 
 # Staging environment
@@ -15,7 +15,7 @@ routes = [
 name = "assemblyai-worker-staging"
 workers_dev = false
 routes = [
-  { pattern = "staging.clockify-manager.quuantum.com/api/realtime/*", zone_id = "eab53d86a300310824b21c6693437a91" }
+  { pattern = "staging.bulkifyai.quuantum.com/api/realtime/*", zone_id = "eab53d86a300310824b21c6693437a91" }
 ]
 
 # [vars]
