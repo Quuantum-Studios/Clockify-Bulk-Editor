@@ -186,7 +186,7 @@ export default function SettingsDialog({ open, onClose, canClose = true }: Setti
   return (
     <>
       <Dialog open={open} onOpenChange={(open) => !open && canClose && onClose()}>
-        <DialogContent className="max-w-md">
+        <DialogContent className={showApiKeySteps ? "max-w-3xl" : "max-w-md"}>
           <DialogHeader>
             <DialogTitle>Settings</DialogTitle>
             {canClose && (
@@ -276,14 +276,17 @@ export default function SettingsDialog({ open, onClose, canClose = true }: Setti
                     </ol>
                     
                     <div className="mt-4 pt-3 border-t border-blue-200 dark:border-blue-700">
-                      <p className="text-xs font-medium text-blue-900 dark:text-blue-100 mb-2">Watch tutorial GIF:</p>
+                      <p className="text-xs font-medium text-blue-900 dark:text-blue-100 mb-2">Watch tutorial video:</p>
                       <div className="relative w-full rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700">
-                        <img
-                          src={process.env.NEXT_PUBLIC_CLOCKIFY_API_TUTORIAL_GIF || "/api-key-tutorial.gif"}
-                          alt="How to get Clockify API Key tutorial"
-                          className="w-full h-auto rounded-lg"
-                          loading="lazy"
-                        />
+                        <video
+                          src="/bulkifyai-tutorial-to-get-clockify-api-key.mp4"
+                          controls
+                          loop
+                          className="w-full max-h-[600px] rounded-lg"
+                          preload="metadata"
+                        >
+                          Your browser does not support the video tag.
+                        </video>
                       </div>
                     </div>
                     

@@ -1131,15 +1131,17 @@ export default function AppPage() {
                           )}
                         </TableCell>
                         {/* Billable indicator in row corner (left) with toggle */}
-                        <button
-                          type="button"
-                          onClick={() => handleEdit(entry.id, 'billable', !isBillable)}
-                          className={`absolute left-3 top-2 p-0 bg-transparent cursor-pointer ${isBillable ? 'text-green-600' : 'text-red-500'}`}
-                          title={isBillable ? 'Billable (click to mark non-billable)' : 'Non-billable (click to mark billable)'}
-                          aria-label={isBillable ? 'Toggle to non-billable' : 'Toggle to billable'}
-                        >
-                          <DollarSign className="h-4 w-4 opacity-80" />
-                        </button>
+                        <TableCell className="relative p-0">
+                          <button
+                            type="button"
+                            onClick={() => handleEdit(entry.id, 'billable', !isBillable)}
+                            className={`absolute left-3 top-2 p-0 bg-transparent cursor-pointer ${isBillable ? 'text-green-600' : 'text-red-500'}`}
+                            title={isBillable ? 'Billable (click to mark non-billable)' : 'Non-billable (click to mark billable)'}
+                            aria-label={isBillable ? 'Toggle to non-billable' : 'Toggle to billable'}
+                          >
+                            <DollarSign className="h-4 w-4 opacity-80" />
+                          </button>
+                        </TableCell>
                       </TableRow>
                     );
                   })}
