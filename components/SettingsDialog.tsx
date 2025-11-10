@@ -1,6 +1,6 @@
 "use client"
 import { useEffect, useState, useCallback } from "react"
-import { X } from "lucide-react"
+import { X, ChevronDown, ChevronUp, ExternalLink } from "lucide-react"
 import { Input } from "./ui/input"
 import { Select } from "./ui/select"
 import { Button } from "./ui/button"
@@ -45,6 +45,7 @@ export default function SettingsDialog({ open, onClose, canClose = true }: Setti
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null)
   const [showWelcome, setShowWelcome] = useState(false)
   const [welcomeName, setWelcomeName] = useState("")
+  const [showApiKeySteps, setShowApiKeySteps] = useState(false)
 
   useEffect(() => {
     setApiKeyInput(apiKey || "")
@@ -212,9 +213,93 @@ export default function SettingsDialog({ open, onClose, canClose = true }: Setti
                 className="w-full cursor-text"
                 disabled={isValidated}
               />
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Get your API key from Clockify Settings → API
-              </p>
+              <div className="mt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowApiKeySteps(!showApiKeySteps)}
+                  className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
+                >
+                  {showApiKeySteps ? (
+                    <>
+                      <ChevronUp className="h-3 w-3" />
+                      Hide steps to get API key
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="h-3 w-3" />
+                      Show steps to get API key
+                    </>
+                  )}
+                </button>
+                
+                {showApiKeySteps && (
+                  <div className="mt-3 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
+                    <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-3">
+                      How to get your Clockify API Key:
+                    </h4>
+                    <ol className="space-y-3 text-xs text-blue-800 dark:text-blue-200">
+                      <li className="flex gap-3">
+                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-xs font-semibold">1</span>
+                        <div>
+                          <span className="font-medium">Go to account menu</span>
+                          <p className="text-blue-700 dark:text-blue-300 mt-0.5">Click on your account menu in the top-right corner of Clockify</p>
+                        </div>
+                      </li>
+                      <li className="flex gap-3">
+                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-xs font-semibold">2</span>
+                        <div>
+                          <span className="font-medium">Select Preferences</span>
+                          <p className="text-blue-700 dark:text-blue-300 mt-0.5">From the dropdown menu, select <strong>"Preferences"</strong></p>
+                        </div>
+                      </li>
+                      <li className="flex gap-3">
+                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-xs font-semibold">3</span>
+                        <div>
+                          <span className="font-medium">Open Advanced tab</span>
+                          <p className="text-blue-700 dark:text-blue-300 mt-0.5">In the Preferences menu, click on the <strong>"Advanced"</strong> tab</p>
+                        </div>
+                      </li>
+                      <li className="flex gap-3">
+                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-xs font-semibold">4</span>
+                        <div>
+                          <span className="font-medium">Generate API Key</span>
+                          <p className="text-blue-700 dark:text-blue-300 mt-0.5">In the API Key section, click the <strong>"Generate"</strong> button to create a new API key</p>
+                        </div>
+                      </li>
+                      <li className="flex gap-3">
+                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-xs font-semibold">5</span>
+                        <div>
+                          <span className="font-medium">Copy and paste</span>
+                          <p className="text-blue-700 dark:text-blue-300 mt-0.5">Copy the API key and paste it in the input field above. <strong>Important:</strong> Store it securely as the key cannot be viewed again after closing the window.</p>
+                        </div>
+                      </li>
+                    </ol>
+                    
+                    <div className="mt-4 pt-3 border-t border-blue-200 dark:border-blue-700">
+                      <p className="text-xs font-medium text-blue-900 dark:text-blue-100 mb-2">Watch tutorial GIF:</p>
+                      <div className="relative w-full rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700">
+                        <img
+                          src={process.env.NEXT_PUBLIC_CLOCKIFY_API_TUTORIAL_GIF || "/api-key-tutorial.gif"}
+                          alt="How to get Clockify API Key tutorial"
+                          className="w-full h-auto rounded-lg"
+                          loading="lazy"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="mt-4 pt-3 border-t border-blue-200 dark:border-blue-700">
+                      <a 
+                        href="https://app.clockify.me/user/preferences" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80 font-medium"
+                      >
+                        Open Clockify Preferences <ExternalLink className="h-3 w-3" />
+                      </a>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {isValidated && (
