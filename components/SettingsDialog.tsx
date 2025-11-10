@@ -249,28 +249,28 @@ export default function SettingsDialog({ open, onClose, canClose = true }: Setti
                         <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-xs font-semibold">2</span>
                         <div>
                           <span className="font-medium">Select Preferences</span>
-                          <p className="text-blue-700 dark:text-blue-300 mt-0.5">From the dropdown menu, select <strong>"Preferences"</strong></p>
+                          <p className="text-blue-700 dark:text-blue-300 mt-0.5">From the dropdown menu, select <strong>&quot;Preferences&quot;</strong></p>
                         </div>
                       </li>
                       <li className="flex gap-3">
                         <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-xs font-semibold">3</span>
                         <div>
                           <span className="font-medium">Open Advanced tab</span>
-                          <p className="text-blue-700 dark:text-blue-300 mt-0.5">In the Preferences menu, click on the <strong>"Advanced"</strong> tab</p>
+                          <p className="text-blue-700 dark:text-blue-300 mt-0.5">In the Preferences menu, click on the <strong>&quot;Advanced&quot;</strong> tab</p>
                         </div>
                       </li>
                       <li className="flex gap-3">
                         <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-xs font-semibold">4</span>
                         <div>
                           <span className="font-medium">Generate API Key</span>
-                          <p className="text-blue-700 dark:text-blue-300 mt-0.5">In the API Key section, click the <strong>"Generate"</strong> button to create a new API key</p>
+                          <p className="text-blue-700 dark:text-blue-300 mt-0.5">In the API Key section, click the <strong>&quot;Generate New&quot;</strong> button and enter any key name and click <strong>&quot;Generate&quot;</strong></p>
                         </div>
                       </li>
                       <li className="flex gap-3">
                         <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-xs font-semibold">5</span>
                         <div>
                           <span className="font-medium">Copy and paste</span>
-                          <p className="text-blue-700 dark:text-blue-300 mt-0.5">Copy the API key and paste it in the input field above. <strong>Important:</strong> Store it securely as the key cannot be viewed again after closing the window.</p>
+                          <p className="text-blue-700 dark:text-blue-300 mt-0.5">Copy the API key and paste it in the input field above.</p>
                         </div>
                       </li>
                     </ol>
