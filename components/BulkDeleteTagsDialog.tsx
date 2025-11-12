@@ -10,7 +10,6 @@ import {
 } from "./ui/dialog"
 import { Button } from "./ui/button"
 import { Toast } from "./ui/toast"
-import { ClockifyAPI } from "../lib/clockify"
 import {
   Table,
   TableHeader,
@@ -49,11 +48,15 @@ export function BulkDeleteTagsDialog({
   useEffect(() => {
     if (open && workspaceId && apiKey) {
       setLoading(true)
-      const api = new ClockifyAPI()
-      api.setApiKey(apiKey)
-      api
-        .getTags(workspaceId)
-        .then(setTags)
+      fetch(`/api/proxy/tags/${workspaceId}?apiKey=${encodeURIComponent(apiKey)}`)
+        .then(async (res) => {
+          if (!res.ok) {
+            const errorData = await res.json().catch(() => ({})) as { error?: string }
+            throw new Error(errorData.error || `HTTP ${res.status}: Failed to load tags`)
+          }
+          return res.json()
+        })
+        .then((data: { id: string; name: string }[]) => setTags(data))
         .catch(() =>
           setToast({ type: "error", message: "Failed to load tags." })
         )
@@ -98,10 +101,25 @@ export function BulkDeleteTagsDialog({
           body: JSON.stringify({ apiKey, tagIds: Array.from(selectedTags) }),
         }
       )
-      const data = await res.json() as { error?: string }
-      if (res.ok) {
-        setToast({ type: "success", message: "Tags deleted successfully." })
-        capture(AnalyticsEvents.BULK_DELETE_TAGS, { count: selectedTags.size })
+      const data = await res.json() as { 
+        error?: string
+        message?: string
+        deleted?: number
+        failed?: number
+        skipped?: number
+        details?: { failed?: { id: string; reason: string }[]; skipped?: { id: string; reason: string }[] }
+      }
+      if (res.ok || res.status === 207) {
+        const deletedCount = data.deleted ?? selectedTags.size
+        let message = data.message || "Tags deleted successfully."
+        if (data.skipped && data.skipped > 0) {
+          message += ` ${data.skipped} tag(s) skipped (not in workspace).`
+        }
+        if (data.failed && data.failed > 0) {
+          message += ` ${data.failed} tag(s) failed to delete.`
+        }
+        setToast({ type: data.failed && data.failed > 0 ? "error" : "success", message })
+        capture(AnalyticsEvents.BULK_DELETE_TAGS, { count: deletedCount, skipped: data.skipped || 0, failed: data.failed || 0 })
         setSelectedTags(new Set())
         onSuccess()
         onClose()

@@ -1,6 +1,7 @@
 "use client"
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import Papa from "papaparse"
+import { Zap } from "lucide-react"
 import { Sheet } from "./ui/sheet"
 import { Button } from "./ui/button"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "./ui/table"
@@ -409,7 +410,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
     clearAutoTimer()
     if (!autoMode || !autoRunning) return
     if (isPrimaryDisabledForStep()) return
-    setAutoCountdown(5)
+    setAutoCountdown(3)
     autoTimerRef.current = window.setInterval(() => {
       setAutoCountdown(prev => {
         const next = (prev ?? 0) - 1
@@ -502,24 +503,25 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
 
     if (step === 1) {
       right.push(
-        <label key="autoToggle" className="flex items-center gap-1 text-xs text-muted-foreground">
-          <input
-            type="checkbox"
-            checked={autoMode}
-            onChange={(e) => {
-              const enabled = e.target.checked
-              setAutoMode(enabled)
-              if (enabled) {
-                setAutoRunning(true)
-              } else {
-                setAutoRunning(false)
-                setAutoCountdown(null)
-                clearAutoTimer()
-              }
-            }}
-          />
-          <span>auto</span>
-        </label>
+        <Button
+          key="autoProcess"
+          variant={autoMode ? "default" : "secondary"}
+          onClick={() => {
+            const enabled = !autoMode
+            setAutoMode(enabled)
+            if (enabled) {
+              setAutoRunning(true)
+            } else {
+              setAutoRunning(false)
+              setAutoCountdown(null)
+              clearAutoTimer()
+            }
+          }}
+          className="cursor-pointer"
+        >
+          <Zap className="w-4 h-4 mr-1" />
+          Auto Process
+        </Button>
       )
       right.push(
         <Button ref={step1PrimaryRef} key="next" onClick={async () => { try { await verifyProjects(); setStep(2) } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } }} disabled={rows.length === 0 || missingHeaders.length > 0} className="cursor-pointer">

@@ -3,7 +3,6 @@ import { useEffect, useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "./ui/dialog"
 import { Button } from "./ui/button"
 import { Toast } from "./ui/toast"
-import { ClockifyAPI } from "../lib/clockify"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "./ui/table"
 import { Skeleton } from "./ui/skeleton"
 import { capture, AnalyticsEvents } from "../lib/analytics"
@@ -27,10 +26,15 @@ export function BulkDeleteTasksDialog({ open, onClose, workspaceId, apiKey, proj
   useEffect(() => {
     if (open && workspaceId && apiKey && projectId) {
       setLoading(true)
-      const api = new ClockifyAPI()
-      api.setApiKey(apiKey)
-      api.getTasks(workspaceId, projectId)
-        .then(setTasks)
+      fetch(`/api/proxy/tasks/${workspaceId}/${projectId}?apiKey=${encodeURIComponent(apiKey)}`)
+        .then(async (res) => {
+          if (!res.ok) {
+            const errorData = await res.json().catch(() => ({})) as { error?: string }
+            throw new Error(errorData.error || `HTTP ${res.status}: Failed to load tasks`)
+          }
+          return res.json()
+        })
+        .then((data: { id: string; name: string }[]) => setTasks(data))
         .catch(() => setToast({ type: "error", message: "Failed to load tasks." }))
         .finally(() => setLoading(false))
     }

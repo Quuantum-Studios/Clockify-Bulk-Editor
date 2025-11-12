@@ -3,7 +3,7 @@ import { getCloudflareContext } from "@opennextjs/cloudflare"
 import { z } from "zod"
 import { ClockifyAPI } from "../../../../lib/clockify"
 import { checkRateLimit } from "../../../../lib/ratelimit"
-import { getCachedData } from "../../../../lib/cache"
+import { getCachedData, invalidateCache } from "../../../../lib/cache"
 
 const apiKeySchema = z.object({
   apiKey: z.string().min(10)
@@ -144,6 +144,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ slug: s
 
 export async function POST(req: NextRequest, context: { params: Promise<{ slug: string[] }> }) {
   try {
+    const { env } = getCloudflareContext()
     const body = await req.json() as { apiKey: string; timezone?: string; [key: string]: unknown }
     const { apiKey, timezone, ...payload } = body
     apiKeySchema.parse({ apiKey })
@@ -168,12 +169,16 @@ export async function POST(req: NextRequest, context: { params: Promise<{ slug: 
       if (!userId) return NextResponse.json({ error: "userId required" }, { status: 400 })
       const entry = timeEntryPayloadSchema.parse(payload)
       const data = await clockify.createTimeEntry(workspaceId, userId, entry)
+      const email = await getEmailFromApiKey(env, apiKey)
+      await invalidateCache(env.KV, `time-entries:${email}:${workspaceId}:${userId}`)
       return NextResponse.json(data)
     }
     if (resource === "tasks") {
       const [workspaceId, projectId] = rest
       const name = z.string().min(1).parse(payload.name)
       const data = await clockify.createTask(workspaceId, projectId, name)
+      const email = await getEmailFromApiKey(env, apiKey)
+      await invalidateCache(env.KV, `tasks:${email}:${workspaceId}:${projectId}`)
       return NextResponse.json({ id: data })
     }
     return NextResponse.json({ error: "Not found" }, { status: 404 })
@@ -187,6 +192,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ slug: 
 
 export async function PUT(req: NextRequest, context: { params: Promise<{ slug: string[] }> }) {
   try {
+    const { env } = getCloudflareContext()
     const body = await req.json() as { apiKey: string; timezone?: string; [key: string]: unknown }
     const { apiKey, timezone, ...payload } = body
     apiKeySchema.parse({ apiKey })
@@ -210,6 +216,8 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ slug: s
       const [workspaceId, userId, entryId] = rest
       if (!userId) return NextResponse.json({ error: "userId required" }, { status: 400 })
       const data = await clockify.updateTimeEntry(workspaceId, userId, entryId, payload as Partial<import("../../../../lib/clockify").TimeEntry> & { tags?: string[] })
+      const email = await getEmailFromApiKey(env, apiKey)
+      await invalidateCache(env.KV, `time-entries:${email}:${workspaceId}:${userId}`)
       return NextResponse.json(data)
     }
     return NextResponse.json({ error: "Not found" }, { status: 404 })
@@ -223,6 +231,7 @@ export async function PUT(req: NextRequest, context: { params: Promise<{ slug: s
 
 export async function DELETE(req: NextRequest, context: { params: Promise<{ slug: string[] }> }) {
   try {
+    const { env } = getCloudflareContext()
     const body = await req.json() as { apiKey: string; [key: string]: unknown }
     const { apiKey } = body
     apiKeySchema.parse({ apiKey })
@@ -246,6 +255,8 @@ export async function DELETE(req: NextRequest, context: { params: Promise<{ slug
       if (!userId) return NextResponse.json({ error: "userId required" }, { status: 400 })
       if (!entryId) return NextResponse.json({ error: "entryId required" }, { status: 400 })
       const data = await clockify.deleteTimeEntry(workspaceId, userId, entryId)
+      const email = await getEmailFromApiKey(env, apiKey)
+      await invalidateCache(env.KV, `time-entries:${email}:${workspaceId}:${userId}`)
       return NextResponse.json(data)
     }
     return NextResponse.json({ error: "Not found" }, { status: 404 })

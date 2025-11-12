@@ -1,9 +1,50 @@
 import { NextRequest, NextResponse } from "next/server"
+import { getCloudflareContext } from "@opennextjs/cloudflare"
 import { z } from "zod"
 import { ClockifyAPI, TimeEntryPayload } from "../../../../../../lib/clockify"
 import { checkRateLimit } from "../../../../../../lib/ratelimit"
+import { invalidateCache } from "../../../../../../lib/cache"
 
 const apiKeySchema = z.object({ apiKey: z.string().min(10) })
+
+async function hashApiKey(apiKey: string): Promise<string> {
+  const encoder = new TextEncoder()
+  const data = encoder.encode(apiKey)
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
+async function getEmailFromApiKey(env: { KV?: KVNamespace }, apiKey: string): Promise<string> {
+  try {
+    if (env.KV) {
+      const apiKeyHash = await hashApiKey(apiKey)
+      const userCacheKey = `user:${apiKeyHash}`
+      const cached = await env.KV.get(userCacheKey, "json") as { email?: string } | null
+      if (cached?.email) {
+        return cached.email
+      }
+    }
+    const res = await fetch("https://api.clockify.me/api/v1/user", {
+      headers: { "X-Api-Key": apiKey }
+    })
+    if (res.ok) {
+      const user = await res.json() as { email?: string }
+      if (user.email) {
+        if (env.KV) {
+          const apiKeyHash = await hashApiKey(apiKey)
+          const userCacheKey = `user:${apiKeyHash}`
+          await env.KV.put(userCacheKey, JSON.stringify(user), { expirationTtl: 3600 })
+        }
+        return user.email
+      }
+    }
+  } catch {
+    // Ignore errors
+  }
+  return apiKey
+}
+
 const entrySchema = z.object({
   description: z.string().optional(),
   projectId: z.string().optional(),
@@ -63,6 +104,9 @@ export async function POST(req: NextRequest, context: { params: Promise<{ worksp
       if (entry.projectName) delete entry.projectName
     }
     const results = await clockify.bulkUpdateTimeEntries(workspaceId, userId, parsedEntries as TimeEntryPayload[])
+    const { env } = getCloudflareContext()
+    const email = await getEmailFromApiKey(env, apiKey)
+    await invalidateCache(env.KV, `time-entries:${email}:${workspaceId}:${userId}`)
     return NextResponse.json({ success: true, results })
   } catch (e: unknown) {
     console.error("[API] Error in BULK POST:", e)
