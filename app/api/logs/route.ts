@@ -15,8 +15,17 @@ export async function GET(req: NextRequest) {
 
     // Fallback: derive email from apiKey using KV mapping if email not provided
     if ((!email || !email.includes("@")) && apiKey) {
-      const userInfo = await env.KV.get(`user:${apiKey}`, "json") as { email?: string } | null
-      if (userInfo?.email) email = userInfo.email
+      try {
+        const encoder = new TextEncoder()
+        const data = encoder.encode(apiKey)
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+        const hashArray = Array.from(new Uint8Array(hashBuffer))
+        const apiKeyHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+        const userInfo = await env.KV.get(`user:${apiKeyHash}`, "json") as { email?: string } | null
+        if (userInfo?.email) email = userInfo.email
+      } catch {
+        // Ignore errors
+      }
     }
 
     if (!email || !email.includes("@")) {

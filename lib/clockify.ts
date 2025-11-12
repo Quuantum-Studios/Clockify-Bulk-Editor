@@ -47,12 +47,21 @@ export class ClockifyAPI {
   private defaultTimezone: string = "UTC"
   private userEmail: string | undefined = undefined
 
+  private async hashApiKey(apiKey: string): Promise<string> {
+    const encoder = new TextEncoder()
+    const data = encoder.encode(apiKey)
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+    const hashArray = Array.from(new Uint8Array(hashBuffer))
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+  }
+
   async setUserEmail(apiKey: string): Promise<void> {
     try {
       const { env } = getCloudflareContext()
       if (!env.KV) return
 
-      const userCacheKey = `user:${apiKey}`
+      const apiKeyHash = await this.hashApiKey(apiKey)
+      const userCacheKey = `user:${apiKeyHash}`
       const cached = await env.KV.get(userCacheKey, "json") as { email?: string } | null
       if (cached?.email) {
         this.userEmail = cached.email

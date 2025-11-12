@@ -21,11 +21,20 @@ const timeEntryPayloadSchema = z.object({
   userId: z.string().optional()
 })
 
+async function hashApiKey(apiKey: string): Promise<string> {
+  const encoder = new TextEncoder()
+  const data = encoder.encode(apiKey)
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
 async function getEmailFromApiKey(env: { KV?: KVNamespace }, apiKey: string): Promise<string> {
   try {
     // Try to get from cache if KV is available
     if (env.KV) {
-      const userCacheKey = `user:${apiKey}`
+      const apiKeyHash = await hashApiKey(apiKey)
+      const userCacheKey = `user:${apiKeyHash}`
       const cached = await env.KV.get(userCacheKey, "json") as { email?: string } | null
       if (cached?.email) {
         return cached.email
@@ -39,9 +48,10 @@ async function getEmailFromApiKey(env: { KV?: KVNamespace }, apiKey: string): Pr
     if (res.ok) {
       const user = await res.json() as { email?: string }
       if (user.email) {
-        // Cache it if KV is available
+        // Cache it if KV is available (using hash instead of full apiKey)
         if (env.KV) {
-          const userCacheKey = `user:${apiKey}`
+          const apiKeyHash = await hashApiKey(apiKey)
+          const userCacheKey = `user:${apiKeyHash}`
           await env.KV.put(userCacheKey, JSON.stringify(user), { expirationTtl: 3600 })
         }
         return user.email
