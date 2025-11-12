@@ -9,6 +9,7 @@ import { BulkUploadDialog } from "../../components/BulkUploadDialog"
 import { BulkDeleteTagsDialog } from "../../components/BulkDeleteTagsDialog"
 import { BulkDeleteTasksDialog } from "../../components/BulkDeleteTasksDialog"
 import { TagSelector } from "../../components/TagSelector"
+import { ProjectSelector } from "../../components/ProjectSelector"
 import { Skeleton } from "../../components/ui/skeleton"
 import { Toast } from "../../components/ui/toast"
 import { Input } from "../../components/ui/input"
@@ -34,7 +35,7 @@ export default function AppPage() {
   const optimisticUpdate = useClockifyStore(state => state.optimisticUpdate)
   const optimisticTask = useClockifyStore(state => state.optimisticTask)
   const [workspaceId, setWorkspaceId] = useState("")
-  const [projectId, setProjectId] = useState("")
+  const [projectIds, setProjectIds] = useState<string[]>([])
   const [userId, setUserId] = useState("")
   const [dateRange, setDateRange] = useState<null | { startDate: Date; endDate: Date }>(null)
   const [showDatePicker, setShowDatePicker] = useState(false)
@@ -51,15 +52,18 @@ export default function AppPage() {
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null)
   const [tags, setTags] = useState<{ id: string; name: string }[]>([])
   const tagsFetchedRef = useRef(false)
+  const isInitialMountRef = useRef(true)
   const [createTaskState, setCreateTaskState] = useState<Record<string, { showCreate: boolean; name: string; loading: boolean }>>({})
   const [savingRows, setSavingRows] = useState<Set<string>>(new Set())
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [timeEditOpen, setTimeEditOpen] = useState<Record<string, { start: boolean; end: boolean }>>({})
   const [projectTaskEditOpen, setProjectTaskEditOpen] = useState<Record<string, boolean>>({})
   const [tagsEditOpen, setTagsEditOpen] = useState<Record<string, boolean>>({})
+  const [descriptionEditOpen, setDescriptionEditOpen] = useState<Record<string, boolean>>({})
   const timeEditorRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const projectTaskEditorRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const tagsEditorRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  const descriptionEditorRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   const toggleTimeEditor = (entryId: string, field: 'start' | 'end', open?: boolean) => {
     setTimeEditOpen(prev => {
@@ -104,10 +108,18 @@ export default function AppPage() {
           setTagsEditOpen(prev => ({ ...prev, [id]: false }))
         }
       })
+      // Description editor
+      Object.entries(descriptionEditOpen).forEach(([id, isOpen]) => {
+        if (!isOpen) return
+        const container = descriptionEditorRefs.current[id]
+        if (container && !container.contains(targetNode)) {
+          setDescriptionEditOpen(prev => ({ ...prev, [id]: false }))
+        }
+      })
     }
     document.addEventListener('mousedown', handleDocClick)
     return () => document.removeEventListener('mousedown', handleDocClick)
-  }, [timeEditOpen, projectTaskEditOpen, tagsEditOpen, showDatePicker])
+  }, [timeEditOpen, projectTaskEditOpen, tagsEditOpen, descriptionEditOpen, showDatePicker])
 
   const toggleCreateTaskUI = (entryId: string, show?: boolean) => {
     setCreateTaskState(prev => ({ ...prev, [entryId]: { ...(prev[entryId] || { showCreate: false, name: "", loading: false }), showCreate: typeof show === 'boolean' ? show : !((prev[entryId] || {}).showCreate) } }))
@@ -186,7 +198,20 @@ export default function AppPage() {
       const savedStart = window.localStorage.getItem("clockify_selected_start")
       const savedEnd = window.localStorage.getItem("clockify_selected_end")
       if (savedWs) setWorkspaceId(savedWs)
-      if (savedPr) setProjectId(savedPr)
+      if (savedPr) {
+        try {
+          const parsed = JSON.parse(savedPr)
+          if (Array.isArray(parsed)) {
+            setProjectIds(parsed)
+          } else if (typeof parsed === 'string') {
+            // Legacy: single project ID as string
+            setProjectIds([parsed])
+          }
+        } catch {
+          // Legacy: single project ID as plain string
+          if (savedPr) setProjectIds([savedPr])
+        }
+      }
 
       // Parse saved dates if present and valid, otherwise fall back to today as a sensible default
       if (savedStart && savedEnd) {
@@ -213,9 +238,13 @@ export default function AppPage() {
 
   useEffect(() => {
     try {
-      window.localStorage.setItem("clockify_selected_project", projectId || "")
+      if (projectIds.length > 0) {
+        window.localStorage.setItem("clockify_selected_project", JSON.stringify(projectIds))
+      } else {
+        window.localStorage.removeItem("clockify_selected_project")
+      }
     } catch { }
-  }, [projectId])
+  }, [projectIds])
 
   useEffect(() => {
     try {
@@ -246,10 +275,27 @@ export default function AppPage() {
       })
   }, [apiKey, setWorkspaces])
 
+  // Lazy load tasks for a specific project
+  const fetchTasksForProject = useCallback(async (projectIdToFetch: string) => {
+    if (!apiKey || !workspaceId || !projectIdToFetch) return
+    // Skip if already fetched
+    if (tasks[projectIdToFetch] && tasks[projectIdToFetch].length > 0) return
+    
+    try {
+      const tasksRes = await fetch(`/api/proxy/tasks/${workspaceId}/${projectIdToFetch}?apiKey=${apiKey}`)
+      if (tasksRes.ok) {
+        const projectTasks = await tasksRes.json() as Task[]
+        setTasks(projectIdToFetch, projectTasks)
+      }
+    } catch {
+      // Ignore errors for individual projects
+    }
+  }, [apiKey, workspaceId, tasks, setTasks])
+
   useEffect(() => {
     if (!apiKey || !workspaceId) return
 
-    const fetchProjectsAndTasks = async () => {
+    const fetchProjects = async () => {
       try {
         const response = await fetch(`/api/proxy/projects/${workspaceId}?apiKey=${apiKey}`)
         if (!response.ok) {
@@ -258,19 +304,6 @@ export default function AppPage() {
         }
         const projectsData = await response.json() as { id: string; name: string }[]
         setProjects(projectsData)
-
-        // Fetch tasks for each project
-        for (const project of projectsData) {
-          try {
-            const tasksRes = await fetch(`/api/proxy/tasks/${workspaceId}/${project.id}?apiKey=${apiKey}`)
-            if (tasksRes.ok) {
-              const projectTasks = await tasksRes.json() as Task[]
-              setTasks(project.id, projectTasks);
-            }
-          } catch {
-            // Ignore errors for individual projects
-          }
-        }
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Failed to load projects";
         setToast({ type: "error", message: errorMessage })
@@ -292,9 +325,18 @@ export default function AppPage() {
       }
     };
 
-    fetchProjectsAndTasks();
+    fetchProjects();
     fetchTags();
-  }, [apiKey, workspaceId, setProjects, setTasks])
+  }, [apiKey, workspaceId, setProjects])
+
+  // Fetch tasks only when projects are selected
+  useEffect(() => {
+    projectIds.forEach(pid => {
+      if (pid) {
+        fetchTasksForProject(pid)
+      }
+    })
+  }, [projectIds, fetchTasksForProject])
 
   const fetchEntries = useCallback(() => {
     if (!apiKey) {
@@ -311,6 +353,12 @@ export default function AppPage() {
     }
     if (!dateRange) {
       setToast({ type: "error", message: "Please select a date range." });
+      return;
+    }
+    if (projectIds.length === 0) {
+      // Don't fetch entries when no projects are selected
+      setTimeEntries([])
+      setSelectedIds(new Set())
       return;
     }
     setLoading(true)
@@ -334,18 +382,27 @@ export default function AppPage() {
     }
     const start = toUtcIso(dateRange.startDate)
     const end = toUtcIso(dateRange.endDate)
-    fetch(`/api/proxy/time-entries/${workspaceId}/${userId}?apiKey=${apiKey}&projectId=${projectId}&start=${start}&end=${end}`)
-      .then(async r => {
-        if (!r.ok) {
-          const errorData = await r.json().catch(() => ({})) as { error?: string };
-          throw new Error(errorData.error || `HTTP ${r.status}: Failed to load entries`);
-        }
-        return r.json();
-      })
-      .then(async (data: unknown) => {
-        const rawEntries = Array.isArray(data) ? data : []
+    
+    // Fetch entries for each selected project and combine
+    Promise.all(projectIds.map(pid => 
+      fetch(`/api/proxy/time-entries/${workspaceId}/${userId}?apiKey=${apiKey}&projectId=${pid}&start=${start}&end=${end}`)
+        .then(async r => {
+          if (!r.ok) {
+            const errorData = await r.json().catch(() => ({})) as { error?: string };
+            throw new Error(errorData.error || `HTTP ${r.status}: Failed to load entries`);
+          }
+          return r.json();
+        })
+    ))
+      .then((results: unknown[]) => {
+        // Combine all entries from all selected projects
+        const allEntries = results.flat() as Record<string, unknown>[]
+        // Remove duplicates based on entry ID
+        const uniqueEntries = Array.from(
+          new Map(allEntries.map(entry => [entry.id as string, entry])).values()
+        )
         // Transform entries: convert tagIds to tags (tag names) and taskId to taskName
-        const transformedEntries = rawEntries.map((entry: Record<string, unknown>) => {
+        const transformedEntries = uniqueEntries.map((entry: Record<string, unknown>) => {
           const transformed: TimeEntry = { ...entry } as TimeEntry
           // Convert tagIds to tags (tag names)
           if ((entry.tagIds as string[] | undefined) && Array.isArray(entry.tagIds)) {
@@ -374,7 +431,7 @@ export default function AppPage() {
         setToast({ type: "error", message: errorMessage });
         setLoading(false)
       })
-  }, [apiKey, workspaceId, userId, dateRange, projectId, defaultTimezone, setTimeEntries, tags, tasks])
+  }, [apiKey, workspaceId, userId, dateRange, projectIds, defaultTimezone, setTimeEntries, tags, tasks])
 
   const refreshAllReferenceData = useCallback(async () => {
     if (!apiKey) { setToast({ type: "error", message: "API key required." }); return }
@@ -392,12 +449,22 @@ export default function AppPage() {
       if (projectsRes.ok) {
         const projectsData = await projectsRes.json() as { id: string; name: string }[]
         setProjects(projectsData)
-        for (const p of projectsData) {
+        // Only refresh tasks for projects that are already loaded (not fetch all)
+        const projectIdsToRefresh = Object.keys(tasks).filter(pid => 
+          projectsData.some(p => p.id === pid)
+        )
+        // Also include selected projects if not already in the list
+        projectIds.forEach(pid => {
+          if (pid && !projectIdsToRefresh.includes(pid)) {
+            projectIdsToRefresh.push(pid)
+          }
+        })
+        for (const pid of projectIdsToRefresh) {
           try {
-            const tasksRes = await fetch(`/api/proxy/tasks/${workspaceId}/${p.id}?apiKey=${apiKey}`)
+            const tasksRes = await fetch(`/api/proxy/tasks/${workspaceId}/${pid}?apiKey=${apiKey}`)
             if (tasksRes.ok) {
               const projectTasks = await tasksRes.json() as Task[]
-              setTasks(p.id, projectTasks)
+              setTasks(pid, projectTasks)
             }
           } catch { }
         }
@@ -420,15 +487,28 @@ export default function AppPage() {
     } finally {
       setRefreshing(false)
     }
-  }, [apiKey, workspaceId, setWorkspaces, setProjects, setTasks, fetchEntries])
+  }, [apiKey, workspaceId, projectIds, tasks, setWorkspaces, setProjects, setTasks, fetchEntries])
 
 
   // Auto-fetch entries when filters change
+  // Skip auto-fetch on initial mount if projectIds is empty (first-time user)
+  // to avoid fetching ALL entries across all projects unnecessarily
   useEffect(() => {
-    if (apiKey && workspaceId && userId && dateRange) {
+    if (isInitialMountRef.current) {
+      isInitialMountRef.current = false
+      // On first load, only auto-fetch if projectIds are set (returning user with saved preference)
+      // If projectIds is empty, wait for user to explicitly select a project
+      if (apiKey && workspaceId && userId && dateRange && projectIds.length > 0) {
+        fetchEntries()
+      }
+      return
+    }
+    // After initial mount, auto-fetch when filters change
+    // Only fetch if at least one project is selected
+    if (apiKey && workspaceId && userId && dateRange && projectIds.length > 0) {
       fetchEntries()
     }
-  }, [apiKey, workspaceId, projectId, userId, dateRange, fetchEntries])
+  }, [apiKey, workspaceId, projectIds, userId, dateRange, fetchEntries])
 
   const addNewRow = () => {
     const tempId = `new-${Date.now()}`
@@ -449,7 +529,7 @@ export default function AppPage() {
       description: "",
       start: nowIso,
       end: endIso,
-      projectId: projectId,
+      projectId: projectIds[0] || "",
       taskName: "New Task",
       tags: [],
       billable: true,
@@ -867,12 +947,14 @@ export default function AppPage() {
               ))}
             </Select>
             {/* Project */}
-            <Select value={projectId} onChange={e => setProjectId(e.target.value)} className="h-9 w-full sm:w-[220px] cursor-pointer">
-              <option value="">All Projects</option>
-              {Array.isArray(projects) && projects.map((p: { id: string; name: string }) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))}
-            </Select>
+            <ProjectSelector
+              selectedProjectIds={projectIds}
+              availableProjects={projects}
+              onChange={setProjectIds}
+              placeholder="Select project"
+              className="h-9 w-full sm:w-[220px]"
+              onSelectAll={() => setProjectIds(projects.map(p => p.id))}
+            />
             {/* Date Range */}
             <div className="relative date-picker-container">
               <button
@@ -905,7 +987,7 @@ export default function AppPage() {
               <span className="hidden sm:inline">🏷️ Manage Tags</span>
               <span className="sm:hidden">🏷️</span>
             </Button>
-            <Button onClick={() => setBulkDeleteTasksDialogOpen(true)} type="button" variant="outline" className="h-9 cursor-pointer" disabled={!projectId}>
+            <Button onClick={() => setBulkDeleteTasksDialogOpen(true)} type="button" variant="outline" className="h-9 cursor-pointer" disabled={projectIds.length === 0}>
               <span className="hidden sm:inline">✅ Manage Tasks</span>
               <span className="sm:hidden">✅</span>
             </Button>
@@ -986,12 +1068,30 @@ export default function AppPage() {
                         <TableCell>
                           <input type="checkbox" checked={selectedIds.has(entry.id)} onChange={() => toggleSelectOne(entry.id)} className="cursor-pointer" />
                         </TableCell>
-                        <TableCell className="min-w-0 overflow-hidden">
-                          <Input
-                            value={editingEntry.description !== undefined ? String(editingEntry.description) : (entry.description ?? "")}
-                            onChange={e => handleEdit(entry.id, "description", e.target.value)}
-                            className="truncate w-full min-w-0 cursor-text"
-                          />
+                        <TableCell className="min-w-0 overflow-hidden" ref={el => { descriptionEditorRefs.current[entry.id] = el }}>
+                          {descriptionEditOpen[entry.id] ? (
+                            <Input
+                              value={editingEntry.description !== undefined ? String(editingEntry.description) : (entry.description ?? "")}
+                              onChange={e => handleEdit(entry.id, "description", e.target.value)}
+                              onBlur={() => setDescriptionEditOpen(prev => ({ ...prev, [entry.id]: false }))}
+                              className="truncate w-full min-w-0 cursor-text"
+                              autoFocus
+                            />
+                          ) : (
+                            <button
+                              type="button"
+                              className="text-xs text-gray-700 dark:text-gray-200 hover:underline truncate w-full text-left cursor-pointer min-h-[20px]"
+                              onClick={() => setDescriptionEditOpen(prev => ({ ...prev, [entry.id]: true }))}
+                              title="Edit description"
+                            >
+                              {(() => {
+                                const desc = editingEntry.description !== undefined 
+                                  ? String(editingEntry.description) 
+                                  : (entry.description ?? "")
+                                return desc.trim() || 'No description'
+                              })()}
+                            </button>
+                          )}
                         </TableCell>
                         <TableCell className="whitespace-nowrap overflow-hidden" ref={el => { timeEditorRefs.current[entry.id] = el }}>
                           {(() => {
@@ -1076,7 +1176,13 @@ export default function AppPage() {
                                 <button
                                   type="button"
                                   className="text-xs text-gray-700 dark:text-gray-200 hover:underline truncate max-w-[420px] cursor-pointer"
-                                  onClick={() => setProjectTaskEditOpen(prev => ({ ...prev, [entry.id]: true }))}
+                                  onClick={() => {
+                                    setProjectTaskEditOpen(prev => ({ ...prev, [entry.id]: true }))
+                                    // Lazy load tasks for this entry's project if not already loaded
+                                    if (entryProjectId) {
+                                      fetchTasksForProject(entryProjectId)
+                                    }
+                                  }}
                                   title="Edit project and task"
                                 >{projectLabel}{taskLabel && taskLabel !== 'None' ? ` • ${taskLabel}` : ''}</button>
                               )
@@ -1085,7 +1191,14 @@ export default function AppPage() {
                               <div className="flex items-center gap-2">
                                 <Select
                                   value={entryProjectId}
-                                  onChange={e => handleEdit(entry.id, "projectId", e.target.value)}
+                                  onChange={e => {
+                                    const newProjectId = e.target.value
+                                    handleEdit(entry.id, "projectId", newProjectId)
+                                    // Lazy load tasks for the newly selected project
+                                    if (newProjectId) {
+                                      fetchTasksForProject(newProjectId)
+                                    }
+                                  }}
                                   className="min-w-[140px] max-w-[220px] truncate cursor-pointer"
                                 >
                                   <option value="">None</option>
@@ -1290,19 +1403,22 @@ export default function AppPage() {
         onClose={() => setBulkDeleteTasksDialogOpen(false)}
         workspaceId={workspaceId}
         apiKey={apiKey}
-        projectId={projectId}
+        projectId={projectIds[0] || ""}
         onSuccess={() => {
-          if (!apiKey || !workspaceId || !projectId) return;
-          try {
-            fetch(`/api/proxy/tasks/${workspaceId}/${projectId}?apiKey=${apiKey}`)
-              .then(async res => {
-                if (res.ok) {
-                  const projectTasks = await res.json() as Task[]
-                  setTasks(projectId, projectTasks)
-                }
-              })
-              .catch(() => { })
-          } catch { }
+          if (!apiKey || !workspaceId || projectIds.length === 0) return;
+          // Refresh tasks for all selected projects
+          projectIds.forEach(pid => {
+            try {
+              fetch(`/api/proxy/tasks/${workspaceId}/${pid}?apiKey=${apiKey}`)
+                .then(async res => {
+                  if (res.ok) {
+                    const projectTasks = await res.json() as Task[]
+                    setTasks(pid, projectTasks)
+                  }
+                })
+                .catch(() => { })
+            } catch { }
+          })
           fetchEntries();
         }}
       />
