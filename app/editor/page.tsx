@@ -15,7 +15,6 @@ import { Input } from "../../components/ui/input"
 import { Save, RotateCcw, Trash2, XCircle, Calendar, DollarSign } from "lucide-react"
 import { capture, identify, AnalyticsEvents } from "../../lib/analytics"
 
-import { ClockifyAPI } from "../../lib/clockify"
 import type { Task, TimeEntry } from "../../lib/store"
 import MagicButton from "@/components/MagicButton"
 
@@ -127,15 +126,25 @@ export default function AppPage() {
     if (!projectIdToUse) { setToast({ type: "error", message: "Please select a project before creating a task" }); return }
     setCreateTaskState(prev => ({ ...prev, [entryId]: { ...(prev[entryId] || { showCreate: true, name }), loading: true } }))
     try {
-      const api = new ClockifyAPI()
-      api.setApiKey(apiKey)
-      const taskId = await api.createTask(workspaceId, projectIdToUse, name)
+      const createRes = await fetch(`/api/proxy/tasks/${workspaceId}/${projectIdToUse}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey, name })
+      })
+      if (!createRes.ok) {
+        const errorData = await createRes.json().catch(() => ({})) as { error?: string }
+        throw new Error(errorData.error || 'Failed to create task')
+      }
+      const { id: taskId } = await createRes.json() as { id: string }
       const newTask: Task = { id: taskId, name, projectId: projectIdToUse }
       // add optimistic and refresh tasks for the project
       optimisticTask(projectIdToUse, newTask)
       try {
-        const refreshed = await api.getTasks(workspaceId, projectIdToUse)
-        setTasks(projectIdToUse, refreshed)
+        const tasksRes = await fetch(`/api/proxy/tasks/${workspaceId}/${projectIdToUse}?apiKey=${apiKey}`)
+        if (tasksRes.ok) {
+          const refreshed = await tasksRes.json() as Task[]
+          setTasks(projectIdToUse, refreshed)
+        }
       } catch {
         // ignore refresh errors
       }
@@ -253,10 +262,11 @@ export default function AppPage() {
         // Fetch tasks for each project
         for (const project of projectsData) {
           try {
-            const api = new ClockifyAPI();
-            api.setApiKey(apiKey);
-            const projectTasks = await api.getTasks(workspaceId, project.id);
-            setTasks(project.id, projectTasks);
+            const tasksRes = await fetch(`/api/proxy/tasks/${workspaceId}/${project.id}?apiKey=${apiKey}`)
+            if (tasksRes.ok) {
+              const projectTasks = await tasksRes.json() as Task[]
+              setTasks(project.id, projectTasks);
+            }
           } catch {
             // Ignore errors for individual projects
           }
@@ -269,11 +279,14 @@ export default function AppPage() {
 
     const fetchTags = async () => {
       try {
-        const api = new ClockifyAPI();
-        api.setApiKey(apiKey);
-        const tagList = await api.getTags(workspaceId);
-        setTags(tagList);
-        tagsFetchedRef.current = true;
+        const tagsRes = await fetch(`/api/proxy/tags/${workspaceId}?apiKey=${apiKey}`)
+        if (tagsRes.ok) {
+          const tagList = await tagsRes.json() as { id: string; name: string }[]
+          setTags(tagList);
+          tagsFetchedRef.current = true;
+        } else {
+          setTags([]);
+        }
       } catch {
         setTags([]);
       }
@@ -329,14 +342,39 @@ export default function AppPage() {
         }
         return r.json();
       })
-      .then((data: unknown) => { setTimeEntries(Array.isArray(data) ? data : []); setSelectedIds(new Set()); setLoading(false) })
+      .then(async (data: unknown) => {
+        const rawEntries = Array.isArray(data) ? data : []
+        // Transform entries: convert tagIds to tags (tag names) and taskId to taskName
+        const transformedEntries = rawEntries.map((entry: Record<string, unknown>) => {
+          const transformed: TimeEntry = { ...entry } as TimeEntry
+          // Convert tagIds to tags (tag names)
+          if ((entry.tagIds as string[] | undefined) && Array.isArray(entry.tagIds)) {
+            transformed.tags = (entry.tagIds as string[]).map((id: string) => {
+              const tag = tags.find(t => t.id === id)
+              return tag ? tag.name : id
+            }).filter(Boolean) as string[]
+          }
+          // Convert taskId to taskName
+          if (entry.taskId && !entry.taskName && entry.projectId) {
+            const projectTasks = (tasks[entry.projectId as string] || []) as Task[]
+            const task = projectTasks.find(t => t.id === entry.taskId)
+            if (task) {
+              transformed.taskName = task.name
+            }
+          }
+          return transformed
+        })
+        setTimeEntries(transformedEntries)
+        setSelectedIds(new Set())
+        setLoading(false)
+      })
       .catch((error) => {
         setTimeEntries([]);
         const errorMessage = error instanceof Error ? error.message : "Failed to load entries";
         setToast({ type: "error", message: errorMessage });
         setLoading(false)
       })
-  }, [apiKey, workspaceId, userId, dateRange, projectId, defaultTimezone, setTimeEntries])
+  }, [apiKey, workspaceId, userId, dateRange, projectId, defaultTimezone, setTimeEntries, tags, tasks])
 
   const refreshAllReferenceData = useCallback(async () => {
     if (!apiKey) { setToast({ type: "error", message: "API key required." }); return }
@@ -354,16 +392,25 @@ export default function AppPage() {
       if (projectsRes.ok) {
         const projectsData = await projectsRes.json() as { id: string; name: string }[]
         setProjects(projectsData)
-        const api = new ClockifyAPI(); api.setApiKey(apiKey)
         for (const p of projectsData) {
-          try { const projectTasks = await api.getTasks(workspaceId, p.id); setTasks(p.id, projectTasks) } catch { }
+          try {
+            const tasksRes = await fetch(`/api/proxy/tasks/${workspaceId}/${p.id}?apiKey=${apiKey}`)
+            if (tasksRes.ok) {
+              const projectTasks = await tasksRes.json() as Task[]
+              setTasks(p.id, projectTasks)
+            }
+          } catch { }
         }
       }
       // Tags
       try {
-        const api = new ClockifyAPI(); api.setApiKey(apiKey)
-        const tagList = await api.getTags(workspaceId)
-        setTags(tagList)
+        const tagsRes = await fetch(`/api/proxy/tags/${workspaceId}?apiKey=${apiKey}`)
+        if (tagsRes.ok) {
+          const tagList = await tagsRes.json() as { id: string; name: string }[]
+          setTags(tagList)
+        } else {
+          setTags([])
+        }
       } catch { setTags([]) }
       // Entries
       fetchEntries()
@@ -452,13 +499,19 @@ export default function AppPage() {
     const fetchedTasksMap: Record<string, Task[]> = {}
     try {
       if (apiKey && workspaceId && projectIdsToFetch.length) {
-        const api = new ClockifyAPI()
-        api.setApiKey(apiKey)
         for (const pid of projectIdsToFetch) {
           try {
             // if we already have tasks for this project, reuse; else fetch
             const existing = (tasks && tasks[pid]) || []
-            const projectTasks = Array.isArray(existing) && existing.length > 0 ? existing : await api.getTasks(workspaceId, pid)
+            let projectTasks: Task[] = []
+            if (Array.isArray(existing) && existing.length > 0) {
+              projectTasks = existing
+            } else {
+              const tasksRes = await fetch(`/api/proxy/tasks/${workspaceId}/${pid}?apiKey=${apiKey}`)
+              if (tasksRes.ok) {
+                projectTasks = await tasksRes.json() as Task[]
+              }
+            }
             fetchedTasksMap[pid] = projectTasks
             if (!(Array.isArray(existing) && existing.length > 0)) setTasks(pid, projectTasks)
           } catch {
@@ -496,9 +549,17 @@ export default function AppPage() {
 
   const handleCreateTag = async (name: string) => {
     if (!workspaceId || !apiKey) throw new Error("Workspace and API key required")
-    const api = new ClockifyAPI()
-    api.setApiKey(apiKey)
-    const newTag = await api.createTag(workspaceId, name)
+    const createRes = await fetch(`/api/proxy/workspaces/${workspaceId}/tags/create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ apiKey, tagNames: [name] })
+    })
+    if (!createRes.ok) {
+      const errorData = await createRes.json().catch(() => ({})) as { error?: string }
+      throw new Error(errorData.error || 'Failed to create tag')
+    }
+    const { created } = await createRes.json() as { created: { id: string; name: string }[] }
+    const newTag = created[0]
     setTags(prev => [...prev, newTag])
     return newTag
   }
@@ -540,14 +601,22 @@ export default function AppPage() {
     }
     let tagIdsFromPatch: string[] | undefined = undefined;
     if (patch.tags && Array.isArray(patch.tags) && workspaceId && apiKey) {
-      const api = new ClockifyAPI();
-      api.setApiKey(apiKey);
       const tagIds: string[] = [];
       const newTags: { id: string; name: string }[] = [];
       for (const label of patch.tags as string[]) {
         let tag = tags.find(t => t.name === label) || newTags.find(t => t.name === label);
         if (!tag) {
-          tag = await api.createTag(workspaceId, label);
+          const createRes = await fetch(`/api/proxy/workspaces/${workspaceId}/tags/create`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ apiKey, tagNames: [label] })
+          })
+          if (!createRes.ok) {
+            const errorData = await createRes.json().catch(() => ({})) as { error?: string }
+            throw new Error(errorData.error || 'Failed to create tag')
+          }
+          const { created } = await createRes.json() as { created: { id: string; name: string }[] }
+          tag = created[0]
           newTags.push(tag);
         }
         tagIds.push(tag.id);
@@ -901,7 +970,7 @@ export default function AppPage() {
                       tagLabels = editing[entry.id]?.tags as string[];
                     } else if (entry.tags) {
                       tagLabels = entry.tags as string[];
-                    } else if ((entry as unknown as { tagIds?: string[] }).tagIds && Array.isArray((entry as unknown as { tagIds?: string[] }).tagIds) && tags.length > 0) {
+                    } else if ((entry as unknown as { tagIds?: string[] }).tagIds && Array.isArray((entry as unknown as { tagIds?: string[] }).tagIds)) {
                       tagLabels = ((entry as unknown as { tagIds?: string[] }).tagIds || []).map((id: string) => tags.find(t => t.id === id)?.name || id);
                     }
                     const rowStart = (editing[entry.id]?.start as string | undefined) ?? tiStart ?? entry.start
@@ -1201,10 +1270,13 @@ export default function AppPage() {
           const fetchTags = async () => {
             if (!apiKey || !workspaceId) return;
             try {
-              const api = new ClockifyAPI();
-              api.setApiKey(apiKey);
-              const tagList = await api.getTags(workspaceId);
-              setTags(tagList);
+              const tagsRes = await fetch(`/api/proxy/tags/${workspaceId}?apiKey=${apiKey}`)
+              if (tagsRes.ok) {
+                const tagList = await tagsRes.json() as { id: string; name: string }[]
+                setTags(tagList);
+              } else {
+                setTags([]);
+              }
             } catch {
               setTags([]);
             }
@@ -1222,9 +1294,14 @@ export default function AppPage() {
         onSuccess={() => {
           if (!apiKey || !workspaceId || !projectId) return;
           try {
-            const api = new ClockifyAPI();
-            api.setApiKey(apiKey);
-            api.getTasks(workspaceId, projectId).then(projectTasks => setTasks(projectId, projectTasks)).catch(() => { })
+            fetch(`/api/proxy/tasks/${workspaceId}/${projectId}?apiKey=${apiKey}`)
+              .then(async res => {
+                if (res.ok) {
+                  const projectTasks = await res.json() as Task[]
+                  setTasks(projectId, projectTasks)
+                }
+              })
+              .catch(() => { })
           } catch { }
           fetchEntries();
         }}

@@ -21,6 +21,38 @@ const timeEntryPayloadSchema = z.object({
   userId: z.string().optional()
 })
 
+async function getEmailFromApiKey(env: { KV?: KVNamespace }, apiKey: string): Promise<string> {
+  try {
+    // Try to get from cache if KV is available
+    if (env.KV) {
+      const userCacheKey = `user:${apiKey}`
+      const cached = await env.KV.get(userCacheKey, "json") as { email?: string } | null
+      if (cached?.email) {
+        return cached.email
+      }
+    }
+    
+    // Fetch user info from Clockify API (whether KV is available or not)
+    const res = await fetch("https://api.clockify.me/api/v1/user", {
+      headers: { "X-Api-Key": apiKey }
+    })
+    if (res.ok) {
+      const user = await res.json() as { email?: string }
+      if (user.email) {
+        // Cache it if KV is available
+        if (env.KV) {
+          const userCacheKey = `user:${apiKey}`
+          await env.KV.put(userCacheKey, JSON.stringify(user), { expirationTtl: 3600 })
+        }
+        return user.email
+      }
+    }
+  } catch {
+    // Ignore errors
+  }
+  return apiKey // Fallback to apiKey if email not available
+}
+
 export async function GET(req: NextRequest, context: { params: Promise<{ slug: string[] }> }) {
   try {
     const { env } = getCloudflareContext()
@@ -40,12 +72,13 @@ export async function GET(req: NextRequest, context: { params: Promise<{ slug: s
     }
     const clockify = new ClockifyAPI()
     await clockify.setApiKey(apiKey!)
+    const email = await getEmailFromApiKey(env, apiKey!)
     const { slug } = await context.params
     const [resource, ...rest] = slug
     if (resource === "workspaces") {
       const data = await getCachedData(
         env.KV,
-        `workspaces:${apiKey}`,
+        `workspaces:${email}`,
         () => clockify.getWorkspaces(),
         3600 // 1 hour
       )
@@ -55,7 +88,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ slug: s
       const [workspaceId] = rest
       const data = await getCachedData(
         env.KV,
-        `projects:${apiKey}:${workspaceId}`,
+        `projects:${email}:${workspaceId}`,
         () => clockify.getProjects(workspaceId),
         1800 // 30 minutes
       )
@@ -65,9 +98,19 @@ export async function GET(req: NextRequest, context: { params: Promise<{ slug: s
       const [workspaceId, projectId] = rest
       const data = await getCachedData(
         env.KV,
-        `tasks:${apiKey}:${workspaceId}:${projectId}`,
+        `tasks:${email}:${workspaceId}:${projectId}`,
         () => clockify.getTasks(workspaceId, projectId),
         900 // 15 minutes
+      )
+      return NextResponse.json(data)
+    }
+    if (resource === "tags") {
+      const [workspaceId] = rest
+      const data = await getCachedData(
+        env.KV,
+        `tags:${email}:${workspaceId}`,
+        () => clockify.getTags(workspaceId),
+        1800 // 30 minutes
       )
       return NextResponse.json(data)
     }
