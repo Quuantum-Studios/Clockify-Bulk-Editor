@@ -60,6 +60,7 @@ export default function AppPage() {
   const [projectTaskEditOpen, setProjectTaskEditOpen] = useState<Record<string, boolean>>({})
   const [tagsEditOpen, setTagsEditOpen] = useState<Record<string, boolean>>({})
   const [descriptionEditOpen, setDescriptionEditOpen] = useState<Record<string, boolean>>({})
+  const [selectionMode, setSelectionMode] = useState(false)
   const timeEditorRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const projectTaskEditorRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const tagsEditorRefs = useRef<Record<string, HTMLDivElement | null>>({})
@@ -998,7 +999,22 @@ export default function AppPage() {
       {/* Table Section */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Time Entries</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Time Entries</h2>
+            <Button
+              type="button"
+              variant={selectionMode ? "default" : "outline"}
+              onClick={() => {
+                setSelectionMode(!selectionMode)
+                if (selectionMode) {
+                  setSelectedIds(new Set())
+                }
+              }}
+              className="h-8 text-xs px-3 cursor-pointer font-medium"
+            >
+              {selectionMode ? 'Cancel Selection' : 'Select Entries'}
+            </Button>
+          </div>
           <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
             <Button onClick={addNewRow} type="button" variant="outline" className="h-9 cursor-pointer flex-1 sm:flex-none">
               <span className="hidden sm:inline">+ Add New Entry</span>
@@ -1011,24 +1027,27 @@ export default function AppPage() {
             <MagicButton />
           </div>
         </div>
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto relative">
           {loading ? (
             <div className="p-8">
               <Skeleton className="h-32 w-full" />
             </div>
           ) : (
             Array.isArray(timeEntries) && timeEntries.length > 0 ? (
-              <Table className="table-fixed min-w-[800px]">
+              <Table className="w-full min-w-[1000px]">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-8">
-                      <input type="checkbox" checked={areAllSelected} onChange={toggleSelectAll} className="cursor-pointer" />
-                    </TableHead>
-                    <TableHead className="w-[22%] whitespace-nowrap">Description</TableHead>
-                    <TableHead className="w-[280px] whitespace-nowrap">Time (UTC)</TableHead>
-                    <TableHead className="w-[26%] whitespace-nowrap">Project / Task</TableHead>
-                    <TableHead className="whitespace-nowrap">Tags</TableHead>
-                    <TableHead className="text-center w-[150px] whitespace-nowrap">Actions</TableHead>
+                    {selectionMode && (
+                      <TableHead className="w-12 text-center sticky left-0 z-20 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700">
+                        <input type="checkbox" checked={areAllSelected} onChange={toggleSelectAll} className="cursor-pointer w-4 h-4" />
+                      </TableHead>
+                    )}
+                    <TableHead className={`w-12 text-center sticky ${selectionMode ? "left-12" : "left-0"} z-20 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700`}></TableHead>
+                    <TableHead className="min-w-[200px] max-w-[300px]">Description</TableHead>
+                    <TableHead className="min-w-[200px] max-w-[280px] whitespace-nowrap">Time (UTC)</TableHead>
+                    <TableHead className="min-w-[250px] max-w-[420px]">Project / Task</TableHead>
+                    <TableHead className="min-w-[100px] max-w-[150px]">Tags</TableHead>
+                    <TableHead className="text-center w-[180px] whitespace-nowrap sticky right-0 z-20 bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-700 shadow-[0_0_10px_rgba(0,0,0,0.1)]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -1065,22 +1084,35 @@ export default function AppPage() {
                     const isBillable = (editingEntry.billable !== undefined ? Boolean(editingEntry.billable) : Boolean(entry.billable))
                     return (
                       <TableRow key={entry.id} className={`${modifiedRows.has(entry.id) ? "bg-yellow-50 dark:bg-yellow-900/30" : ""} ${rowHasErrors ? "border border-red-200" : ""} relative`}>
-                        <TableCell>
-                          <input type="checkbox" checked={selectedIds.has(entry.id)} onChange={() => toggleSelectOne(entry.id)} className="cursor-pointer" />
+                        {selectionMode && (
+                          <TableCell className={`text-center w-12 sticky left-0 z-10 ${modifiedRows.has(entry.id) ? "bg-yellow-50 dark:bg-yellow-900/30" : "bg-white dark:bg-gray-900"} border-r border-gray-200 dark:border-gray-700`}>
+                            <input type="checkbox" checked={selectedIds.has(entry.id)} onChange={() => toggleSelectOne(entry.id)} className="cursor-pointer w-4 h-4" />
+                          </TableCell>
+                        )}
+                        <TableCell className={`text-center p-2 w-12 sticky ${selectionMode ? "left-12" : "left-0"} z-10 ${modifiedRows.has(entry.id) ? "bg-yellow-50 dark:bg-yellow-900/30" : "bg-white dark:bg-gray-900"} border-r border-gray-200 dark:border-gray-700`}>
+                          <button
+                            type="button"
+                            onClick={() => handleEdit(entry.id, 'billable', !isBillable)}
+                            className={`p-1.5 rounded-md transition-colors cursor-pointer ${isBillable ? 'text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20' : 'text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
+                            title={isBillable ? 'Billable (click to mark non-billable)' : 'Non-billable (click to mark billable)'}
+                            aria-label={isBillable ? 'Toggle to non-billable' : 'Toggle to billable'}
+                          >
+                            <DollarSign className="h-4 w-4" />
+                          </button>
                         </TableCell>
-                        <TableCell className="min-w-0 overflow-hidden" ref={el => { descriptionEditorRefs.current[entry.id] = el }}>
+                        <TableCell className="overflow-hidden min-w-[200px] max-w-[300px]" ref={el => { descriptionEditorRefs.current[entry.id] = el }}>
                           {descriptionEditOpen[entry.id] ? (
                             <Input
                               value={editingEntry.description !== undefined ? String(editingEntry.description) : (entry.description ?? "")}
                               onChange={e => handleEdit(entry.id, "description", e.target.value)}
                               onBlur={() => setDescriptionEditOpen(prev => ({ ...prev, [entry.id]: false }))}
-                              className="truncate w-full min-w-0 cursor-text"
+                              className="w-full min-w-0 cursor-text text-xs h-7"
                               autoFocus
                             />
                           ) : (
                             <button
                               type="button"
-                              className="text-xs text-gray-700 dark:text-gray-200 hover:underline truncate w-full text-left cursor-pointer min-h-[20px]"
+                              className="text-xs text-gray-700 dark:text-gray-200 hover:underline w-full text-left cursor-pointer min-h-[20px] break-words"
                               onClick={() => setDescriptionEditOpen(prev => ({ ...prev, [entry.id]: true }))}
                               title="Edit description"
                             >
@@ -1093,7 +1125,7 @@ export default function AppPage() {
                             </button>
                           )}
                         </TableCell>
-                        <TableCell className="whitespace-nowrap overflow-hidden" ref={el => { timeEditorRefs.current[entry.id] = el }}>
+                        <TableCell className="whitespace-nowrap overflow-hidden min-w-[200px] max-w-[280px]" ref={el => { timeEditorRefs.current[entry.id] = el }}>
                           {(() => {
                             const open = timeEditOpen[entry.id] || { start: false, end: false }
                             const startVal = editingEntry.start
@@ -1111,12 +1143,12 @@ export default function AppPage() {
                             const displayStart = startVal ? startVal.replace('T', ' ') : ""
                             const displayEnd = endVal ? endVal.replace('T', ' ') : ""
                             return (
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-1.5 flex-wrap">
                                 {/* Start */}
                                 {open.start ? (
                                   <Input
                                     type="datetime-local"
-                                    className="w-[150px] cursor-text"
+                                    className="w-[130px] cursor-text text-xs h-7"
                                     value={startVal}
                                     onChange={e => handleEdit(entry.id, "start", e.target.value)}
                                     onBlur={() => toggleTimeEditor(entry.id, 'start', false)}
@@ -1129,12 +1161,12 @@ export default function AppPage() {
                                     title="Edit start"
                                   >{displayStart || '—'}</button>
                                 )}
-                                <span className="text-muted-foreground">→</span>
+                                <span className="text-muted-foreground text-xs">→</span>
                                 {/* End */}
                                 {open.end ? (
                                   <Input
                                     type="datetime-local"
-                                    className="w-[150px] cursor-text"
+                                    className="w-[130px] cursor-text text-xs h-7"
                                     value={endVal}
                                     onChange={e => handleEdit(entry.id, "end", e.target.value)}
                                     onBlur={() => toggleTimeEditor(entry.id, 'end', false)}
@@ -1154,13 +1186,13 @@ export default function AppPage() {
                                   title="Open date editors"
                                   aria-label="Open date editors"
                                 >
-                                  <Calendar className="h-4 w-4" />
+                                  <Calendar className="h-3.5 w-3.5" />
                                 </Button>
                               </div>
                             )
                           })()}
                         </TableCell>
-                        <TableCell className="min-w-0 overflow-hidden whitespace-nowrap" ref={el => { projectTaskEditorRefs.current[entry.id] = el }}>
+                        <TableCell className="overflow-hidden min-w-[250px] max-w-[420px]" ref={el => { projectTaskEditorRefs.current[entry.id] = el }}>
                           {(() => {
                             const entryProjectId = String(editingEntry.projectId ?? entry.projectId ?? "")
                             const projectObj = Array.isArray(projects) ? projects.find((p: { id: string; name: string }) => p.id === entryProjectId) : null
@@ -1175,7 +1207,7 @@ export default function AppPage() {
                               return (
                                 <button
                                   type="button"
-                                  className="text-xs text-gray-700 dark:text-gray-200 hover:underline truncate max-w-[420px] cursor-pointer"
+                                  className="text-xs text-gray-700 dark:text-gray-200 hover:underline break-words cursor-pointer"
                                   onClick={() => {
                                     setProjectTaskEditOpen(prev => ({ ...prev, [entry.id]: true }))
                                     // Lazy load tasks for this entry's project if not already loaded
@@ -1188,7 +1220,7 @@ export default function AppPage() {
                               )
                             }
                             return (
-                              <div className="flex items-center gap-2">
+                              <div className="flex flex-wrap items-center gap-1.5">
                                 <Select
                                   value={entryProjectId}
                                   onChange={e => {
@@ -1199,7 +1231,8 @@ export default function AppPage() {
                                       fetchTasksForProject(newProjectId)
                                     }
                                   }}
-                                  className="min-w-[140px] max-w-[220px] truncate cursor-pointer"
+                                  className="w-[150px] text-xs h-8 leading-tight py-1.5 cursor-pointer"
+                                  title={projectLabel}
                                 >
                                   <option value="">None</option>
                                   {Array.isArray(projects) ? projects.map(p => (
@@ -1218,27 +1251,27 @@ export default function AppPage() {
                                       handleEdit(entry.id, "taskName", t ? t.name : "")
                                     }
                                   }}
-                                  className="min-w-[140px] max-w-[220px] truncate cursor-pointer"
+                                  className="w-[150px] text-xs h-8 leading-tight py-1.5 cursor-pointer"
+                                  title={taskLabel}
                                 >
                                   <option value="">None</option>
                                   {Array.isArray(taskList) && taskList.map((t) => (
                                     <option key={t.id} value={t.id}>{t.name}</option>
                                   ))}
                                   <option value="__create_new__">Create new...</option>
-                                </Select>
-                                <Button className="bg-transparent text-xs cursor-pointer" onClick={() => setProjectTaskEditOpen(prev => ({ ...prev, [entry.id]: false }))}>Done</Button>
+                                </Select>                                
                                 {createState.showCreate && (
-                                  <div className="mt-2 flex gap-2">
-                                    <Input value={createState.name} onChange={e => setCreateTaskName(entry.id, e.target.value)} placeholder="New task name" className="cursor-text" />
-                                    <Button onClick={() => createTaskForEntry(entry.id, entryProjectId)} disabled={createState.loading} className="cursor-pointer">{createState.loading ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Create'}</Button>
-                                    <Button className="bg-transparent text-sm cursor-pointer" onClick={() => toggleCreateTaskUI(entry.id, false)}>Cancel</Button>
+                                  <div className="w-full mt-1 flex gap-1.5">
+                                    <Input value={createState.name} onChange={e => setCreateTaskName(entry.id, e.target.value)} placeholder="New task name" className="cursor-text text-xs h-7 flex-1" />
+                                    <Button onClick={() => createTaskForEntry(entry.id, entryProjectId)} disabled={createState.loading} className="cursor-pointer text-xs h-7 px-2">{createState.loading ? <span className="inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Create'}</Button>
+                                    <Button className="bg-transparent text-xs h-7 px-2 cursor-pointer" onClick={() => toggleCreateTaskUI(entry.id, false)}>Cancel</Button>
                                   </div>
                                 )}
                               </div>
                             )
                           })()}
                         </TableCell>
-                        <TableCell className="min-w-0 overflow-visible" ref={el => { tagsEditorRefs.current[entry.id] = el }}>
+                        <TableCell className="min-w-[100px] max-w-[150px] overflow-visible" ref={el => { tagsEditorRefs.current[entry.id] = el }}>
                           {tagsEditOpen[entry.id] ? (
                             <TagSelector
                               selectedTags={tagLabels}
@@ -1246,23 +1279,18 @@ export default function AppPage() {
                               onChange={(newTags) => handleEdit(entry.id, "tags", newTags)}
                               onCreateTag={handleCreateTag}
                               placeholder="Select tags..."
-                              className="min-w-[140px] max-w-[260px] truncate cursor-pointer"
+                              className="w-full text-xs h-7 cursor-pointer"
                             />
                           ) : (
                             <button
                               type="button"
-                              className="text-xs text-gray-700 dark:text-gray-200 hover:underline truncate max-w-[260px] cursor-pointer"
+                              className="text-xs text-gray-700 dark:text-gray-200 hover:underline break-words cursor-pointer"
                               onClick={() => setTagsEditOpen(prev => ({ ...prev, [entry.id]: true }))}
                               title="Edit tags"
                             >{tagLabels && tagLabels.length > 0 ? tagLabels.join(", ") : 'No tags'}</button>
                           )}
-                          {tagsEditOpen[entry.id] && (
-                            <div className="mt-2">
-                              <Button className="bg-transparent text-xs cursor-pointer" onClick={() => setTagsEditOpen(prev => ({ ...prev, [entry.id]: false }))}>Done</Button>
-                            </div>
-                          )}
                         </TableCell>
-                        <TableCell className="flex items-center gap-2">
+                        <TableCell className={`flex items-center gap-2 w-[180px] text-center justify-center sticky right-0 z-10 ${modifiedRows.has(entry.id) ? "bg-yellow-50 dark:bg-yellow-900/30" : "bg-white dark:bg-gray-900"} border-l border-gray-200 dark:border-gray-700 shadow-[0_0_10px_rgba(0,0,0,0.1)]`}>
                           <Button
                             onClick={() => handleSaveRow(entry)}
                             disabled={!modifiedRows.has(entry.id)}
@@ -1312,18 +1340,6 @@ export default function AppPage() {
                             </span>
                           )}
                         </TableCell>
-                        {/* Billable indicator in row corner (left) with toggle */}
-                        <TableCell className="relative p-0">
-                          <button
-                            type="button"
-                            onClick={() => handleEdit(entry.id, 'billable', !isBillable)}
-                            className={`absolute left-3 top-2 p-0 bg-transparent cursor-pointer ${isBillable ? 'text-green-600' : 'text-red-500'}`}
-                            title={isBillable ? 'Billable (click to mark non-billable)' : 'Non-billable (click to mark billable)'}
-                            aria-label={isBillable ? 'Toggle to non-billable' : 'Toggle to billable'}
-                          >
-                            <DollarSign className="h-4 w-4 opacity-80" />
-                          </button>
-                        </TableCell>
                       </TableRow>
                     );
                   })}
@@ -1357,7 +1373,7 @@ export default function AppPage() {
           <li>• <strong>Tags:</strong> Click to select existing tags or create new ones</li>
           <li>• <strong>Save:</strong> Click the green save button (✓) to save individual changes</li>
           <li>• <strong>Bulk actions:</strong> Select multiple entries and use bulk save/delete</li>
-          <li>• <strong>Billable toggle:</strong> Click the $ icon in the top-left of each row</li>
+          <li>• <strong>Billable toggle:</strong> Click the $ icon on the left of each row</li>
         </ul>
       </div>
 
