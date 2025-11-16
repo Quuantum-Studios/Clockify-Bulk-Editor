@@ -32,9 +32,9 @@ export function BulkDeleteTasksDialog({ open, onClose, workspaceId, apiKey, proj
             const errorData = await res.json().catch(() => ({})) as { error?: string }
             throw new Error(errorData.error || `HTTP ${res.status}: Failed to load tasks`)
           }
-          return res.json()
+          return (await res.json()) as { id: string; name: string }[]
         })
-        .then((data: { id: string; name: string }[]) => setTasks(data))
+        .then((data) => setTasks(data))
         .catch(() => setToast({ type: "error", message: "Failed to load tasks." }))
         .finally(() => setLoading(false))
     }

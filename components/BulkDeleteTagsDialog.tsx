@@ -54,9 +54,9 @@ export function BulkDeleteTagsDialog({
             const errorData = await res.json().catch(() => ({})) as { error?: string }
             throw new Error(errorData.error || `HTTP ${res.status}: Failed to load tags`)
           }
-          return res.json()
+          return (await res.json()) as { id: string; name: string }[]
         })
-        .then((data: { id: string; name: string }[]) => setTags(data))
+        .then((data) => setTags(data))
         .catch(() =>
           setToast({ type: "error", message: "Failed to load tags." })
         )

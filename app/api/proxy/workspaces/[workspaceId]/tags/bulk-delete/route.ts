@@ -77,7 +77,7 @@ export async function DELETE(
     let workspaceTags: { id: string; name: string }[] = []
     try {
       workspaceTags = await api.getTags(workspaceId)
-    } catch (error) {
+    } catch {
       return NextResponse.json({ error: "Failed to fetch workspace tags" }, { status: 500 })
     }
 
