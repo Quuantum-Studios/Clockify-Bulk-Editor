@@ -1027,14 +1027,14 @@ export default function AppPage() {
             <MagicButton />
           </div>
         </div>
-        <div className="overflow-x-auto relative">
+        <div className="entries-table-wrapper overflow-x-auto relative">
           {loading ? (
             <div className="p-8">
               <Skeleton className="h-32 w-full" />
             </div>
           ) : (
             Array.isArray(timeEntries) && timeEntries.length > 0 ? (
-              <Table className="w-full min-w-[1000px]">
+              <Table className="entries-table w-full min-w-[1000px]">
                 <TableHeader>
                   <TableRow>
                     {selectionMode && (
@@ -1083,13 +1083,13 @@ export default function AppPage() {
                     const rowHasErrors = !hasStart || timeError
                     const isBillable = (editingEntry.billable !== undefined ? Boolean(editingEntry.billable) : Boolean(entry.billable))
                     return (
-                      <TableRow key={entry.id} className={`${modifiedRows.has(entry.id) ? "bg-yellow-50 dark:bg-yellow-900/30" : ""} ${rowHasErrors ? "border border-red-200" : ""} relative`}>
+                      <TableRow key={entry.id} className={`entries-table-row ${modifiedRows.has(entry.id) ? "bg-yellow-50 dark:bg-yellow-900/30" : ""} ${rowHasErrors ? "border border-red-200" : ""} relative`}>
                         {selectionMode && (
-                          <TableCell className={`text-center w-12 sticky left-0 z-10 ${modifiedRows.has(entry.id) ? "bg-yellow-50 dark:bg-yellow-900/30" : "bg-white dark:bg-gray-900"} border-r border-gray-200 dark:border-gray-700`}>
+                          <TableCell data-label="Select" className={`text-center w-12 sticky left-0 z-10 ${modifiedRows.has(entry.id) ? "bg-yellow-50 dark:bg-yellow-900/30" : "bg-white dark:bg-gray-900"} border-r border-gray-200 dark:border-gray-700`}>
                             <input type="checkbox" checked={selectedIds.has(entry.id)} onChange={() => toggleSelectOne(entry.id)} className="cursor-pointer w-4 h-4" />
                           </TableCell>
                         )}
-                        <TableCell className={`text-center p-2 w-12 sticky ${selectionMode ? "left-12" : "left-0"} z-10 ${modifiedRows.has(entry.id) ? "bg-yellow-50 dark:bg-yellow-900/30" : "bg-white dark:bg-gray-900"} border-r border-gray-200 dark:border-gray-700`}>
+                        <TableCell data-label="Billable" className={`text-center p-2 w-12 sticky ${selectionMode ? "left-12" : "left-0"} z-10 ${modifiedRows.has(entry.id) ? "bg-yellow-50 dark:bg-yellow-900/30" : "bg-white dark:bg-gray-900"} border-r border-gray-200 dark:border-gray-700`}>
                           <button
                             type="button"
                             onClick={() => handleEdit(entry.id, 'billable', !isBillable)}
@@ -1100,7 +1100,7 @@ export default function AppPage() {
                             <DollarSign className="h-4 w-4" />
                           </button>
                         </TableCell>
-                        <TableCell className="overflow-hidden min-w-[200px] max-w-[300px]" ref={el => { descriptionEditorRefs.current[entry.id] = el }}>
+                        <TableCell data-label="Description" className="overflow-hidden min-w-[200px] max-w-[300px]" ref={el => { descriptionEditorRefs.current[entry.id] = el }}>
                           {descriptionEditOpen[entry.id] ? (
                             <Input
                               value={editingEntry.description !== undefined ? String(editingEntry.description) : (entry.description ?? "")}
@@ -1125,7 +1125,7 @@ export default function AppPage() {
                             </button>
                           )}
                         </TableCell>
-                        <TableCell className="whitespace-nowrap overflow-hidden min-w-[200px] max-w-[280px]" ref={el => { timeEditorRefs.current[entry.id] = el }}>
+                        <TableCell data-label="Time (UTC)" className="whitespace-nowrap overflow-hidden min-w-[200px] max-w-[280px]" ref={el => { timeEditorRefs.current[entry.id] = el }}>
                           {(() => {
                             const open = timeEditOpen[entry.id] || { start: false, end: false }
                             const startVal = editingEntry.start
@@ -1186,13 +1186,13 @@ export default function AppPage() {
                                   title="Open date editors"
                                   aria-label="Open date editors"
                                 >
-                                  <Calendar className="h-3.5 w-3.5" />
+                                  <Calendar className="h-3.5 w-3.5 text-blue-700" />
                                 </Button>
                               </div>
                             )
                           })()}
                         </TableCell>
-                        <TableCell className="overflow-hidden min-w-[250px] max-w-[420px]" ref={el => { projectTaskEditorRefs.current[entry.id] = el }}>
+                        <TableCell data-label="Project / Task" className="overflow-hidden min-w-[250px] max-w-[420px]" ref={el => { projectTaskEditorRefs.current[entry.id] = el }}>
                           {(() => {
                             const entryProjectId = String(editingEntry.projectId ?? entry.projectId ?? "")
                             const projectObj = Array.isArray(projects) ? projects.find((p: { id: string; name: string }) => p.id === entryProjectId) : null
@@ -1231,7 +1231,7 @@ export default function AppPage() {
                                       fetchTasksForProject(newProjectId)
                                     }
                                   }}
-                                  className="w-[150px] text-xs h-8 leading-tight py-1.5 cursor-pointer"
+                                  className="w-full sm:w-[150px] text-xs h-8 leading-tight py-1.5 cursor-pointer"
                                   title={projectLabel}
                                 >
                                   <option value="">None</option>
@@ -1251,7 +1251,7 @@ export default function AppPage() {
                                       handleEdit(entry.id, "taskName", t ? t.name : "")
                                     }
                                   }}
-                                  className="w-[150px] text-xs h-8 leading-tight py-1.5 cursor-pointer"
+                                  className="w-full sm:w-[150px] text-xs h-8 leading-tight py-1.5 cursor-pointer"
                                   title={taskLabel}
                                 >
                                   <option value="">None</option>
@@ -1271,7 +1271,7 @@ export default function AppPage() {
                             )
                           })()}
                         </TableCell>
-                        <TableCell className="min-w-[100px] max-w-[150px] overflow-visible" ref={el => { tagsEditorRefs.current[entry.id] = el }}>
+                        <TableCell data-label="Tags" className="min-w-[100px] max-w-[150px] overflow-visible" ref={el => { tagsEditorRefs.current[entry.id] = el }}>
                           {tagsEditOpen[entry.id] ? (
                             <TagSelector
                               selectedTags={tagLabels}
@@ -1290,7 +1290,7 @@ export default function AppPage() {
                             >{tagLabels && tagLabels.length > 0 ? tagLabels.join(", ") : 'No tags'}</button>
                           )}
                         </TableCell>
-                        <TableCell className={`flex items-center gap-2 w-[180px] text-center justify-center sticky right-0 z-10 ${modifiedRows.has(entry.id) ? "bg-yellow-50 dark:bg-yellow-900/30" : "bg-white dark:bg-gray-900"} border-l border-gray-200 dark:border-gray-700 shadow-[0_0_10px_rgba(0,0,0,0.1)]`}>
+                        <TableCell data-label="Actions" className={`entries-table-actions flex items-center gap-2 w-[180px] text-center justify-center sticky right-0 z-10 ${modifiedRows.has(entry.id) ? "bg-yellow-50 dark:bg-yellow-900/30" : "bg-white dark:bg-gray-900"} border-l border-gray-200 dark:border-gray-700 shadow-[0_0_10px_rgba(0,0,0,0.1)]`}>
                           <Button
                             onClick={() => handleSaveRow(entry)}
                             disabled={!modifiedRows.has(entry.id)}
@@ -1300,7 +1300,7 @@ export default function AppPage() {
                           >
                             {savingRows.has(entry.id)
                               ? <span className="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                              : <Save className="h-4 w-4" />}
+                              : <Save className="h-4 w-4 text-green-700" />}
                           </Button>
 
                           <Button
@@ -1309,7 +1309,7 @@ export default function AppPage() {
                             title="Undo changes"
                             aria-label="Undo changes"
                           >
-                            <RotateCcw className="h-4 w-4" />
+                            <RotateCcw className="h-4 w-4 text-amber-700" />
                           </Button>
 
                           {((entry as unknown as { _isNew?: boolean })._isNew) && (
@@ -1319,7 +1319,7 @@ export default function AppPage() {
                               title="Remove new row"
                               aria-label="Remove new row"
                             >
-                              <XCircle className="h-4 w-4" />
+                              <XCircle className="h-4 w-4 text-red-600" />
                             </Button>
                           )}
 
@@ -1332,7 +1332,7 @@ export default function AppPage() {
                           >
                             {savingRows.has(entry.id)
                               ? <span className="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                              : <Trash2 className="h-4 w-4" />}
+                              : <Trash2 className="h-4 w-4 text-red-600" />}
                           </Button>
                           {rowHasErrors && (
                             <span className="ml-2 inline-block align-middle text-sm text-red-600" title={`${!hasStart ? 'Start time is missing.' : ''}${timeError ? ' Start must be before End.' : ''}`}>
