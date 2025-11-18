@@ -650,7 +650,7 @@ export default function AppPage() {
     setToast(null)
     // Declare allowedKeys once at the top (do NOT send userId in the request body)
     const allowedKeys = new Set([
-      'description', 'projectId', 'taskId', 'taskName', 'start', 'end', 'billable', 'tagIds', 'tags'
+      'description', 'projectId', 'taskId', 'taskName', 'start', 'end', 'billable', 'tagIds'
     ]);
     const original = entry as Record<string, unknown>;
     let patch: Record<string, unknown> = { ...(editing[entry.id] || {}) };
@@ -681,7 +681,7 @@ export default function AppPage() {
       return;
     }
     let tagIdsFromPatch: string[] | undefined = undefined;
-    if (patch.tags && Array.isArray(patch.tags) && workspaceId && apiKey) {
+    if (Array.isArray(patch.tags) && workspaceId && apiKey) {
       const tagIds: string[] = [];
       const newTags: { id: string; name: string }[] = [];
       for (const label of patch.tags as string[]) {
@@ -767,8 +767,8 @@ export default function AppPage() {
     const editsRaw = editing[entry.id] || {};
     // Start with a copy and normalize any transformed values we computed above
     const normalizedEdits: Record<string, unknown> = { ...editsRaw };
-    // If tags were converted earlier, prefer tagIds
-    if (tagIdsFromPatch) {
+    // If tags were converted earlier, prefer tagIds (even if empty array)
+    if (tagIdsFromPatch !== undefined) {
       normalizedEdits.tagIds = tagIdsFromPatch;
       delete normalizedEdits.tags;
     }
