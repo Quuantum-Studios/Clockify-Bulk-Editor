@@ -12,7 +12,7 @@ export type RateLimitConfig = {
 }
 
 export const DEFAULT_RATE_LIMIT: RateLimitConfig = {
-  maxRequests: 60, 
+  maxRequests: 100, 
   windowMs: 60 * 1000, // per minute
 }
 

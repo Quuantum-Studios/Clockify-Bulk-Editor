@@ -208,7 +208,7 @@ export default function VoiceDialog({ open, onOpenChange }: Props) {
 
     const state = useClockifyStore.getState()
     const prompt = state.userPrompt || ""
-    const content = prompt ? `${prompt}\n\n${text}` : text
+    const content = text
     const wsProjects = state.projects || []
     const filteredProjects = wsProjects.filter(p => selectedProjectIds.includes(p.id))
 

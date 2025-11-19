@@ -38,13 +38,19 @@ function buildSystemPrompt(params: {
       rows.push(`Project: ${project?.name || ""}`)
       const tasks = Array.isArray(project?.tasks) ? project!.tasks! : []
       for (const task of tasks) {
-        rows.push(`  Task: ${task?.name || ""}`)
+        if(task.name!=""){
+          rows.push(`  Task: ${task?.name}`)
+        }
+        
         const descriptions = Array.isArray(task?.descriptions) ? task!.descriptions! : []
         if (descriptions.length === 0) {
-          rows.push(`    Description: `)
+          // rows.push(`    Description: `)
         } else {
           for (const d of descriptions) {
-            rows.push(`    Description: ${d}`)
+            const description = d.trim()
+            if (description) {
+              rows.push(`    Description: ${description}`)
+            }
           }
         }
       }

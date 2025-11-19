@@ -1364,8 +1364,8 @@ export default function AppPage() {
                   </span>
                   <span className="font-medium text-lg">No time entries found</span>
                   <span className="text-sm text-center max-w-xs">
-                    You don't have any entries for this period.<br />
-                    Click the "<span className="font-semibold">+ New Entry</span>" button to create your first entry, or try choosing another project or date range.
+                    You don&apos;t have any entries for this period.<br />
+                    Click the &quot;<span className="font-semibold">+ New Entry</span>&quot; button to create your first entry, or try choosing another project or date range.
                   </span>
                 </div>
               </div>
