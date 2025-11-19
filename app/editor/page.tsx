@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useState, useRef, useCallback } from "react"
+import { useEffect, useState, useRef, useCallback, useMemo } from "react"
 import { useClockifyStore } from "../../lib/store"
 import { Button } from "../../components/ui/button"
 import { Select } from "../../components/ui/select"
@@ -20,6 +20,15 @@ import type { Task, TimeEntry } from "../../lib/store"
 import MagicButton from "@/components/MagicButton"
 
 export const dynamic = 'force-dynamic'
+
+const getLast30DaysRange = () => {
+  const end = new Date()
+  const start = new Date()
+  start.setDate(start.getDate() - 29)
+  start.setHours(0, 0, 0, 0)
+  end.setHours(23, 59, 59, 999)
+  return { startDate: start, endDate: end }
+}
 
 export default function AppPage() {
   const apiKey = useClockifyStore(state => state.apiKey)
@@ -65,6 +74,8 @@ export default function AppPage() {
   const projectTaskEditorRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const tagsEditorRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const descriptionEditorRefs = useRef<Record<string, HTMLDivElement | null>>({})
+
+  const defaultDateRange = useMemo(() => getLast30DaysRange(), [])
 
   const toggleTimeEditor = (entryId: string, field: 'start' | 'end', open?: boolean) => {
     setTimeEditOpen(prev => {
@@ -214,21 +225,21 @@ export default function AppPage() {
         }
       }
 
-      // Parse saved dates if present and valid, otherwise fall back to today as a sensible default
+      let appliedSavedRange = false
       if (savedStart && savedEnd) {
         const parsedStart = new Date(savedStart)
         const parsedEnd = new Date(savedEnd)
         if (!isNaN(parsedStart.getTime()) && !isNaN(parsedEnd.getTime())) {
           setDateRange({ startDate: parsedStart, endDate: parsedEnd })
-        } else {
-          const today = new Date()
-          setDateRange({ startDate: today, endDate: today })
+          appliedSavedRange = true
         }
-      } else {
-        const today = new Date()
-        setDateRange({ startDate: today, endDate: today })
       }
-    } catch { }
+      if (!appliedSavedRange) {
+        setDateRange(getLast30DaysRange())
+      }
+    } catch {
+      setDateRange(getLast30DaysRange())
+    }
   }, [])
 
   useEffect(() => {
@@ -969,7 +980,7 @@ export default function AppPage() {
               </button>
               {showDatePicker && (
                 <div className="absolute z-20 mt-2 left-0 right-0 sm:right-auto bg-white dark:bg-gray-900 rounded shadow-lg border p-2">
-                  <DateRangePicker value={dateRange || { startDate: new Date(), endDate: new Date() }} onChange={val => { setDateRange(val); }} />
+                  <DateRangePicker value={dateRange || defaultDateRange} onChange={val => { setDateRange(val); }} />
                 </div>
               )}
             </div>
@@ -1346,7 +1357,18 @@ export default function AppPage() {
                 </TableBody>
               </Table>
             ) : (
-              <div className="text-center text-muted-foreground py-8">No entries found.</div>
+              <div className="text-center text-muted-foreground py-8">
+                <div className="flex flex-col items-center justify-center gap-2 py-6">
+                  <span className="text-4xl text-blue-400 mb-2" role="img" aria-label="Magnifying glass">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" fill="none"/><line x1="16.65" y1="16.65" x2="21" y2="21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+                  </span>
+                  <span className="font-medium text-lg">No time entries found</span>
+                  <span className="text-sm text-center max-w-xs">
+                    You don't have any entries for this period.<br />
+                    Click the "<span className="font-semibold">+ New Entry</span>" button to create your first entry, or try choosing another project or date range.
+                  </span>
+                </div>
+              </div>
             )
           )}
         </div>

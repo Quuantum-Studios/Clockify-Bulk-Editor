@@ -50,20 +50,27 @@ type State = {
   bulkUploadCsv: string | null
   openBulkUploadWithCsv: (csv: string) => void
   closeBulkUpload: () => void
+  resetUserData: () => void
 }
 
 // Hydrate apiKey from localStorage if available
 let initialApiKey = ""
 let initialPrompt = ""
 let initialTimezone = ""
+const getBrowserTimezone = () => {
+  try {
+    if (typeof Intl !== "undefined" && typeof Intl.DateTimeFormat === "function") {
+      return new Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
+    }
+  } catch { /* ignore */ }
+  return "UTC"
+}
 if (typeof window !== "undefined") {
   initialApiKey = window.localStorage.getItem("clockify_api_key") || ""
   initialPrompt = window.localStorage.getItem("clockify_user_prompt") || ""
   initialTimezone =
     window.localStorage.getItem("clockify_default_timezone") ||
-    (Intl && typeof Intl === "object" && (Intl as unknown as { DateTimeFormat: typeof Intl.DateTimeFormat }).DateTimeFormat
-      ? new Intl.DateTimeFormat().resolvedOptions().timeZone
-      : "UTC")
+    getBrowserTimezone()
 }
 
 export const useClockifyStore = create<State>((set) => ({
@@ -111,5 +118,31 @@ export const useClockifyStore = create<State>((set) => ({
   bulkUploadOpen: false,
   bulkUploadCsv: null,
   openBulkUploadWithCsv: (csv) => set({ bulkUploadOpen: true, bulkUploadCsv: csv || "" }),
-  closeBulkUpload: () => set({ bulkUploadOpen: false, bulkUploadCsv: null })
+  closeBulkUpload: () => set({ bulkUploadOpen: false, bulkUploadCsv: null }),
+  resetUserData: () => {
+    set({
+      apiKey: "",
+      userPrompt: "",
+      defaultTimezone: getBrowserTimezone(),
+      userProfile: null,
+      workspaces: [],
+      projects: [],
+      tasks: {},
+      timeEntries: [],
+      bulkUploadOpen: false,
+      bulkUploadCsv: null
+    })
+    if (typeof window !== "undefined") {
+      const keys = [
+        "clockify_api_key",
+        "clockify_user_prompt",
+        "clockify_default_timezone",
+        "clockify_selected_workspace",
+        "clockify_selected_project",
+        "clockify_selected_start",
+        "clockify_selected_end"
+      ]
+      keys.forEach(key => window.localStorage.removeItem(key))
+    }
+  }
 }))

@@ -17,12 +17,13 @@ interface SettingsDialogProps {
 }
 
 export default function SettingsDialog({ open, onClose, canClose = true }: SettingsDialogProps) {
-  const { apiKey, setApiKey, userPrompt, setUserPrompt, defaultTimezone, setDefaultTimezone, setUserProfile } = useClockifyStore()
+  const { apiKey, setApiKey, userPrompt, setUserPrompt, defaultTimezone, setDefaultTimezone, setUserProfile, resetUserData } = useClockifyStore()
   const [apiKeyInput, setApiKeyInput] = useState("")
   const [promptInput, setPromptInput] = useState("")
   const [tzInput, setTzInput] = useState("")
   const [isValidated, setIsValidated] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
   const tzOptions: string[] = (() => {
     try {
       const sv = (Intl as unknown as { supportedValuesOf?: (k: string) => string[] }).supportedValuesOf
@@ -201,6 +202,24 @@ export default function SettingsDialog({ open, onClose, canClose = true }: Setti
     }
   }
 
+  const handleLogout = () => {
+    if (isLoggingOut) return
+    setIsLoggingOut(true)
+    try {
+      resetUserData()
+      setApiKeyInput("")
+      setPromptInput("")
+      setTzInput("")
+      setIsValidated(false)
+      setToast({ type: "success", message: "Logged out successfully" })
+      if (canClose) {
+        onClose()
+      }
+    } finally {
+      setIsLoggingOut(false)
+    }
+  }
+
   return (
     <>
       <Dialog open={open} onOpenChange={(open) => !open && canClose && onClose()}>
@@ -257,35 +276,35 @@ export default function SettingsDialog({ open, onClose, canClose = true }: Setti
                     </h4>
                     <ol className="space-y-3 text-xs text-blue-800 dark:text-blue-200">
                       <li className="flex gap-3">
-                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-xs font-semibold">1</span>
+                        <span className="shrink-0 w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-xs font-semibold">1</span>
                         <div>
                           <span className="font-medium">Go to account menu</span>
                           <p className="text-blue-700 dark:text-blue-300 mt-0.5">Click on your account menu in the top-right corner of Clockify</p>
                         </div>
                       </li>
                       <li className="flex gap-3">
-                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-xs font-semibold">2</span>
+                        <span className="shrink-0 w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-xs font-semibold">2</span>
                         <div>
                           <span className="font-medium">Select Preferences</span>
                           <p className="text-blue-700 dark:text-blue-300 mt-0.5">From the dropdown menu, select <strong>&quot;Preferences&quot;</strong></p>
                         </div>
                       </li>
                       <li className="flex gap-3">
-                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-xs font-semibold">3</span>
+                        <span className="shrink-0 w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-xs font-semibold">3</span>
                         <div>
                           <span className="font-medium">Open Advanced tab</span>
                           <p className="text-blue-700 dark:text-blue-300 mt-0.5">In the Preferences menu, click on the <strong>&quot;Advanced&quot;</strong> tab</p>
                         </div>
                       </li>
                       <li className="flex gap-3">
-                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-xs font-semibold">4</span>
+                        <span className="shrink-0 w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-xs font-semibold">4</span>
                         <div>
                           <span className="font-medium">Generate API Key</span>
                           <p className="text-blue-700 dark:text-blue-300 mt-0.5">In the API Key section, click the <strong>&quot;Generate New&quot;</strong> button and enter any key name and click <strong>&quot;Generate&quot;</strong></p>
                         </div>
                       </li>
                       <li className="flex gap-3">
-                        <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-xs font-semibold">5</span>
+                        <span className="shrink-0 w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center text-xs font-semibold">5</span>
                         <div>
                           <span className="font-medium">Copy and paste</span>
                           <p className="text-blue-700 dark:text-blue-300 mt-0.5">Copy the API key and paste it in the input field above.</p>
@@ -357,10 +376,21 @@ export default function SettingsDialog({ open, onClose, canClose = true }: Setti
               </>
             )}
 
-            <div className="flex justify-end">
+            <div className="flex flex-col gap-2">
               <Button onClick={handleSaveSettings} disabled={isLoading} className="w-full">
-                {isLoading ? (isValidated ? "Saving..." : "Validating...") : (isValidated ? "Save Settings" : "Validate & Continue")}
+                {isLoading ? (isValidated ? "Saving..." : "Validating...") : (isValidated ? "Save Settings" : "Save & Continue")}
               </Button>
+              {(apiKey) && (
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={handleLogout}
+                  disabled={isLoading || isLoggingOut}
+                  className="w-full cursor-pointer text-accent"
+                >
+                  {isLoggingOut ? "Logging out..." : "Log out"}
+                </Button>
+              )}
             </div>
           </div>
         </DialogContent>
