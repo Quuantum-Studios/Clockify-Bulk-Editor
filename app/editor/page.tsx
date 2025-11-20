@@ -750,6 +750,10 @@ export default function AppPage() {
       if (createPayload.billable === undefined) createPayload.billable = false
       if (!createPayload.type) createPayload.type = 'REGULAR'
       // If tags were provided as names they were converted into tagIds earlier
+      // Explicitly include tagIds if they were converted from tags
+      if (tagIdsFromPatch !== undefined) {
+        createPayload.tagIds = tagIdsFromPatch
+      }
       try {
         const res = await fetch(`/api/proxy/time-entries/${workspaceId}/${userId}`, {
           method: "POST",

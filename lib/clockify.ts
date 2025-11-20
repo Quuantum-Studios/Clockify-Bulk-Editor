@@ -425,7 +425,8 @@ export class ClockifyAPI {
       }
     }
     // Convert tag names to tagIds if necessary (Clockify expects tagIds)
-    if (payload.tags && Array.isArray(payload.tags)) {
+    // Only convert if tagIds are not already provided
+    if (!payload.tagIds && payload.tags && Array.isArray(payload.tags)) {
       const allTags = await this.getTags(workspaceId);
       const tagIds: string[] = [];
       for (const label of payload.tags) {

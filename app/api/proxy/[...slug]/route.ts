@@ -17,8 +17,10 @@ const timeEntryPayloadSchema = z.object({
   start: z.string(),
   end: z.string().optional(),
   tags: z.array(z.string()).optional(),
+  tagIds: z.array(z.string()).optional(),
   billable: z.boolean().optional(),
-  userId: z.string().optional()
+  userId: z.string().optional(),
+  type: z.string().optional()
 })
 
 async function hashApiKey(apiKey: string): Promise<string> {
