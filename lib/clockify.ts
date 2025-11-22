@@ -33,6 +33,7 @@ export interface TimeEntryPayload {
 
 interface AxiosErrorResponse {
   response?: {
+    status?: number
     data?: {
       message?: string
     } | string

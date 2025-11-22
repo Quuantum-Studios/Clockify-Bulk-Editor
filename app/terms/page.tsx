@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import PageLayout from '@/components/PageLayout'
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://bulkifyai.quuantum.com'
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'BulkifyAI'
 
 export const metadata: Metadata = {

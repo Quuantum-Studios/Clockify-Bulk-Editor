@@ -1,6 +1,6 @@
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'BulkifyAI'
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
-const TWITTER_HANDLE = process.env.NEXT_PUBLIC_TWITTER_HANDLE || '@bulkifyai'
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://bulkifyai.quuantum.com'
+const TWITTER_HANDLE = process.env.NEXT_PUBLIC_TWITTER_HANDLE || '@TheDhYadav'
 
 export const defaultSeo = {
   titleTemplate: `%s — ${APP_NAME}`,

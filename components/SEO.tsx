@@ -3,7 +3,7 @@
 import { JsonLdScript } from 'next-seo'
 
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'BulkifyAI'
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://bulkifyai.quuantum.com'
 
 export default function SEO() {
   const org = {
