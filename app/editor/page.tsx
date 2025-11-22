@@ -691,38 +691,64 @@ export default function AppPage() {
       setSavingRows(s => { const n = new Set(s); n.delete(entry.id); return n })
       return;
     }
+    const entryAny = entry as unknown as { timeInterval?: { start?: string; end?: string }; start?: string; end?: string; _isNew?: boolean };
     let tagIdsFromPatch: string[] | undefined = undefined;
-    if (Array.isArray(patch.tags) && workspaceId && apiKey) {
+    // Get tags from either patch (user edits) or original entry (bulk upload)
+    const tagsToConvert = patch.tags || (entryAny._isNew ? (original.tags as string[] | undefined) : undefined);
+    if (Array.isArray(tagsToConvert) && workspaceId && apiKey) {
       const tagIds: string[] = [];
       const newTags: { id: string; name: string }[] = [];
-      for (const label of patch.tags as string[]) {
-        let tag = tags.find(t => t.name === label) || newTags.find(t => t.name === label);
+      // Filter out empty/invalid tag names
+      const validTags = tagsToConvert.filter(label => label && typeof label === 'string' && label.trim().length > 0);
+      for (const label of validTags) {
+        const trimmedLabel = label.trim();
+        let tag = tags.find(t => t.name === trimmedLabel) || newTags.find(t => t.name === trimmedLabel);
         if (!tag) {
-          const createRes = await fetch(`/api/proxy/workspaces/${workspaceId}/tags/create`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ apiKey, tagNames: [label] })
-          })
-          if (!createRes.ok) {
-            const errorData = await createRes.json().catch(() => ({})) as { error?: string }
-            throw new Error(errorData.error || 'Failed to create tag')
+          try {
+            const createRes = await fetch(`/api/proxy/workspaces/${workspaceId}/tags/create`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ apiKey, tagNames: [trimmedLabel] })
+            })
+            if (!createRes.ok) {
+              // Try to get existing tag as fallback
+              const allTagsRes = await fetch(`/api/proxy/tags/${workspaceId}?apiKey=${apiKey}`).catch(() => null)
+              if (allTagsRes?.ok) {
+                const allTagsList = await allTagsRes.json() as { id: string; name: string }[]
+                tag = allTagsList.find(t => t.name === trimmedLabel)
+              }
+              if (!tag) {
+                const errorData = await createRes.json().catch(() => ({})) as { error?: string }
+                throw new Error(errorData.error || 'Failed to create tag')
+              }
+            } else {
+              const { created } = await createRes.json() as { created: { id: string; name: string }[] }
+              tag = created[0]
+            }
+            if (tag) {
+              newTags.push(tag);
+            }
+          } catch (error) {
+            // Skip this tag if creation fails and we can't find existing one
+            console.error(`Failed to create/find tag "${trimmedLabel}":`, error)
+            continue;
           }
-          const { created } = await createRes.json() as { created: { id: string; name: string }[] }
-          tag = created[0]
-          newTags.push(tag);
         }
-        tagIds.push(tag.id);
+        if (tag) {
+          tagIds.push(tag.id);
+        }
       }
       if (newTags.length > 0) {
         setTags([...tags, ...newTags]);
       }
-      const { tags: _omitTags, ...rest } = patch;
-      void _omitTags;
-      patch = { ...rest, tagIds };
+      if (patch.tags) {
+        const { tags: _omitTags, ...rest } = patch;
+        void _omitTags;
+        patch = { ...rest, tagIds };
+      }
       tagIdsFromPatch = tagIds;
     }
     const minimalPatch: Record<string, unknown> = {};
-    const entryAny = entry as unknown as { timeInterval?: { start?: string; end?: string }; start?: string; end?: string; _isNew?: boolean };
     const currentStart = entryAny.timeInterval?.start ?? entryAny.start;
     const currentEnd = entryAny.timeInterval?.end ?? entryAny.end;
     for (const [k, v] of Object.entries(patch)) {
@@ -1299,7 +1325,7 @@ export default function AppPage() {
                           ) : (
                             <button
                               type="button"
-                              className="text-xs text-gray-700 dark:text-gray-200 hover:underline break-words cursor-pointer"
+                              className="text-xs text-gray-700 dark:text-gray-200 hover:underline cursor-pointer"
                               onClick={() => setTagsEditOpen(prev => ({ ...prev, [entry.id]: true }))}
                               title="Edit tags"
                             >{tagLabels && tagLabels.length > 0 ? tagLabels.join(", ") : 'No tags'}</button>

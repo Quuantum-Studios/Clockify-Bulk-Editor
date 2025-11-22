@@ -88,8 +88,28 @@ export class ClockifyAPI {
   }
 
   async createTag(workspaceId: string, name: string) {
-    const res = (await this.axiosInstance!.post(`/workspaces/${workspaceId}/tags`, { name })).data as { id: string; name: string };
-    return res;
+    try {
+      const res = (await this.axiosInstance!.post(`/workspaces/${workspaceId}/tags`, { name })).data as { id: string; name: string };
+      return res;
+    } catch (error: unknown) {
+      const axiosError = error as AxiosErrorResponse;
+      // If tag already exists (400), try to fetch it instead
+      if (axiosError.response?.status === 400) {
+        const allTags = await this.getTags(workspaceId);
+        const existingTag = allTags.find(t => t.name === name);
+        if (existingTag) {
+          return existingTag;
+        }
+      }
+      // Re-throw if it's not a duplicate or we can't find it
+      console.error("Clockify API Error creating tag:", axiosError.response?.data || axiosError.message);
+      const errorMessage =
+        (typeof axiosError.response?.data === 'object' && (axiosError.response.data).message) ||
+        (axiosError.response?.data as string) ||
+        axiosError.message ||
+        "Unknown error occurred";
+      throw new Error(`Clockify API Error: ${errorMessage}`);
+    }
   }
 
   async deleteTag(workspaceId: string, tagId: string) {
@@ -326,12 +346,17 @@ export class ClockifyAPI {
     if (data.tags && Array.isArray(data.tags)) {
       const allTags = await this.getTags(workspaceId);
       tagIds = [];
-      for (const label of data.tags) {
-        let tag = allTags.find(t => t.name === label);
+      // Filter out empty/invalid tag names
+      const validTags = data.tags.filter(label => label && typeof label === 'string' && label.trim().length > 0);
+      for (const label of validTags) {
+        const trimmedLabel = label.trim();
+        let tag = allTags.find(t => t.name === trimmedLabel);
         if (!tag) {
-          tag = await this.createTag(workspaceId, label);
+          tag = await this.createTag(workspaceId, trimmedLabel);
         }
-        tagIds.push(tag.id);
+        if (tag) {
+          tagIds.push(tag.id);
+        }
       }
     }
     const allowedKeys = new Set([
@@ -429,12 +454,17 @@ export class ClockifyAPI {
     if (!payload.tagIds && payload.tags && Array.isArray(payload.tags)) {
       const allTags = await this.getTags(workspaceId);
       const tagIds: string[] = [];
-      for (const label of payload.tags) {
-        let tag = allTags.find(t => t.name === label);
+      // Filter out empty/invalid tag names
+      const validTags = payload.tags.filter(label => label && typeof label === 'string' && label.trim().length > 0);
+      for (const label of validTags) {
+        const trimmedLabel = label.trim();
+        let tag = allTags.find(t => t.name === trimmedLabel);
         if (!tag) {
-          tag = await this.createTag(workspaceId, label);
+          tag = await this.createTag(workspaceId, trimmedLabel);
         }
-        tagIds.push(tag.id);
+        if (tag) {
+          tagIds.push(tag.id);
+        }
       }
       payload.tagIds = tagIds;
     }

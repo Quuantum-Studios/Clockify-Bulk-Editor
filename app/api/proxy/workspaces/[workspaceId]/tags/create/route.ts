@@ -69,9 +69,26 @@ export async function POST(
     const params = await context.params
     const workspaceId = params.workspaceId
     const created: { id: string; name: string }[] = []
-    for (const name of tagNames) {
-      const tag = await clockify.createTag(workspaceId, name)
-      created.push(tag)
+    // Filter out empty/invalid tag names
+    const validTagNames = tagNames.filter(name => name && typeof name === 'string' && name.trim().length > 0)
+    for (const name of validTagNames) {
+      try {
+        const tag = await clockify.createTag(workspaceId, name.trim())
+        created.push(tag)
+      } catch (error) {
+        // Log error but continue with other tags
+        console.error(`Failed to create tag "${name}":`, error)
+        // Try to find existing tag as fallback
+        try {
+          const allTags = await clockify.getTags(workspaceId)
+          const existingTag = allTags.find(t => t.name === name.trim())
+          if (existingTag) {
+            created.push(existingTag)
+          }
+        } catch {
+          // Ignore if we can't fetch tags either
+        }
+      }
     }
     const { env } = getCloudflareContext()
     const email = await getEmailFromApiKey(env, apiKey)
