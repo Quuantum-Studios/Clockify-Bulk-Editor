@@ -268,7 +268,7 @@ export default function SettingsDialog({ open, onClose, canClose = true }: Setti
                     </>
                   )}
                 </button>
-                
+
                 {showApiKeySteps && (
                   <div className="mt-3 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                     <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-3">
@@ -311,7 +311,7 @@ export default function SettingsDialog({ open, onClose, canClose = true }: Setti
                         </div>
                       </li>
                     </ol>
-                    
+
                     <div className="mt-4 pt-3 border-t border-blue-200 dark:border-blue-700">
                       <p className="text-xs font-medium text-blue-900 dark:text-blue-100 mb-2">Watch tutorial video:</p>
                       <div className="relative w-full rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700">
@@ -326,11 +326,11 @@ export default function SettingsDialog({ open, onClose, canClose = true }: Setti
                         </video>
                       </div>
                     </div>
-                    
+
                     <div className="mt-4 pt-3 border-t border-blue-200 dark:border-blue-700">
-                      <a 
-                        href="https://app.clockify.me/user/preferences" 
-                        target="_blank" 
+                      <a
+                        href="https://app.clockify.me/user/preferences"
+                        target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 text-xs text-primary hover:text-primary/80 font-medium"
                       >
@@ -346,15 +346,15 @@ export default function SettingsDialog({ open, onClose, canClose = true }: Setti
               <>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Magic Assistant Prompt (optional)
+                    Magic Assistant Instructions (optional)
                   </label>
-                  <Input
-                    type="text"
-                    placeholder="Give the AI extra context for your workspace"
+                  <textarea
+                    placeholder="Give the AI extra context for your workspace..."
                     value={promptInput}
-                    onChange={e => setPromptInput(e.target.value)}
-                    className="w-full cursor-text"
+                    onChange={(e) => setPromptInput(e.target.value)}
+                    className="w-full h-24 p-2 rounded-md border border-input bg-background cursor-text resize-none"
                   />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1"><strong>Example:</strong> my office timing is from 9:30am to 6:30pm and lunch time is 1:30pm to 2:15pm. Determine the entry timestamps accordingly if not specified.</p>
                 </div>
 
                 <div>
