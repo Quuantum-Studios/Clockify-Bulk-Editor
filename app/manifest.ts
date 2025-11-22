@@ -7,20 +7,22 @@ export default function manifest(): MetadataRoute.Manifest {
     name: APP_NAME,
     short_name: APP_NAME,
     description: 'Bulk edit, upload, and clean up time entries, tags, tasks, and projects—no signup needed.',
-    start_url: '/',
+    start_url: '/editor',
     display: 'standalone',
     background_color: '#ffffff',
     theme_color: '#0B0F1A',
     icons: [
       {
-        src: '/icon.png',
+        src: '/web-app-manifest-192x192.png',
         sizes: '192x192',
         type: 'image/png',
+        purpose: 'maskable',
       },
       {
-        src: '/icon.png',
+        src: '/web-app-manifest-512x512.png',
         sizes: '512x512',
         type: 'image/png',
+        purpose: 'maskable',
       },
     ],
   }

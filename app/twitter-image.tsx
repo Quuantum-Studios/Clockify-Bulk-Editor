@@ -5,24 +5,17 @@ export const size = { width: 1200, height: 630 }
 export const contentType = 'image/png'
 
 export default function Image() {
-  const title = process.env.NEXT_PUBLIC_APP_NAME || 'BulkifyAI'
+  const site_url = process.env.NEXT_PUBLIC_SITE_URL || 'https://bulkifyai.quuantum.com'
   return new ImageResponse(
     (
-      <div
+      <img
+        src={`${site_url.replace(/\/$/, '')}/bulkifyai-og-banner.png`}
+        alt="BulkifyAI - Manage Clockify in bulk. Faster."
         style={{
-          height: '100%',
           width: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: '#0B0F1A',
-          color: '#ffffff',
-          fontSize: 64,
-          fontWeight: 700,
+          height: '100%',
         }}
-      >
-        {title}
-      </div>
+      />
     ),
     { ...size }
   )
