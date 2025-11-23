@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
 
-export function middleware(request: NextRequest) {
+export function middleware() {
   const response = NextResponse.next()
 
   // Security headers
@@ -14,7 +13,6 @@ export function middleware(request: NextRequest) {
 
   // CSP - Note: For Cloudflare, we use a more permissive CSP
   // In production, you may want to add nonces for inline scripts
-  const isProd = process.env.NODE_ENV === 'production'
   const csp = [
     "default-src 'self'",
     "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.google-analytics.com https://*.googletagmanager.com https://*.clarity.ms https://us.i.posthog.com https://us-assets.i.posthog.com https://js.sentry-cdn.com",
@@ -31,12 +29,6 @@ export function middleware(request: NextRequest) {
   ].join('; ')
 
   response.headers.set('Content-Security-Policy', csp)
-
-  // Cache control for social images
-  if (request.nextUrl.pathname.startsWith('/opengraph-image') || 
-      request.nextUrl.pathname.startsWith('/twitter-image')) {
-    response.headers.set('Cache-Control', 'public, max-age=31536000, immutable')
-  }
 
   return response
 }

@@ -50,7 +50,7 @@ export const metadata: Metadata = {
     locale: 'en_US',
     images: [
       {
-        url: "/opengraph-image",
+        url: "/bulkifyai-og-banner.png",
         width: 1200,
         height: 630,
         alt: APP_NAME,
@@ -63,7 +63,7 @@ export const metadata: Metadata = {
     creator: TWITTER_HANDLE,
     title: APP_NAME + " — Bulk edit, upload, and clean Clockify faster",
     description: "Bulk edit, upload, and clean up time entries, tags, tasks, and projects—no signup needed. 100% free for a limited time.",
-    images: ["/twitter-image"],
+    images: ["/bulkifyai-og-banner.png"],
   },
   icons: {
     icon: [

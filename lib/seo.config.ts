@@ -16,7 +16,7 @@ export const defaultSeo = {
     description:
       'Bulk edit, upload, and clean up time entries, tags, tasks, and projects—no signup needed. 100% free for a limited time.',
     images: [
-      { url: `${SITE_URL.replace(/\/$/, '')}/opengraph-image`, width: 1200, height: 630, alt: APP_NAME },
+      { url: `${SITE_URL.replace(/\/$/, '')}/bulkifyai-og-banner.png`, width: 1200, height: 630, alt: APP_NAME },
     ],
   },
   twitter: {
