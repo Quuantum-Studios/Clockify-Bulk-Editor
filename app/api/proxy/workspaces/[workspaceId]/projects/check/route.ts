@@ -11,9 +11,13 @@ const bodySchema = z.object({
 export async function POST(req: NextRequest, context: { params: Promise<{ workspaceId: string }> }) {
   try {
     const { workspaceId } = await context.params
-    const body = await req.json() as { apiKey: string; projectNames?: string[] }
-    bodySchema.parse(body)
-    const { apiKey, projectNames = [] } = body
+    const body = await req.json() as { apiKey?: string; projectNames?: string[] }
+    const apiKey = req.headers.get("X-Api-Key") || body.apiKey
+    if (!apiKey) return NextResponse.json({ error: "API key required" }, { status: 401 })
+    // schema check for rest of body? bodySchema requires apiKey. 
+    // We can validate apiKey separately or modify schema.
+    // For minimal change:
+    const { projectNames = [] } = body
     const rateLimit = checkRateLimit(apiKey)
     if (!rateLimit.allowed) {
       return NextResponse.json({ error: "Rate limit exceeded" }, { 

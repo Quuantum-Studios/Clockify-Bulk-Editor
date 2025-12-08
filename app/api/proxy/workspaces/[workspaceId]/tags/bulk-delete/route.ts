@@ -52,7 +52,9 @@ export async function DELETE(
 ) {
   try {
     const { workspaceId } = await context.params
-    const { apiKey, tagIds } = await request.json() as { apiKey: string; tagIds: string[] }
+    const body = await request.json() as { apiKey?: string; tagIds: string[] }
+    const { tagIds } = body
+    const apiKey = request.headers.get("X-Api-Key") || body.apiKey
 
     if (!apiKey) return NextResponse.json({ error: "API key is required" }, { status: 400 })
     const rateLimit = checkRateLimit(apiKey)

@@ -6,7 +6,7 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
     let email = searchParams.get("email")
-    const apiKey = searchParams.get("apiKey")
+    const apiKey = req.headers.get("X-Api-Key") || searchParams.get("apiKey")
     
     const { env } = getCloudflareContext()
     if (!env.KV) {

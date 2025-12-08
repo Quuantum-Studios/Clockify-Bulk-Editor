@@ -3,32 +3,21 @@ import { useEffect, useState, useRef, useCallback, useMemo } from "react"
 import { useClockifyStore } from "../../lib/store"
 import { Button } from "../../components/ui/button"
 import { Select } from "../../components/ui/select"
-import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "../../components/ui/table"
-import { DateRangePicker } from "../../components/DateRangePicker"
 import { BulkUploadDialog } from "../../components/BulkUploadDialog"
 import { BulkDeleteTagsDialog } from "../../components/BulkDeleteTagsDialog"
 import { BulkDeleteTasksDialog } from "../../components/BulkDeleteTasksDialog"
-import { TagSelector } from "../../components/TagSelector"
-import { ProjectSelector } from "../../components/ProjectSelector"
 import { Skeleton } from "../../components/ui/skeleton"
+import { FilterBar } from "../../components/editor/FilterBar"
+import { BulkActions } from "../../components/editor/BulkActions"
 import { Toast } from "../../components/ui/toast"
-import { Input } from "../../components/ui/input"
-import { Save, RotateCcw, Trash2, XCircle, Calendar, DollarSign } from "lucide-react"
 import { capture, identify, AnalyticsEvents } from "../../lib/analytics"
-
-import type { Task, TimeEntry } from "../../lib/store"
+import { fetchProxy } from "../../lib/client-api"
+import { TimeEntryTable } from "../../components/editor/TimeEntryTable"
+import { Task, TimeEntry } from "../../lib/store"
+import { getLast30DaysRange, toUtcIso, toLocalNaive, normalizeDate } from "../../lib/dateUtils"
 import MagicButton from "@/components/MagicButton"
 
 export const dynamic = 'force-dynamic'
-
-const getLast30DaysRange = () => {
-  const end = new Date()
-  const start = new Date()
-  start.setDate(start.getDate() - 29)
-  start.setHours(0, 0, 0, 0)
-  end.setHours(23, 59, 59, 999)
-  return { startDate: start, endDate: end }
-}
 
 export default function AppPage() {
   const apiKey = useClockifyStore(state => state.apiKey)
@@ -47,7 +36,6 @@ export default function AppPage() {
   const [projectIds, setProjectIds] = useState<string[]>([])
   const [userId, setUserId] = useState("")
   const [dateRange, setDateRange] = useState<null | { startDate: Date; endDate: Date }>(null)
-  const [showDatePicker, setShowDatePicker] = useState(false)
   const [loading, setLoading] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [editing, setEditing] = useState<Record<string, Partial<typeof timeEntries[number]>>>({})
@@ -65,75 +53,13 @@ export default function AppPage() {
   const [createTaskState, setCreateTaskState] = useState<Record<string, { showCreate: boolean; name: string; loading: boolean }>>({})
   const [savingRows, setSavingRows] = useState<Set<string>>(new Set())
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
-  const [timeEditOpen, setTimeEditOpen] = useState<Record<string, { start: boolean; end: boolean }>>({})
-  const [projectTaskEditOpen, setProjectTaskEditOpen] = useState<Record<string, boolean>>({})
-  const [tagsEditOpen, setTagsEditOpen] = useState<Record<string, boolean>>({})
-  const [descriptionEditOpen, setDescriptionEditOpen] = useState<Record<string, boolean>>({})
   const [selectionMode, setSelectionMode] = useState(false)
-  const timeEditorRefs = useRef<Record<string, HTMLDivElement | null>>({})
-  const projectTaskEditorRefs = useRef<Record<string, HTMLDivElement | null>>({})
-  const tagsEditorRefs = useRef<Record<string, HTMLDivElement | null>>({})
-  const descriptionEditorRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const isFetchingEntriesRef = useRef(false)
   const pendingFetchRef = useRef(false)
 
   const defaultDateRange = useMemo(() => getLast30DaysRange(), [])
 
-  const toggleTimeEditor = (entryId: string, field: 'start' | 'end', open?: boolean) => {
-    setTimeEditOpen(prev => {
-      const cur = prev[entryId] || { start: false, end: false }
-      const next = { ...cur, [field]: typeof open === 'boolean' ? open : !cur[field] }
-      return { ...prev, [entryId]: next }
-    })
-  }
 
-  // Close inline editors when clicking outside their containers
-  useEffect(() => {
-    const handleDocClick = (e: MouseEvent) => {
-      const targetNode = e.target as Node
-      // Date picker
-      if (showDatePicker) {
-        const datePickerContainer = document.querySelector('.date-picker-container')
-        if (datePickerContainer && !datePickerContainer.contains(targetNode)) {
-          setShowDatePicker(false)
-        }
-      }
-      // Time editors
-      Object.entries(timeEditOpen).forEach(([id, open]) => {
-        if (!(open?.start || open?.end)) return
-        const container = timeEditorRefs.current[id]
-        if (container && !container.contains(targetNode)) {
-          setTimeEditOpen(prev => ({ ...prev, [id]: { start: false, end: false } }))
-        }
-      })
-      // Project/Task editor
-      Object.entries(projectTaskEditOpen).forEach(([id, isOpen]) => {
-        if (!isOpen) return
-        const container = projectTaskEditorRefs.current[id]
-        if (container && !container.contains(targetNode)) {
-          setProjectTaskEditOpen(prev => ({ ...prev, [id]: false }))
-        }
-      })
-      // Tags editor
-      Object.entries(tagsEditOpen).forEach(([id, isOpen]) => {
-        if (!isOpen) return
-        const container = tagsEditorRefs.current[id]
-        if (container && !container.contains(targetNode)) {
-          setTagsEditOpen(prev => ({ ...prev, [id]: false }))
-        }
-      })
-      // Description editor
-      Object.entries(descriptionEditOpen).forEach(([id, isOpen]) => {
-        if (!isOpen) return
-        const container = descriptionEditorRefs.current[id]
-        if (container && !container.contains(targetNode)) {
-          setDescriptionEditOpen(prev => ({ ...prev, [id]: false }))
-        }
-      })
-    }
-    document.addEventListener('mousedown', handleDocClick)
-    return () => document.removeEventListener('mousedown', handleDocClick)
-  }, [timeEditOpen, projectTaskEditOpen, tagsEditOpen, descriptionEditOpen, showDatePicker])
 
   const toggleCreateTaskUI = (entryId: string, show?: boolean) => {
     setCreateTaskState(prev => ({ ...prev, [entryId]: { ...(prev[entryId] || { showCreate: false, name: "", loading: false }), showCreate: typeof show === 'boolean' ? show : !((prev[entryId] || {}).showCreate) } }))
@@ -152,25 +78,16 @@ export default function AppPage() {
     if (!projectIdToUse) { setToast({ type: "error", message: "Please select a project before creating a task" }); return }
     setCreateTaskState(prev => ({ ...prev, [entryId]: { ...(prev[entryId] || { showCreate: true, name }), loading: true } }))
     try {
-      const createRes = await fetch(`/api/proxy/tasks/${workspaceId}/${projectIdToUse}`, {
+      const { id: taskId } = await fetchProxy<{ id: string }>(`/api/proxy/tasks/${workspaceId}/${projectIdToUse}`, apiKey, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey, name })
+        body: JSON.stringify({ name })
       })
-      if (!createRes.ok) {
-        const errorData = await createRes.json().catch(() => ({})) as { error?: string }
-        throw new Error(errorData.error || 'Failed to create task')
-      }
-      const { id: taskId } = await createRes.json() as { id: string }
       const newTask: Task = { id: taskId, name, projectId: projectIdToUse }
       // add optimistic and refresh tasks for the project
       optimisticTask(projectIdToUse, newTask)
       try {
-        const tasksRes = await fetch(`/api/proxy/tasks/${workspaceId}/${projectIdToUse}?apiKey=${apiKey}`)
-        if (tasksRes.ok) {
-          const refreshed = await tasksRes.json() as Task[]
-          setTasks(projectIdToUse, refreshed)
-        }
+        const tasksRes = await fetchProxy<Task[]>(`/api/proxy/tasks/${workspaceId}/${projectIdToUse}`, apiKey)
+        setTasks(projectIdToUse, tasksRes)
       } catch {
         // ignore refresh errors
       }
@@ -192,9 +109,8 @@ export default function AppPage() {
   useEffect(() => {
     capture(AnalyticsEvents.APP_OPEN, { page: "editor" })
     if (!apiKey) return;
-    fetch(`/api/proxy/user?apiKey=${apiKey}`)
-      .then(r => r.json())
-      .then((data: unknown) => {
+    fetchProxy<{ id?: string; email?: string; name?: string }>("/api/proxy/user", apiKey)
+      .then((data) => {
         const userData = data as { id?: string; email?: string; name?: string }
         if (userData && userData.id) {
           setUserId(userData.id)
@@ -271,15 +187,8 @@ export default function AppPage() {
 
   useEffect(() => {
     if (!apiKey) return
-    fetch(`/api/proxy/workspaces?apiKey=${apiKey}`)
-      .then(async r => {
-        if (!r.ok) {
-          const errorData = await r.json().catch(() => ({})) as { error?: string };
-          throw new Error(errorData.error || `HTTP ${r.status}: Failed to load workspaces`);
-        }
-        return r.json();
-      })
-      .then((data: unknown) => {
+    fetchProxy<{ id: string; name: string }[]>("/api/proxy/workspaces", apiKey)
+      .then((data) => {
         const workspacesData = data as { id: string; name: string }[]
         setWorkspaces(workspacesData)
       })
@@ -296,11 +205,8 @@ export default function AppPage() {
     if (tasks[projectIdToFetch] && tasks[projectIdToFetch].length > 0) return
     
     try {
-      const tasksRes = await fetch(`/api/proxy/tasks/${workspaceId}/${projectIdToFetch}?apiKey=${apiKey}`)
-      if (tasksRes.ok) {
-        const projectTasks = await tasksRes.json() as Task[]
-        setTasks(projectIdToFetch, projectTasks)
-      }
+      const projectTasks = await fetchProxy<Task[]>(`/api/proxy/tasks/${workspaceId}/${projectIdToFetch}`, apiKey)
+      setTasks(projectIdToFetch, projectTasks)
     } catch {
       // Ignore errors for individual projects
     }
@@ -311,12 +217,7 @@ export default function AppPage() {
 
     const fetchProjects = async () => {
       try {
-        const response = await fetch(`/api/proxy/projects/${workspaceId}?apiKey=${apiKey}`)
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({})) as { error?: string };
-          throw new Error(errorData.error || `HTTP ${response.status}: Failed to load projects`);
-        }
-        const projectsData = await response.json() as { id: string; name: string }[]
+        const projectsData = await fetchProxy<{ id: string; name: string }[]>(`/api/proxy/projects/${workspaceId}`, apiKey)
         setProjects(projectsData)
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Failed to load projects";
@@ -326,14 +227,9 @@ export default function AppPage() {
 
     const fetchTags = async () => {
       try {
-        const tagsRes = await fetch(`/api/proxy/tags/${workspaceId}?apiKey=${apiKey}`)
-        if (tagsRes.ok) {
-          const tagList = await tagsRes.json() as { id: string; name: string }[]
-          setTags(tagList);
-          tagsFetchedRef.current = true;
-        } else {
-          setTags([]);
-        }
+        const tagList = await fetchProxy<{ id: string; name: string }[]>(`/api/proxy/tags/${workspaceId}`, apiKey)
+        setTags(tagList);
+        tagsFetchedRef.current = true;
       } catch {
         setTags([]);
       }
@@ -384,45 +280,24 @@ export default function AppPage() {
     isFetchingEntriesRef.current = true
     setLoading(true)
     // Interpret the dateRange start/end as wall time in selected timezone and send as UTC Z strings
-    const toUtcIso = (d: Date) => {
-      // Reuse server normalization by letting API convert timezone? We convert client-side to be consistent with UI
-      try {
-        const dtf = new Intl.DateTimeFormat('en-US', { timeZone: defaultTimezone || 'UTC', hour12: false, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })
-        const parts = dtf.formatToParts(d)
-        const y = Number(parts.find(p => p.type === 'year')?.value)
-        const mo = Number(parts.find(p => p.type === 'month')?.value)
-        const da = Number(parts.find(p => p.type === 'day')?.value)
-        const ho = Number(parts.find(p => p.type === 'hour')?.value)
-        const mi = Number(parts.find(p => p.type === 'minute')?.value)
-        const se = Number(parts.find(p => p.type === 'second')?.value || '0')
-        const ms = Date.UTC(y, mo - 1, da, ho, mi, se)
-        return new Date(ms).toISOString()
-      } catch {
-        return d.toISOString()
-      }
-    }
-    const start = toUtcIso(dateRange.startDate)
-    const end = toUtcIso(dateRange.endDate)
+    const start = toUtcIso(dateRange.startDate, defaultTimezone)
+    const end = toUtcIso(dateRange.endDate, defaultTimezone)
     
     // Fetch entries for each selected project and combine. Deduplicate projectIds to avoid duplicate requests.
     const uniqueProjectIds = Array.from(new Set(projectIds.filter(Boolean)))
-    Promise.all(uniqueProjectIds.map(pid => 
-      fetch(`/api/proxy/time-entries/${workspaceId}/${userId}?apiKey=${apiKey}&projectId=${pid}&start=${start}&end=${end}`)
-        .then(async r => {
-          if (!r.ok) {
-            const errorData = await r.json().catch(() => ({})) as { error?: string };
-            throw new Error(errorData.error || `HTTP ${r.status}: Failed to load entries`);
-          }
-          return r.json();
-        })
-    ))
-      .then((results: unknown[]) => {
-        // Combine all entries from all selected projects
-        const allEntries = results.flat() as Record<string, unknown>[]
-        // Remove duplicates based on entry ID
-        const uniqueEntries = Array.from(
-          new Map(allEntries.map(entry => [entry.id as string, entry])).values()
-        )
+    // Batched fetch using aggregated endpoint
+    fetchProxy<Record<string, unknown>[]>(`/api/proxy/aggregated/entries`, apiKey, {
+      method: "POST",
+      body: JSON.stringify({
+        workspaceId,
+        userId,
+        projectIds: uniqueProjectIds,
+        start,
+        end,
+        timezone: defaultTimezone
+      })
+    })
+      .then((uniqueEntries) => {
         // Transform entries: convert tagIds to tags (tag names) and taskId to taskName
         const transformedEntries = uniqueEntries.map((entry: Record<string, unknown>) => {
           const transformed: TimeEntry = { ...entry } as TimeEntry
@@ -470,17 +345,12 @@ export default function AppPage() {
     setRefreshing(true)
     try {
       // Workspaces
-      const wsRes = await fetch(`/api/proxy/workspaces?apiKey=${apiKey}`)
-      if (wsRes.ok) {
-        const ws = await wsRes.json() as { id: string; name: string }[]
-        setWorkspaces(ws)
-      }
+      const ws = await fetchProxy<{ id: string; name: string }[]>("/api/proxy/workspaces", apiKey)
+      setWorkspaces(ws)
       if (!workspaceId) return;
       // Projects
-      const projectsRes = await fetch(`/api/proxy/projects/${workspaceId}?apiKey=${apiKey}`)
-      if (projectsRes.ok) {
-        const projectsData = await projectsRes.json() as { id: string; name: string }[]
-        setProjects(projectsData)
+      const projectsData = await fetchProxy<{ id: string; name: string }[]>(`/api/proxy/projects/${workspaceId}`, apiKey)
+      setProjects(projectsData)
         // Only refresh tasks for projects that are already loaded (not fetch all)
         const projectIdsToRefresh = Object.keys(tasks).filter(pid => 
           projectsData.some(p => p.id === pid)
@@ -493,23 +363,14 @@ export default function AppPage() {
         })
         for (const pid of projectIdsToRefresh) {
           try {
-            const tasksRes = await fetch(`/api/proxy/tasks/${workspaceId}/${pid}?apiKey=${apiKey}`)
-            if (tasksRes.ok) {
-              const projectTasks = await tasksRes.json() as Task[]
-              setTasks(pid, projectTasks)
-            }
+            const projectTasks = await fetchProxy<Task[]>(`/api/proxy/tasks/${workspaceId}/${pid}`, apiKey)
+            setTasks(pid, projectTasks)
           } catch { }
         }
-      }
       // Tags
       try {
-        const tagsRes = await fetch(`/api/proxy/tags/${workspaceId}?apiKey=${apiKey}`)
-        if (tagsRes.ok) {
-          const tagList = await tagsRes.json() as { id: string; name: string }[]
-          setTags(tagList)
-        } else {
-          setTags([])
-        }
+        const tagList = await fetchProxy<{ id: string; name: string }[]>(`/api/proxy/tags/${workspaceId}`, apiKey)
+        setTags(tagList)
       } catch { setTags([]) }
       // Entries
       fetchEntries()
@@ -546,14 +407,6 @@ export default function AppPage() {
     const tempId = `new-${Date.now()}`
     const now = new Date()
     const in30 = new Date(Date.now() + 30 * 60 * 1000)
-    const toLocalNaive = (d: Date) => {
-      const yyyy = d.getFullYear().toString().padStart(4, '0')
-      const mm = (d.getMonth() + 1).toString().padStart(2, '0')
-      const dd = d.getDate().toString().padStart(2, '0')
-      const HH = d.getHours().toString().padStart(2, '0')
-      const MM = d.getMinutes().toString().padStart(2, '0')
-      return `${yyyy}-${mm}-${dd}T${HH}:${MM}:00Z`
-    }
     const nowIso = toLocalNaive(now)
     const endIso = toLocalNaive(in30)
     const newEntry: import("../../lib/store").TimeEntry & { _isNew: boolean } = {
@@ -619,10 +472,7 @@ export default function AppPage() {
             if (Array.isArray(existing) && existing.length > 0) {
               projectTasks = existing
             } else {
-              const tasksRes = await fetch(`/api/proxy/tasks/${workspaceId}/${pid}?apiKey=${apiKey}`)
-              if (tasksRes.ok) {
-                projectTasks = await tasksRes.json() as Task[]
-              }
+              projectTasks = await fetchProxy<Task[]>(`/api/proxy/tasks/${workspaceId}/${pid}`, apiKey)
             }
             fetchedTasksMap[pid] = projectTasks
             if (!(Array.isArray(existing) && existing.length > 0)) setTasks(pid, projectTasks)
@@ -654,24 +504,19 @@ export default function AppPage() {
     setBulkDialogOpen(false)
   }
 
-  const handleEdit = (id: string, field: string, value: unknown) => {
+  const handleEdit = (id: string, field: keyof TimeEntry, value: unknown) => {
     setEditing(e => ({ ...e, [id]: { ...e[id], [field]: value } }))
     setModifiedRows(s => new Set(s).add(id))
   }
 
   const handleCreateTag = async (name: string) => {
     if (!workspaceId || !apiKey) throw new Error("Workspace and API key required")
-    const createRes = await fetch(`/api/proxy/workspaces/${workspaceId}/tags/create`, {
+    const { created } = await fetchProxy<{ created: { id: string; name: string }[] }>(`/api/proxy/workspaces/${workspaceId}/tags/create`, apiKey, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ apiKey, tagNames: [name] })
+      body: JSON.stringify({ tagNames: [name] })
     })
-    if (!createRes.ok) {
-      const errorData = await createRes.json().catch(() => ({})) as { error?: string }
-      throw new Error(errorData.error || 'Failed to create tag')
-    }
-    const { created } = await createRes.json() as { created: { id: string; name: string }[] }
     const newTag = created[0]
+    if (!newTag) throw new Error("Failed to create tag")
     setTags(prev => [...prev, newTag])
     return newTag
   }
@@ -685,16 +530,6 @@ export default function AppPage() {
     ]);
     const original = entry as Record<string, unknown>;
     let patch: Record<string, unknown> = { ...(editing[entry.id] || {}) };
-    const normalizeDate = (value: unknown): string | undefined => {
-      if (!value || typeof value !== 'string') return undefined;
-      if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) {
-        const d = new Date(value + ':00');
-        return isNaN(d.getTime()) ? undefined : d.toISOString();
-      }
-      if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?Z$/.test(value)) return value;
-      const d = new Date(value);
-      return isNaN(d.getTime()) ? undefined : d.toISOString();
-    };
     if (patch.start !== undefined) {
       const normalized = normalizeDate(patch.start);
       if (normalized) patch.start = normalized;
@@ -720,40 +555,36 @@ export default function AppPage() {
       const newTags: { id: string; name: string }[] = [];
       // Filter out empty/invalid tag names
       const validTags = tagsToConvert.filter(label => label && typeof label === 'string' && label.trim().length > 0);
+
+      // Identify tags that need creation
+      const tagsToCreate = new Set<string>();
       for (const label of validTags) {
         const trimmedLabel = label.trim();
-        let tag = tags.find(t => t.name === trimmedLabel) || newTags.find(t => t.name === trimmedLabel);
+        const tag = tags.find(t => t.name === trimmedLabel) || newTags.find(t => t.name === trimmedLabel);
         if (!tag) {
-          try {
-            const createRes = await fetch(`/api/proxy/workspaces/${workspaceId}/tags/create`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ apiKey, tagNames: [trimmedLabel] })
-            })
-            if (!createRes.ok) {
-              // Try to get existing tag as fallback
-              const allTagsRes = await fetch(`/api/proxy/tags/${workspaceId}?apiKey=${apiKey}`).catch(() => null)
-              if (allTagsRes?.ok) {
-                const allTagsList = await allTagsRes.json() as { id: string; name: string }[]
-                tag = allTagsList.find(t => t.name === trimmedLabel)
-              }
-              if (!tag) {
-                const errorData = await createRes.json().catch(() => ({})) as { error?: string }
-                throw new Error(errorData.error || 'Failed to create tag')
-              }
-            } else {
-              const { created } = await createRes.json() as { created: { id: string; name: string }[] }
-              tag = created[0]
-            }
-            if (tag) {
-              newTags.push(tag);
-            }
-          } catch (error) {
-            // Skip this tag if creation fails and we can't find existing one
-            console.error(`Failed to create/find tag "${trimmedLabel}":`, error)
-            continue;
-          }
+          tagsToCreate.add(trimmedLabel);
         }
+      }
+
+      // Create missing tags in bulk
+      if (tagsToCreate.size > 0) {
+        try {
+          const { created } = await fetchProxy<{ created: { id: string; name: string }[] }>(`/api/proxy/workspaces/${workspaceId}/tags/create`, apiKey, {
+            method: 'POST',
+            body: JSON.stringify({ tagNames: Array.from(tagsToCreate) })
+          })
+          if (created && Array.isArray(created)) {
+            newTags.push(...created);
+          }
+        } catch (error) {
+          console.error("Failed to bulk create tags:", error)
+        }
+      }
+
+      // Resolve all tag IDs
+      for (const label of validTags) {
+        const trimmedLabel = label.trim();
+        const tag = tags.find(t => t.name === trimmedLabel) || newTags.find(t => t.name === trimmedLabel);
         if (tag) {
           tagIds.push(tag.id);
         }
@@ -801,16 +632,10 @@ export default function AppPage() {
         createPayload.tagIds = tagIdsFromPatch
       }
       try {
-        const res = await fetch(`/api/proxy/time-entries/${workspaceId}/${userId}`, {
+        await fetchProxy(`/api/proxy/time-entries/${workspaceId}/${userId}`, apiKey, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ apiKey, timezone: defaultTimezone, ...createPayload })
+          body: JSON.stringify({ timezone: defaultTimezone, ...createPayload })
         })
-        if (!res.ok) {
-          const errorData = await res.json().catch(() => ({})) as { error?: string };
-          const finalErrorMessage = errorData.error || `HTTP ${res.status}: Save failed`;
-          throw new Error(finalErrorMessage);
-        }
         setToast({ type: "success", message: "Saved" })
         setModifiedRows(s => { const n = new Set(s); n.delete(entry.id); return n })
         if (!options?.skipRefresh) fetchEntries()
@@ -860,16 +685,10 @@ export default function AppPage() {
     }
     optimisticUpdate(entry.id, mergedEntry);
     try {
-      const res = await fetch(`/api/proxy/time-entries/${workspaceId}/${userId}/${entry.id}`, {
+      await fetchProxy(`/api/proxy/time-entries/${workspaceId}/${userId}/${entry.id}`, apiKey, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey, timezone: defaultTimezone, ...mergedEntry })
+        body: JSON.stringify({ timezone: defaultTimezone, ...mergedEntry })
       })
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({})) as { error?: string };
-        const finalErrorMessage = errorData.error || `HTTP ${res.status}: Save failed`;
-        throw new Error(finalErrorMessage);
-      }
       setToast({ type: "success", message: "Saved" })
       setModifiedRows(s => { const n = new Set(s); n.delete(entry.id); return n })
       if (!options?.skipRefresh) fetchEntries()
@@ -902,16 +721,10 @@ export default function AppPage() {
     if (!confirm("Delete this time entry? This action cannot be undone.")) return
     setSavingRows(s => new Set(s).add(entry.id))
     try {
-      const res = await fetch(`/api/proxy/time-entries/${workspaceId}/${userId}/${entry.id}`, {
+      await fetchProxy(`/api/proxy/time-entries/${workspaceId}/${userId}/${entry.id}`, apiKey, {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey })
+        body: JSON.stringify({})
       })
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({})) as { error?: string };
-        const finalErrorMessage = errorData.error || `HTTP ${res.status}: Delete failed`;
-        throw new Error(finalErrorMessage);
-      }
       removeRow(entry.id)
       setToast({ type: "success", message: "Deleted" })
     } catch (error) {
@@ -968,16 +781,10 @@ export default function AppPage() {
       }
       setSavingRows(s => new Set(s).add(id))
       try {
-        const res = await fetch(`/api/proxy/time-entries/${workspaceId}/${userId}/${id}`, {
+        await fetchProxy(`/api/proxy/time-entries/${workspaceId}/${userId}/${id}`, apiKey, {
           method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ apiKey })
+          body: JSON.stringify({})
         })
-        if (!res.ok) {
-          const errorData = await res.json().catch(() => ({})) as { error?: string };
-          const finalErrorMessage = errorData.error || `HTTP ${res.status}: Delete failed`
-          throw new Error(finalErrorMessage)
-        }
         removeRow(id)
         successCount++
       } catch {
@@ -999,65 +806,22 @@ export default function AppPage() {
   return (
     <div className="max-w-7xl mx-auto">
       {/* Controls Section (mobile responsive) */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-4 mb-4">
-        <div className="flex flex-col lg:flex-row lg:flex-wrap items-stretch lg:items-center gap-3">
-          {/* Filters Row */}
-          <div className="flex flex-col sm:flex-row gap-3 flex-1">
-            {/* Workspace */}
-            <Select value={workspaceId} onChange={e => setWorkspaceId(e.target.value)} className="h-9 w-full sm:w-[200px] cursor-pointer">
-              <option value="">Workspace</option>
-              {Array.isArray(workspaces) && workspaces.map((ws: { id: string; name: string }) => (
-                <option key={ws.id} value={ws.id}>{ws.name}</option>
-              ))}
-            </Select>
-            {/* Project */}
-            <ProjectSelector
-              selectedProjectIds={projectIds}
-              availableProjects={projects}
-              onChange={setProjectIds}
-              placeholder="Select project"
-              className="h-9 w-full sm:w-[220px]"
-              onSelectAll={() => setProjectIds(projects.map(p => p.id))}
-            />
-            {/* Date Range */}
-            <div className="relative date-picker-container">
-              <button
-                type="button"
-                onClick={() => setShowDatePicker(v => !v)}
-                className="h-9 w-full sm:w-[200px] px-3 py-2 border rounded-md bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700 text-sm text-left cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center"
-              >
-                {dateRange
-                  ? `${dateRange.startDate.toLocaleDateString()} - ${dateRange.endDate.toLocaleDateString()}`
-                  : 'Pick Date Range'}
-              </button>
-              {showDatePicker && (
-                <div className="absolute z-20 mt-2 left-0 right-0 sm:right-auto bg-white dark:bg-gray-900 rounded shadow-lg border p-2">
-                  <DateRangePicker value={dateRange || defaultDateRange} onChange={val => { setDateRange(val); }} />
-                </div>
-              )}
-            </div>
-          </div>
-          {/* Actions */}
-          <div className="flex flex-wrap items-center gap-2 lg:ml-auto">
-            <Button onClick={refreshAllReferenceData} type="button" variant="outline" className="h-9 cursor-pointer" title="Refresh data" disabled={refreshing}>
-              {refreshing ? (
-                <span className="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-1" />
-              ) : (
-                <RotateCcw className="h-4 w-4 mr-1" />
-              )}
-              <span className="hidden sm:inline">Refresh</span>
-            </Button>
-            <Button onClick={() => setBulkDeleteTagsDialogOpen(true)} type="button" variant="outline" className="h-9 cursor-pointer">
-              <span className="hidden sm:inline">🏷️ Manage Tags</span>
-              <span className="sm:hidden">🏷️</span>
-            </Button>
-            <Button onClick={() => setBulkDeleteTasksDialogOpen(true)} type="button" variant="outline" className="h-9 cursor-pointer" disabled={projectIds.length === 0}>
-              <span className="hidden sm:inline">✅ Manage Tasks</span>
-              <span className="sm:hidden">✅</span>
-            </Button>
-          </div>
-        </div>
-      </div>
+      {/* Controls Section (mobile responsive) */}
+      <FilterBar
+        workspaces={workspaces}
+        workspaceId={workspaceId}
+        onWorkspaceChange={setWorkspaceId}
+        projects={projects}
+        projectIds={projectIds}
+        onProjectsChange={setProjectIds}
+        dateRange={dateRange}
+        defaultDateRange={defaultDateRange}
+        onDateRangeChange={(val) => setDateRange(val)}
+        onRefresh={refreshAllReferenceData}
+        refreshing={refreshing}
+        onManageTags={() => setBulkDeleteTagsDialogOpen(true)}
+        onManageTasks={() => setBulkDeleteTasksDialogOpen(true)}
+      />
 
       {/* Table Section */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -1096,318 +860,32 @@ export default function AppPage() {
               <Skeleton className="h-32 w-full" />
             </div>
           ) : (
-            Array.isArray(timeEntries) && timeEntries.length > 0 ? (
-              <Table className="entries-table w-full min-w-[1000px]">
-                <TableHeader>
-                  <TableRow>
-                    {selectionMode && (
-                      <TableHead className="w-12 text-center sticky left-0 z-20 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700">
-                        <input type="checkbox" checked={areAllSelected} onChange={toggleSelectAll} className="cursor-pointer w-4 h-4" />
-                      </TableHead>
-                    )}
-                    <TableHead className={`w-12 text-center sticky ${selectionMode ? "left-12" : "left-0"} z-20 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700`}></TableHead>
-                    <TableHead className="min-w-[200px] max-w-[300px]">Description</TableHead>
-                    <TableHead className="min-w-[200px] max-w-[280px] whitespace-nowrap">Time (UTC)</TableHead>
-                    <TableHead className="min-w-[250px] max-w-[420px]">Project / Task</TableHead>
-                    <TableHead className="min-w-[100px] max-w-[150px]">Tags</TableHead>
-                    <TableHead className="text-center w-[180px] whitespace-nowrap sticky right-0 z-20 bg-white dark:bg-gray-900 border-l border-gray-200 dark:border-gray-700 shadow-[0_0_10px_rgba(0,0,0,0.1)]">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {timeEntries.map(entry => {
-                    const editingEntry = (editing[entry.id] || {}) as Record<string, unknown>;
-                    const timeInterval = (entry as unknown as { timeInterval?: { start?: string; end?: string } }).timeInterval;
-                    const tiStart = timeInterval?.start;
-                    const tiEnd = timeInterval?.end;
-                    const taskName = (editing[entry.id]?.taskName as string | undefined) ?? (entry.taskName ?? "");
 
-                    // Get task name from taskId if taskName is not available
-                    let resolvedTaskName = taskName;
-                    const entryTyped = entry as TimeEntry;
-                    if (!resolvedTaskName && entryTyped.taskId) {
-                      const projectTasks = (tasks[entryTyped.projectId || ""] || []) as Task[];
-                      const task = projectTasks.find((t) => t.id === entryTyped.taskId);
-                      resolvedTaskName = task?.name || "";
-                    }
-                    let tagLabels: string[] = [];
-                    if (editing[entry.id]?.tags) {
-                      tagLabels = editing[entry.id]?.tags as string[];
-                    } else if (entry.tags) {
-                      tagLabels = entry.tags as string[];
-                    } else if ((entry as unknown as { tagIds?: string[] }).tagIds && Array.isArray((entry as unknown as { tagIds?: string[] }).tagIds)) {
-                      tagLabels = ((entry as unknown as { tagIds?: string[] }).tagIds || []).map((id: string) => tags.find(t => t.id === id)?.name || id);
-                    }
-                    const rowStart = (editing[entry.id]?.start as string | undefined) ?? tiStart ?? entry.start
-                    const rowEnd = (editing[entry.id]?.end as string | undefined) ?? tiEnd ?? entry.end
-                    const hasStart = !!rowStart
-                    const startDate = rowStart ? new Date(rowStart) : null
-                    const endDate = rowEnd ? new Date(rowEnd) : null
-                    const timeError = startDate && endDate ? startDate.getTime() >= endDate.getTime() : false
-                    const rowHasErrors = !hasStart || timeError
-                    const isBillable = (editingEntry.billable !== undefined ? Boolean(editingEntry.billable) : Boolean(entry.billable))
-                    return (
-                      <TableRow key={entry.id} className={`entries-table-row ${modifiedRows.has(entry.id) ? "bg-yellow-50 dark:bg-yellow-900/30" : ""} ${rowHasErrors ? "border border-red-200" : ""} relative`}>
-                        {selectionMode && (
-                          <TableCell data-label="Select" className={`text-center w-12 sticky left-0 z-10 ${modifiedRows.has(entry.id) ? "bg-yellow-50 dark:bg-yellow-900/30" : "bg-white dark:bg-gray-900"} border-r border-gray-200 dark:border-gray-700`}>
-                            <input type="checkbox" checked={selectedIds.has(entry.id)} onChange={() => toggleSelectOne(entry.id)} className="cursor-pointer w-4 h-4" />
-                          </TableCell>
-                        )}
-                        <TableCell data-label="Billable" className={`text-center p-2 w-12 sticky ${selectionMode ? "left-12" : "left-0"} z-10 ${modifiedRows.has(entry.id) ? "bg-yellow-50 dark:bg-yellow-900/30" : "bg-white dark:bg-gray-900"} border-r border-gray-200 dark:border-gray-700`}>
-                          <button
-                            type="button"
-                            onClick={() => handleEdit(entry.id, 'billable', !isBillable)}
-                            className={`p-1.5 rounded-md transition-colors cursor-pointer ${isBillable ? 'text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20' : 'text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800'}`}
-                            title={isBillable ? 'Billable (click to mark non-billable)' : 'Non-billable (click to mark billable)'}
-                            aria-label={isBillable ? 'Toggle to non-billable' : 'Toggle to billable'}
-                          >
-                            <DollarSign className="h-4 w-4" />
-                          </button>
-                        </TableCell>
-                        <TableCell data-label="Description" className="overflow-hidden min-w-[200px] max-w-[300px]" ref={el => { descriptionEditorRefs.current[entry.id] = el }}>
-                          {descriptionEditOpen[entry.id] ? (
-                            <Input
-                              value={editingEntry.description !== undefined ? String(editingEntry.description) : (entry.description ?? "")}
-                              onChange={e => handleEdit(entry.id, "description", e.target.value)}
-                              onBlur={() => setDescriptionEditOpen(prev => ({ ...prev, [entry.id]: false }))}
-                              className="w-full min-w-0 cursor-text text-xs h-7"
-                              autoFocus
-                            />
-                          ) : (
-                            <button
-                              type="button"
-                              className="text-xs text-gray-700 dark:text-gray-200 hover:underline w-full text-left cursor-pointer min-h-[20px] break-words"
-                              onClick={() => setDescriptionEditOpen(prev => ({ ...prev, [entry.id]: true }))}
-                              title="Edit description"
-                            >
-                              {(() => {
-                                const desc = editingEntry.description !== undefined 
-                                  ? String(editingEntry.description) 
-                                  : (entry.description ?? "")
-                                return desc.trim() || 'No description'
-                              })()}
-                            </button>
-                          )}
-                        </TableCell>
-                        <TableCell data-label="Time (UTC)" className="whitespace-nowrap overflow-hidden min-w-[200px] max-w-[280px]" ref={el => { timeEditorRefs.current[entry.id] = el }}>
-                          {(() => {
-                            const open = timeEditOpen[entry.id] || { start: false, end: false }
-                            const startVal = editingEntry.start
-                              ? (typeof editingEntry.start === "string" ? editingEntry.start.slice(0, 16) : "")
-                              : (tiStart
-                                ? new Date(tiStart).toISOString().slice(0, 16)
-                                : (entry.start ? new Date(entry.start).toISOString().slice(0, 16) : "")
-                              )
-                            const endVal = editingEntry.end
-                              ? (typeof editingEntry.end === "string" ? editingEntry.end.slice(0, 16) : "")
-                              : (tiEnd
-                                ? new Date(tiEnd).toISOString().slice(0, 16)
-                                : (entry.end ? new Date(entry.end).toISOString().slice(0, 16) : "")
-                              )
-                            const displayStart = startVal ? startVal.replace('T', ' ') : ""
-                            const displayEnd = endVal ? endVal.replace('T', ' ') : ""
-                            return (
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                {/* Start */}
-                                {open.start ? (
-                                  <Input
-                                    type="datetime-local"
-                                    className="w-[130px] cursor-text text-xs h-7"
-                                    value={startVal}
-                                    onChange={e => handleEdit(entry.id, "start", e.target.value)}
-                                    onBlur={() => toggleTimeEditor(entry.id, 'start', false)}
-                                  />
-                                ) : (
-                                  <button
-                                    type="button"
-                                    className="text-xs text-gray-600 dark:text-gray-300 hover:underline cursor-pointer"
-                                    onClick={() => toggleTimeEditor(entry.id, 'start', true)}
-                                    title="Edit start"
-                                  >{displayStart || '—'}</button>
-                                )}
-                                <span className="text-muted-foreground text-xs">→</span>
-                                {/* End */}
-                                {open.end ? (
-                                  <Input
-                                    type="datetime-local"
-                                    className="w-[130px] cursor-text text-xs h-7"
-                                    value={endVal}
-                                    onChange={e => handleEdit(entry.id, "end", e.target.value)}
-                                    onBlur={() => toggleTimeEditor(entry.id, 'end', false)}
-                                  />
-                                ) : (
-                                  <button
-                                    type="button"
-                                    className="text-xs text-gray-600 dark:text-gray-300 hover:underline cursor-pointer"
-                                    onClick={() => toggleTimeEditor(entry.id, 'end', true)}
-                                    title="Edit end"
-                                  >{displayEnd || '—'}</button>
-                                )}
-                                <Button
-                                  type="button"
-                                  className="h-7 w-7 p-0 rounded-full bg-transparent cursor-pointer"
-                                  onClick={() => setTimeEditOpen(prev => ({ ...prev, [entry.id]: { start: true, end: true } }))}
-                                  title="Open date editors"
-                                  aria-label="Open date editors"
-                                >
-                                  <Calendar className="h-3.5 w-3.5 text-blue-700" />
-                                </Button>
-                              </div>
-                            )
-                          })()}
-                        </TableCell>
-                        <TableCell data-label="Project / Task" className="overflow-hidden min-w-[250px] max-w-[420px]" ref={el => { projectTaskEditorRefs.current[entry.id] = el }}>
-                          {(() => {
-                            const entryProjectId = String(editingEntry.projectId ?? entry.projectId ?? "")
-                            const projectObj = Array.isArray(projects) ? projects.find((p: { id: string; name: string }) => p.id === entryProjectId) : null
-                            const projectLabel = projectObj?.name || "None"
-                            const taskIdSelected = (editingEntry.taskId !== undefined ? (editingEntry.taskId as string) : (entry as TimeEntry).taskId) || ""
-                            const taskList = (tasks && tasks[entryProjectId] || []) as Task[]
-                            const taskObj = taskList.find(t => t.id === taskIdSelected)
-                            const taskLabel = (editingEntry.taskName as string) || taskObj?.name || (entry as TimeEntry).taskName || "None"
-                            const isOpen = !!projectTaskEditOpen[entry.id]
-                            const createState = createTaskState[entry.id] || { showCreate: false, name: "", loading: false }
-                            if (!isOpen) {
-                              return (
-                                <button
-                                  type="button"
-                                  className="text-xs text-gray-700 dark:text-gray-200 hover:underline break-words cursor-pointer"
-                                  onClick={() => {
-                                    setProjectTaskEditOpen(prev => ({ ...prev, [entry.id]: true }))
-                                    // Lazy load tasks for this entry's project if not already loaded
-                                    if (entryProjectId) {
-                                      fetchTasksForProject(entryProjectId)
-                                    }
-                                  }}
-                                  title="Edit project and task"
-                                >{projectLabel}{taskLabel && taskLabel !== 'None' ? ` • ${taskLabel}` : ''}</button>
-                              )
-                            }
-                            return (
-                              <div className="flex flex-wrap items-center gap-1.5">
-                                <Select
-                                  value={entryProjectId}
-                                  onChange={e => {
-                                    const newProjectId = e.target.value
-                                    handleEdit(entry.id, "projectId", newProjectId)
-                                    // Lazy load tasks for the newly selected project
-                                    if (newProjectId) {
-                                      fetchTasksForProject(newProjectId)
-                                    }
-                                  }}
-                                  className="w-full sm:w-[150px] text-xs h-8 leading-tight py-1.5 cursor-pointer"
-                                  title={projectLabel}
-                                >
-                                  <option value="">None</option>
-                                  {Array.isArray(projects) ? projects.map(p => (
-                                    <option key={p.id} value={p.id}>{p.name}</option>
-                                  )) : null}
-                                </Select>
-                                <Select
-                                  value={taskIdSelected}
-                                  onChange={e => {
-                                    const v = e.target.value
-                                    if (v === "__create_new__") {
-                                      toggleCreateTaskUI(entry.id, true)
-                                    } else {
-                                      handleEdit(entry.id, "taskId", v)
-                                      const t = taskList.find((tt) => tt.id === v)
-                                      handleEdit(entry.id, "taskName", t ? t.name : "")
-                                    }
-                                  }}
-                                  className="w-full sm:w-[150px] text-xs h-8 leading-tight py-1.5 cursor-pointer"
-                                  title={taskLabel}
-                                >
-                                  <option value="">None</option>
-                                  {Array.isArray(taskList) && taskList.map((t) => (
-                                    <option key={t.id} value={t.id}>{t.name}</option>
-                                  ))}
-                                  <option value="__create_new__">Create new...</option>
-                                </Select>                                
-                                {createState.showCreate && (
-                                  <div className="w-full mt-1 flex gap-1.5">
-                                    <Input value={createState.name} onChange={e => setCreateTaskName(entry.id, e.target.value)} placeholder="New task name" className="cursor-text text-xs h-7 flex-1" />
-                                    <Button onClick={() => createTaskForEntry(entry.id, entryProjectId)} disabled={createState.loading} className="cursor-pointer text-xs h-7 px-2">{createState.loading ? <span className="inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Create'}</Button>
-                                    <Button className="bg-transparent text-xs h-7 px-2 cursor-pointer" onClick={() => toggleCreateTaskUI(entry.id, false)}>Cancel</Button>
-                                  </div>
-                                )}
-                              </div>
-                            )
-                          })()}
-                        </TableCell>
-                        <TableCell data-label="Tags" className="min-w-[100px] max-w-[150px] overflow-visible" ref={el => { tagsEditorRefs.current[entry.id] = el }}>
-                          {tagsEditOpen[entry.id] ? (
-                            <TagSelector
-                              selectedTags={tagLabels}
-                              availableTags={tags}
-                              onChange={(newTags) => handleEdit(entry.id, "tags", newTags)}
-                              onCreateTag={handleCreateTag}
-                              placeholder="Select tags..."
-                              className="w-full text-xs h-7 cursor-pointer"
-                            />
-                          ) : (
-                            <button
-                              type="button"
-                              className="text-xs text-gray-700 dark:text-gray-200 hover:underline cursor-pointer"
-                              onClick={() => setTagsEditOpen(prev => ({ ...prev, [entry.id]: true }))}
-                              title="Edit tags"
-                            >{tagLabels && tagLabels.length > 0 ? tagLabels.join(", ") : 'No tags'}</button>
-                          )}
-                        </TableCell>
-                        <TableCell data-label="Actions" className={`entries-table-actions flex items-center gap-2 w-[180px] text-center justify-center sticky right-0 z-10 ${modifiedRows.has(entry.id) ? "bg-yellow-50 dark:bg-yellow-900/30" : "bg-white dark:bg-gray-900"} border-l border-gray-200 dark:border-gray-700 shadow-[0_0_10px_rgba(0,0,0,0.1)]`}>
-                          <Button
-                            onClick={() => handleSaveRow(entry)}
-                            disabled={!modifiedRows.has(entry.id)}
-                            className={`h-8 w-8 p-0 rounded-full cursor-pointer ${modifiedRows.has(entry.id) ? "bg-green-50 text-green-700 hover:bg-green-100" : "bg-transparent"}`}
-                            title="Save"
-                            aria-label="Save"
-                          >
-                            {savingRows.has(entry.id)
-                              ? <span className="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                              : <Save className="h-4 w-4 text-green-700" />}
-                          </Button>
-
-                          <Button
-                            className={`h-8 w-8 p-0 rounded-full bg-transparent cursor-pointer ${modifiedRows.has(entry.id) ? "ring-2 ring-amber-400 bg-amber-50 text-amber-700" : ""}`}
-                            onClick={() => undoEdits(entry.id)}
-                            title="Undo changes"
-                            aria-label="Undo changes"
-                          >
-                            <RotateCcw className="h-4 w-4 text-amber-700" />
-                          </Button>
-
-                          {((entry as unknown as { _isNew?: boolean })._isNew) && (
-                            <Button
-                              className="h-8 w-8 p-0 rounded-full bg-transparent text-red-600 hover:bg-red-50 cursor-pointer"
-                              onClick={() => removeRow(entry.id)}
-                              title="Remove new row"
-                              aria-label="Remove new row"
-                            >
-                              <XCircle className="h-4 w-4 text-red-600" />
-                            </Button>
-                          )}
-
-                          <Button
-                            className="h-8 w-8 p-0 rounded-full bg-transparent text-red-600 hover:bg-red-50 cursor-pointer"
-                            onClick={() => handleDeleteRow(entry)}
-                            disabled={savingRows.has(entry.id)}
-                            title="Delete"
-                            aria-label="Delete"
-                          >
-                            {savingRows.has(entry.id)
-                              ? <span className="inline-block w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                              : <Trash2 className="h-4 w-4 text-red-600" />}
-                          </Button>
-                          {rowHasErrors && (
-                            <span className="ml-2 inline-block align-middle text-sm text-red-600" title={`${!hasStart ? 'Start time is missing.' : ''}${timeError ? ' Start must be before End.' : ''}`}>
-                              ⚠️
-                            </span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+              Array.isArray(timeEntries) && timeEntries.length > 0 ? (
+                <TimeEntryTable
+                  timeEntries={timeEntries}
+                  projects={projects}
+                  tasks={tasks}
+                  tags={tags}
+                  editing={editing}
+                  modifiedRows={modifiedRows}
+                  savingRows={savingRows}
+                  selectionMode={selectionMode}
+                  selectedIds={selectedIds}
+                  createTaskState={createTaskState}
+                  onSelectAll={toggleSelectAll}
+                  onSelectOne={toggleSelectOne}
+                  onEdit={handleEdit}
+                  onSaveRow={handleSaveRow}
+                  onDeleteRow={handleDeleteRow}
+                  onUndoEdits={undoEdits}
+                  onRemoveRow={removeRow}
+                  onCreateTag={handleCreateTag}
+                  onFetchTasksForProject={fetchTasksForProject}
+                  onCreateTask={createTaskForEntry}
+                  onToggleCreateTaskUI={toggleCreateTaskUI}
+                  onSetCreateTaskName={setCreateTaskName}
+                />
             ) : (
               <div className="text-center text-muted-foreground py-8">
                 <div className="flex flex-col items-center justify-center gap-2 py-6">
@@ -1427,15 +905,14 @@ export default function AppPage() {
       </div>
 
       {/* Bulk Actions */}
-      {Array.isArray(timeEntries) && timeEntries.length > 0 && (
-        <div className="flex flex-col sm:flex-row justify-between mt-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg gap-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 text-sm text-muted-foreground">
-            <span>Selected: {selectedIds.size}</span>
-            <Button className="bg-transparent text-red-600 cursor-pointer" onClick={handleBulkDeleteSelected} disabled={selectedIds.size === 0 || savingRows.size > 0}>{savingRows.size > 0 ? <span className="inline-block w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" /> : 'Bulk Delete Selected'}</Button>
-          </div>
-          <Button onClick={handleBulkSave} disabled={modifiedRows.size === 0} className="cursor-pointer">{/* show spinner if any rows saving */savingRows.size > 0 ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Bulk Save All'}</Button>
-        </div>
-      )}
+      <BulkActions
+        timeEntries={timeEntries}
+        selectedCount={selectedIds.size}
+        savingCount={savingRows.size}
+        modifiedCount={modifiedRows.size}
+        onBulkDelete={handleBulkDeleteSelected}
+        onBulkSave={handleBulkSave}
+      />
 
       {/* Editor Instructions */}
       <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4 mt-4">
@@ -1473,11 +950,10 @@ export default function AppPage() {
           const fetchTags = async () => {
             if (!apiKey || !workspaceId) return;
             try {
-              const tagsRes = await fetch(`/api/proxy/tags/${workspaceId}?apiKey=${apiKey}`)
-              if (tagsRes.ok) {
-                const tagList = await tagsRes.json() as { id: string; name: string }[]
+              try {
+                const tagList = await fetchProxy<{ id: string; name: string }[]>(`/api/proxy/tags/${workspaceId}`, apiKey)
                 setTags(tagList);
-              } else {
+              } catch {
                 setTags([]);
               }
             } catch {
@@ -1499,14 +975,13 @@ export default function AppPage() {
           // Refresh tasks for all selected projects
           projectIds.forEach(pid => {
             try {
-              fetch(`/api/proxy/tasks/${workspaceId}/${pid}?apiKey=${apiKey}`)
-                .then(async res => {
-                  if (res.ok) {
-                    const projectTasks = await res.json() as Task[]
+              try {
+                fetchProxy<Task[]>(`/api/proxy/tasks/${workspaceId}/${pid}`, apiKey)
+                  .then(projectTasks => {
                     setTasks(pid, projectTasks)
-                  }
-                })
-                .catch(() => { })
+                  })
+                  .catch(() => { })
+              } catch { }
             } catch { }
           })
           fetchEntries();

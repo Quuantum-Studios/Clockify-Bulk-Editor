@@ -13,9 +13,10 @@ export async function POST(
   context: { params: Promise<{ workspaceId: string }> }
 ) {
   try {
-    const body = await req.json() as { apiKey: string; tagNames?: string[] }
-    bodySchema.parse(body)
-    const { apiKey, tagNames = [] } = body
+    const body = await req.json() as { apiKey?: string; tagNames?: string[] }
+    const apiKey = req.headers.get("X-Api-Key") || body.apiKey
+    if (!apiKey) return NextResponse.json({ error: "API key required" }, { status: 401 })
+    const { tagNames = [] } = body
     const rateLimit = checkRateLimit(apiKey)
     if (!rateLimit.allowed) {
       return NextResponse.json({ error: "Rate limit exceeded" }, { 

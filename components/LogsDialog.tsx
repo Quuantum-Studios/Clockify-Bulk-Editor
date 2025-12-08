@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog"
 import { Button } from "./ui/button"
 import { useClockifyStore } from "../lib/store"
 import type { ApiLogEntry } from "../lib/logger"
+import { fetchProxy } from "../lib/client-api"
 
 interface LogsDialogProps {
   open: boolean
@@ -25,10 +26,9 @@ export default function LogsDialog({ open, onClose }: LogsDialogProps) {
     setIsLoading(true)
     try {
       const qs = userProfile?.email
-        ? `email=${encodeURIComponent(userProfile.email)}`
-        : `apiKey=${encodeURIComponent(apiKey)}`
-      const res = await fetch(`/api/logs?${qs}`)
-      const data = await res.json() as { logs?: ApiLogEntry[] }
+        ? `?email=${encodeURIComponent(userProfile.email)}`
+        : ``
+      const data = await fetchProxy<{ logs?: ApiLogEntry[] }>(`/api/logs${qs}`, apiKey)
       setLogs(data.logs || [])
     } catch (error) {
       console.error("Failed to load logs:", error)
@@ -149,8 +149,7 @@ export default function LogsDialog({ open, onClose }: LogsDialogProps) {
     const projectId = req.projectId as string | undefined
     if (projectId && !labelCache[`project:${projectId}`]) {
       try {
-        const res = await fetch(`/api/proxy/projects/${workspaceId}?apiKey=${encodeURIComponent(apiKey)}`)
-        const projects = (await res.json()) as { id: string; name: string }[]
+        const projects = await fetchProxy<{ id: string; name: string }[]>(`/api/proxy/projects/${workspaceId}`, apiKey)
         const p = projects.find(p => p.id === projectId)
         if (p) newLabels[`project:${projectId}`] = p.name
       } catch { /* noop */ }
@@ -160,8 +159,7 @@ export default function LogsDialog({ open, onClose }: LogsDialogProps) {
     const taskId = req.taskId as string | undefined
     if (taskId && projectId && !labelCache[`task:${taskId}`]) {
       try {
-        const res = await fetch(`/api/proxy/tasks/${workspaceId}/${projectId}?apiKey=${encodeURIComponent(apiKey)}`)
-        const tasks = (await res.json()) as { id: string; name: string }[]
+        const tasks = await fetchProxy<{ id: string; name: string }[]>(`/api/proxy/tasks/${workspaceId}/${projectId}`, apiKey)
         const t = tasks.find(t => t.id === taskId)
         if (t) newLabels[`task:${taskId}`] = t.name
       } catch { /* noop */ }

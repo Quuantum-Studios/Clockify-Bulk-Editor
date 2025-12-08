@@ -5,11 +5,19 @@ const apiKeySchema = z.object({ apiKey: z.string().min(10) })
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json() as { apiKey: string }
-    apiKeySchema.parse(body)
+    let apiKey: string | undefined = req.headers.get("X-Api-Key") || undefined
+    let body: { apiKey?: string } = {}
+    try {
+      body = await req.json()
+    } catch { /* ignore empty body */ }
+
+    apiKey = apiKey || body.apiKey
+
+    if (!apiKey) throw new Error("API key required")
+    apiKeySchema.parse({ apiKey })
     
     const res = await fetch("https://api.clockify.me/api/v1/user", {
-      headers: { "X-Api-Key": body.apiKey }
+      headers: { "X-Api-Key": apiKey }
     })
     
     if (!res.ok) {

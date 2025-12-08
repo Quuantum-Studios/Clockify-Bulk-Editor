@@ -8,6 +8,7 @@ import { Toast } from "./ui/toast"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog"
 import { useClockifyStore } from "../lib/store"
 import { capture, identify, AnalyticsEvents } from "../lib/analytics"
+import { fetchProxy } from "../lib/client-api"
 import WelcomeDialog from "./WelcomeDialog"
 
 interface SettingsDialogProps {
@@ -61,8 +62,11 @@ export default function SettingsDialog({ open, onClose, canClose = true }: Setti
       return
     }
     try {
-      const res = await fetch(`/api/settings?apiKey=${encodeURIComponent(apiKeyToUse)}`)
-      const data = await res.json() as { settings?: { userPrompt?: string; defaultTimezone?: string } }
+      const qs = apiKeyToUse ? `?apiKey=${encodeURIComponent(apiKeyToUse)}` : "";
+      const data = await fetchProxy<{ settings?: { userPrompt?: string; defaultTimezone?: string } }>(
+        `/api/settings${qs}`,
+        apiKeyToUse
+      );
       if (data.settings) {
         setPromptInput(data.settings.userPrompt || "")
         setTzInput(data.settings.defaultTimezone || "")
@@ -94,12 +98,8 @@ export default function SettingsDialog({ open, onClose, canClose = true }: Setti
     try {
       // Step 1: Validate API key if not already validated
       if (!isValidated) {
-        const res = await fetch("/api/validate-key", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ apiKey: apiKeyInput })
-        })
-        const data = await res.json() as {
+        // Validate with the input key
+        const data = await fetchProxy<{
           valid: boolean;
           error?: string;
           user?: {
@@ -112,7 +112,9 @@ export default function SettingsDialog({ open, onClose, canClose = true }: Setti
               timeZone?: string;
             }
           }
-        }
+        }>("/api/validate-key", apiKeyInput, {
+          method: "POST"
+        })
         if (!data.valid) {
           setToast({ type: "error", message: data.error || "Invalid API key" })
           setIsLoading(false)
@@ -164,19 +166,15 @@ export default function SettingsDialog({ open, onClose, canClose = true }: Setti
           return
         }
 
-        const res = await fetch("/api/settings", {
+        const data = await fetchProxy<{ success?: boolean; error?: string; issues?: Array<{ message: string }> }>("/api/settings", apiKeyToUse, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            apiKey: apiKeyToUse,
             userPrompt: promptInput,
             defaultTimezone: tz
           })
         })
 
-        const data = await res.json() as { success?: boolean; error?: string; issues?: Array<{ message: string }> }
-
-        if (!res.ok || data.error || data.success === false) {
+        if (data.error || data.success === false) {
           const issueMessage = data.issues && data.issues.length > 0 ? data.issues[0].message : null
           setToast({
             type: "error",

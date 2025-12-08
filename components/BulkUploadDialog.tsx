@@ -7,6 +7,7 @@ import { Button } from "./ui/button"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "./ui/table"
 import { Toast } from "./ui/toast"
 import { capture, AnalyticsEvents } from "../lib/analytics"
+import { fetchProxy } from "../lib/client-api"
 
 interface BulkUploadDialogProps {
   open: boolean
@@ -133,19 +134,18 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
           setUploading(false)
           return
         }
-        const res = await fetch(`/api/proxy/time-entries/${workspaceId}/bulk`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ apiKey, userId, entries: normalized })
-        })
-        const data = await res.json() as { error?: string }
-        if (res.ok) {
+        try {
+          await fetchProxy(`/api/proxy/time-entries/${workspaceId}/bulk`, apiKey, {
+            method: "POST",
+            body: JSON.stringify({ userId, entries: normalized })
+          })
           setToast({ type: "success", message: "Bulk upload successful" })
           capture(AnalyticsEvents.BULK_UPLOAD_SUCCESS, { count: normalized.length })
           setRows([])
           onSuccess()
-        } else {
-          setToast({ type: "error", message: data.error || "Bulk upload failed" })
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : "Bulk upload failed"
+          setToast({ type: "error", message: msg })
         }
       }
     } catch {
@@ -212,12 +212,10 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
     try {
       setVerifyingProjects(true)
       const projectNames = extractProjectNames(rows)
-      const res = await fetch(`/api/proxy/workspaces/${workspaceId}/projects/check`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apiKey, projectNames }) })
-      const data = await res.json() as { error?: string; existing?: { id: string; name: string }[]; missing?: string[] }
-      if (!res.ok) {
-        console.error('[BulkUploadDialog] verifyProjects: error response', data)
-        throw new Error(data.error || 'Project check failed')
-      }
+      const data = await fetchProxy<{ error?: string; existing?: { id: string; name: string }[]; missing?: string[] }>(`/api/proxy/workspaces/${workspaceId}/projects/check`, apiKey, {
+        method: 'POST',
+        body: JSON.stringify({ projectNames })
+      })
       const existing: { id: string; name: string }[] = (data.existing || []).map((p: { id: string; name: string }) => ({ id: p.id, name: p.name }))
       const map: Record<string, string | undefined> = {}
       for (const p of existing) map[p.name.toLowerCase().trim()] = p.id
@@ -253,12 +251,11 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
         .map(r => (r.taskName ?? '').toString())
         .filter(Boolean)
       const taskNames = Array.from(new Set(tasks))
-      const res = await fetch(`/api/proxy/workspaces/${workspaceId}/tasks/check`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apiKey, projectId, taskNames }) })
-      const data = await res.json() as { error?: string; existing?: { id: string; name: string }[]; missing?: string[] }
-      if (!res.ok) {
-        console.error('[BulkUploadDialog] verifyTasksForProject: error', data)
-        throw new Error(data.error || 'Task check failed')
-      }
+      const res = await fetchProxy<{ error?: string; existing?: { id: string; name: string }[]; missing?: string[] }>(`/api/proxy/workspaces/${workspaceId}/tasks/check`, apiKey, {
+        method: 'POST',
+        body: JSON.stringify({ projectId, taskNames })
+      })
+      const data = res
       setTaskCheck(prev => ({ ...prev, [projectNameOrId]: { existing: (data.existing || []).map((t: { id: string; name: string }) => t.name), missing: data.missing || [] } }))
       capture(AnalyticsEvents.VERIFY_TASKS, { projectKey: projectNameOrId, existingCount: (data.existing || []).length, missingCount: (data.missing || []).length })
       return data
@@ -273,9 +270,10 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
   const createTasksForProject = async (projectId: string, projectKey: string) => {
     const missing = taskCheck[projectKey]?.missing || []
     if (!missing.length) return
-    const res = await fetch(`/api/proxy/workspaces/${workspaceId}/tasks/create`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apiKey, projectId, taskNames: missing }) })
-    const data = await res.json() as { error?: string }
-    if (!res.ok) throw new Error(data.error || 'Task create failed')
+    const data = await fetchProxy<{ error?: string }>(`/api/proxy/workspaces/${workspaceId}/tasks/create`, apiKey, {
+      method: 'POST',
+      body: JSON.stringify({ projectId, taskNames: missing })
+    })
     // refresh check
     await verifyTasksForProject(projectKey, projectId)
     return data
@@ -294,9 +292,11 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
           projectId = projectKey
         } else {
           try {
-            const projectRes = await fetch(`/api/proxy/workspaces/${workspaceId}/projects/check`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apiKey, projectNames: [projectKey] }) })
-            const pd = await projectRes.json() as { existing?: { id: string; name: string }[] }
-            if (projectRes.ok && pd.existing && pd.existing[0]) {
+            const pd = await fetchProxy<{ existing?: { id: string; name: string }[] }>(`/api/proxy/workspaces/${workspaceId}/projects/check`, apiKey, {
+              method: 'POST',
+              body: JSON.stringify({ projectNames: [projectKey] })
+            })
+            if (pd.existing && pd.existing[0]) {
               projectId = pd.existing[0].id
               setProjectsMap(prev => ({ ...prev, [projectKey.toLowerCase().trim()]: projectId }))
             }
@@ -333,12 +333,10 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
     try {
       setVerifyingTags(true)
       const tagNames = extractTagNames(rows)
-      const res = await fetch(`/api/proxy/workspaces/${workspaceId}/tags/check`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apiKey, tagNames }) })
-      const data = await res.json() as { error?: string; existing?: { id: string; name: string }[]; missing?: string[] }
-      if (!res.ok) {
-        console.error('[BulkUploadDialog] verifyTags: error', data)
-        throw new Error(data.error || 'Tag check failed')
-      }
+      const data = await fetchProxy<{ error?: string; existing?: { id: string; name: string }[]; missing?: string[] }>(`/api/proxy/workspaces/${workspaceId}/tags/check`, apiKey, {
+        method: 'POST',
+        body: JSON.stringify({ tagNames })
+      })
       setTagCheck({ existing: (data.existing || []).map((t: { id: string; name: string }) => t.name), missing: data.missing || [] })
       capture(AnalyticsEvents.VERIFY_TAGS, { existingCount: (data.existing || []).length, missingCount: (data.missing || []).length })
       return data
@@ -353,9 +351,10 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
   const createTags = async () => {
     const missing = tagCheck?.missing || []
     if (!missing.length) return
-    const res = await fetch(`/api/proxy/workspaces/${workspaceId}/tags/create`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ apiKey, tagNames: missing }) })
-    const data = await res.json() as { error?: string }
-    if (!res.ok) throw new Error(data.error || 'Tag create failed')
+    const data = await fetchProxy<{ error?: string }>(`/api/proxy/workspaces/${workspaceId}/tags/create`, apiKey, {
+      method: 'POST',
+      body: JSON.stringify({ tagNames: missing })
+    })
     await verifyTags()
     capture(AnalyticsEvents.CREATE_MISSING_TAGS, { createdCount: missing.length })
     return data

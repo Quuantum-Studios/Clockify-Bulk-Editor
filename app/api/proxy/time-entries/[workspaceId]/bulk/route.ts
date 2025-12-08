@@ -61,8 +61,10 @@ const entrySchema = z.object({
 export async function POST(req: NextRequest, context: { params: Promise<{ workspaceId: string }> }) {
   try {
     const { workspaceId } = await context.params
-    const body = await req.json() as { apiKey: string; userId: string; entries: unknown[] }
-    const { apiKey, userId, entries } = body
+    const body = await req.json() as { apiKey?: string; userId: string; entries: unknown[] }
+    const { userId, entries } = body
+    const apiKey = req.headers.get("X-Api-Key") || body.apiKey
+    if (!apiKey) return NextResponse.json({ error: "API key required" }, { status: 401 })
     apiKeySchema.parse({ apiKey })
     const rateLimit = checkRateLimit(apiKey)
     if (!rateLimit.allowed) {

@@ -55,7 +55,7 @@ async function getEmailFromApiKey(env: { KV?: KVNamespace }, apiKey: string): Pr
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
-    const apiKey = searchParams.get("apiKey")
+    const apiKey = req.headers.get("X-Api-Key") || searchParams.get("apiKey")
 
     if (!apiKey) {
       return NextResponse.json({ error: "API key is required" }, { status: 401 })
@@ -95,7 +95,11 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const rawBody = await req.json() as { apiKey?: string; userPrompt?: string; defaultTimezone?: string }
-    const { apiKey } = apiKeySchema.parse({ apiKey: rawBody.apiKey })
+    const apiKey = req.headers.get("X-Api-Key") || rawBody.apiKey
+    if (!apiKey) {
+      return NextResponse.json({ error: "API key is required" }, { status: 401 })
+    }
+    apiKeySchema.parse({ apiKey })
     const body = settingsSchema.parse({
       userPrompt: rawBody.userPrompt,
       defaultTimezone: rawBody.defaultTimezone,

@@ -6,6 +6,7 @@ import { Toast } from "./ui/toast"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "./ui/table"
 import { Skeleton } from "./ui/skeleton"
 import { capture, AnalyticsEvents } from "../lib/analytics"
+import { fetchProxy } from "../lib/client-api"
 
 interface BulkDeleteTasksDialogProps {
   open: boolean
@@ -26,14 +27,7 @@ export function BulkDeleteTasksDialog({ open, onClose, workspaceId, apiKey, proj
   useEffect(() => {
     if (open && workspaceId && apiKey && projectId) {
       setLoading(true)
-      fetch(`/api/proxy/tasks/${workspaceId}/${projectId}?apiKey=${encodeURIComponent(apiKey)}`)
-        .then(async (res) => {
-          if (!res.ok) {
-            const errorData = await res.json().catch(() => ({})) as { error?: string }
-            throw new Error(errorData.error || `HTTP ${res.status}: Failed to load tasks`)
-          }
-          return (await res.json()) as { id: string; name: string }[]
-        })
+      fetchProxy<{ id: string; name: string }[]>(`/api/proxy/tasks/${workspaceId}/${projectId}`, apiKey)
         .then((data) => setTasks(data))
         .catch(() => setToast({ type: "error", message: "Failed to load tasks." }))
         .finally(() => setLoading(false))
@@ -55,21 +49,15 @@ export function BulkDeleteTasksDialog({ open, onClose, workspaceId, apiKey, proj
     setDeleting(true)
     setToast(null)
     try {
-      const res = await fetch(`/api/proxy/workspaces/${workspaceId}/tasks/bulk-delete`, {
+      await fetchProxy(`/api/proxy/workspaces/${workspaceId}/tasks/bulk-delete`, apiKey, {
         method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey, projectId, taskIds: Array.from(selectedTasks) })
+        body: JSON.stringify({ projectId, taskIds: Array.from(selectedTasks) })
       })
-      const data = await res.json() as { error?: string }
-      if (res.ok) {
-        setToast({ type: "success", message: "Tasks deleted successfully." })
-        capture(AnalyticsEvents.BULK_DELETE_TASKS, { count: selectedTasks.size })
-        setSelectedTasks(new Set())
-        onSuccess()
-        onClose()
-      } else {
-        setToast({ type: "error", message: data.error || "Bulk delete failed" })
-      }
+      setToast({ type: "success", message: "Tasks deleted successfully." })
+      capture(AnalyticsEvents.BULK_DELETE_TASKS, { count: selectedTasks.size })
+      setSelectedTasks(new Set())
+      onSuccess()
+      onClose()
     } catch {
       setToast({ type: "error", message: "Bulk delete failed" })
     }

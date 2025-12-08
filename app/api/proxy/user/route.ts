@@ -8,7 +8,8 @@ const apiKeySchema = z.object({ apiKey: z.string().min(10) })
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url)
-    const apiKey = searchParams.get("apiKey")
+    const apiKey = req.headers.get("X-Api-Key") || searchParams.get("apiKey")
+    if (!apiKey) throw new Error("API key required")
     apiKeySchema.parse({ apiKey })
     const rateLimit = checkRateLimit(apiKey!)
     if (!rateLimit.allowed) {

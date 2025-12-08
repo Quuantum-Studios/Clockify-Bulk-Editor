@@ -20,6 +20,7 @@ import {
 } from "./ui/table"
 import { Skeleton } from "./ui/skeleton"
 import { capture, AnalyticsEvents } from "../lib/analytics"
+import { fetchProxy } from "../lib/client-api"
 
 interface BulkDeleteTagsDialogProps {
   open: boolean
@@ -48,14 +49,7 @@ export function BulkDeleteTagsDialog({
   useEffect(() => {
     if (open && workspaceId && apiKey) {
       setLoading(true)
-      fetch(`/api/proxy/tags/${workspaceId}?apiKey=${encodeURIComponent(apiKey)}`)
-        .then(async (res) => {
-          if (!res.ok) {
-            const errorData = await res.json().catch(() => ({})) as { error?: string }
-            throw new Error(errorData.error || `HTTP ${res.status}: Failed to load tags`)
-          }
-          return (await res.json()) as { id: string; name: string }[]
-        })
+      fetchProxy<{ id: string; name: string }[]>(`/api/proxy/tags/${workspaceId}`, apiKey)
         .then((data) => setTags(data))
         .catch(() =>
           setToast({ type: "error", message: "Failed to load tags." })
@@ -93,23 +87,22 @@ export function BulkDeleteTagsDialog({
     setDeleting(true)
     setToast(null)
     try {
-      const res = await fetch(
-        `/api/proxy/workspaces/${workspaceId}/tags/bulk-delete`,
-        {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ apiKey, tagIds: Array.from(selectedTags) }),
-        }
-      )
-      const data = await res.json() as { 
+      const data = await fetchProxy<{ 
         error?: string
         message?: string
         deleted?: number
         failed?: number
         skipped?: number
         details?: { failed?: { id: string; reason: string }[]; skipped?: { id: string; reason: string }[] }
-      }
-      if (res.ok || res.status === 207) {
+      }>(
+        `/api/proxy/workspaces/${workspaceId}/tags/bulk-delete`,
+        apiKey,
+        {
+          method: "DELETE",
+          body: JSON.stringify({ tagIds: Array.from(selectedTags) }),
+        }
+      )
+      if (!data.error) {
         const deletedCount = data.deleted ?? selectedTags.size
         let message = data.message || "Tags deleted successfully."
         if (data.skipped && data.skipped > 0) {
