@@ -74,6 +74,8 @@ export default function AppPage() {
   const projectTaskEditorRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const tagsEditorRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const descriptionEditorRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  const isFetchingEntriesRef = useRef(false)
+  const pendingFetchRef = useRef(false)
 
   const defaultDateRange = useMemo(() => getLast30DaysRange(), [])
 
@@ -373,6 +375,13 @@ export default function AppPage() {
       setSelectedIds(new Set())
       return;
     }
+    // Prevent overlapping fetches
+    if (isFetchingEntriesRef.current) {
+      // Mark that another fetch was requested while one is in-flight; it will trigger another run afterwards
+      pendingFetchRef.current = true
+      return
+    }
+    isFetchingEntriesRef.current = true
     setLoading(true)
     // Interpret the dateRange start/end as wall time in selected timezone and send as UTC Z strings
     const toUtcIso = (d: Date) => {
@@ -395,8 +404,9 @@ export default function AppPage() {
     const start = toUtcIso(dateRange.startDate)
     const end = toUtcIso(dateRange.endDate)
     
-    // Fetch entries for each selected project and combine
-    Promise.all(projectIds.map(pid => 
+    // Fetch entries for each selected project and combine. Deduplicate projectIds to avoid duplicate requests.
+    const uniqueProjectIds = Array.from(new Set(projectIds.filter(Boolean)))
+    Promise.all(uniqueProjectIds.map(pid => 
       fetch(`/api/proxy/time-entries/${workspaceId}/${userId}?apiKey=${apiKey}&projectId=${pid}&start=${start}&end=${end}`)
         .then(async r => {
           if (!r.ok) {
@@ -436,12 +446,22 @@ export default function AppPage() {
         setTimeEntries(transformedEntries)
         setSelectedIds(new Set())
         setLoading(false)
+        isFetchingEntriesRef.current = false
+        if (pendingFetchRef.current) {
+          pendingFetchRef.current = false
+          fetchEntries()
+        }
       })
       .catch((error) => {
         setTimeEntries([]);
         const errorMessage = error instanceof Error ? error.message : "Failed to load entries";
         setToast({ type: "error", message: errorMessage });
         setLoading(false)
+        isFetchingEntriesRef.current = false
+        if (pendingFetchRef.current) {
+          pendingFetchRef.current = false
+          fetchEntries()
+        }
       })
   }, [apiKey, workspaceId, userId, dateRange, projectIds, defaultTimezone, setTimeEntries, tags, tasks])
 
@@ -656,7 +676,7 @@ export default function AppPage() {
     return newTag
   }
 
-  const handleSaveRow = async (entry: typeof timeEntries[number]) => {
+  const handleSaveRow = async (entry: typeof timeEntries[number], options?: { skipRefresh?: boolean }) => {
     setSavingRows(s => new Set(s).add(entry.id))
     setToast(null)
     // Declare allowedKeys once at the top (do NOT send userId in the request body)
@@ -793,7 +813,7 @@ export default function AppPage() {
         }
         setToast({ type: "success", message: "Saved" })
         setModifiedRows(s => { const n = new Set(s); n.delete(entry.id); return n })
-        fetchEntries()
+        if (!options?.skipRefresh) fetchEntries()
         setSavingRows(s => { const n = new Set(s); n.delete(entry.id); return n })
         return
       } catch (error) {
@@ -852,6 +872,7 @@ export default function AppPage() {
       }
       setToast({ type: "success", message: "Saved" })
       setModifiedRows(s => { const n = new Set(s); n.delete(entry.id); return n })
+      if (!options?.skipRefresh) fetchEntries()
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Save failed";
       setToast({ type: "error", message: errorMessage })
@@ -905,8 +926,9 @@ export default function AppPage() {
     if (Array.isArray(timeEntries)) {
       for (const id of modifiedRows) {
         const entry = timeEntries.find((e) => e.id === id)
-        if (entry) await handleSaveRow(entry)
+        if (entry) await handleSaveRow(entry, { skipRefresh: true })
       }
+      fetchEntries()
     }
     setToast({ type: "success", message: "Bulk save complete" })
     setModifiedRows(new Set())

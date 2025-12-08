@@ -85,7 +85,7 @@ export class ClockifyAPI {
   }
 
   async getTags(workspaceId: string) {
-    return (await this.axiosInstance!.get(`/workspaces/${workspaceId}/tags`)).data as { id: string; name: string }[];
+    return (await this.axiosInstance!.get(`/workspaces/${workspaceId}/tags/?page-size=500`)).data as { id: string; name: string }[];
   }
 
   async createTag(workspaceId: string, name: string) {
@@ -304,11 +304,13 @@ export class ClockifyAPI {
   }
 
   async getProjects(workspaceId: string) {
-    return (await this.axiosInstance!.get(`/workspaces/${workspaceId}/projects`)).data as { id: string; name: string }[]
+    const res = (await this.axiosInstance!.get(`/workspaces/${workspaceId}/projects/?page-size=500`));
+    const data = res.data as { id: string; name: string }[]
+    return data
   }
 
   async getTasks(workspaceId: string, projectId: string) {
-    return (await this.axiosInstance!.get(`/workspaces/${workspaceId}/projects/${projectId}/tasks`)).data as { id: string; name: string }[]
+    return (await this.axiosInstance!.get(`/workspaces/${workspaceId}/projects/${projectId}/tasks/?page-size=500`)).data as { id: string; name: string }[]
   }
 
   async createTask(workspaceId: string, projectId: string, name: string): Promise<string> {
@@ -337,8 +339,7 @@ export class ClockifyAPI {
     if (projectId) params.project = projectId
     if (start) params.start = start
     if (end) params.end = end
-    // Official endpoint: /workspaces/{workspaceId}/user/{userId}/time-entries
-    return (await this.axiosInstance!.get(`/workspaces/${workspaceId}/user/${userId}/time-entries`, { params })).data as TimeEntry[]
+    return (await this.axiosInstance!.get(`/workspaces/${workspaceId}/user/${userId}/time-entries/?page-size=500`, { params })).data as TimeEntry[]
   }
 
   async updateTimeEntry(workspaceId: string, userId: string, entryId: string, data: Partial<TimeEntry> & { tags?: string[] }) {
