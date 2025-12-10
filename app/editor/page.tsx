@@ -1,14 +1,14 @@
 "use client"
 import { useEffect, useState, useRef, useCallback, useMemo } from "react"
+import Link from "next/link"
 import { useClockifyStore } from "../../lib/store"
 import { Button } from "../../components/ui/button"
-import { Select } from "../../components/ui/select"
 import { BulkUploadDialog } from "../../components/BulkUploadDialog"
 import { BulkDeleteTagsDialog } from "../../components/BulkDeleteTagsDialog"
 import { BulkDeleteTasksDialog } from "../../components/BulkDeleteTasksDialog"
-import { Skeleton } from "../../components/ui/skeleton"
 import { FilterBar } from "../../components/editor/FilterBar"
 import { BulkActions } from "../../components/editor/BulkActions"
+import { HelpSection } from "../../components/editor/HelpSection"
 import { Toast } from "../../components/ui/toast"
 import { capture, identify, AnalyticsEvents } from "../../lib/analytics"
 import { fetchProxy } from "../../lib/client-api"
@@ -54,6 +54,7 @@ export default function AppPage() {
   const [savingRows, setSavingRows] = useState<Set<string>>(new Set())
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [selectionMode, setSelectionMode] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
   const isFetchingEntriesRef = useRef(false)
   const pendingFetchRef = useRef(false)
 
@@ -401,7 +402,8 @@ export default function AppPage() {
     if (apiKey && workspaceId && userId && dateRange && projectIds.length > 0) {
       fetchEntries()
     }
-  }, [apiKey, workspaceId, projectIds, userId, dateRange, fetchEntries])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiKey, workspaceId, projectIds, userId, dateRange])
 
   const addNewRow = () => {
     const tempId = `new-${Date.now()}`
@@ -804,64 +806,69 @@ export default function AppPage() {
   // dateRange is initialized from localStorage in the mount effect above
 
   return (
-    <div className="max-w-7xl mx-auto">
-      {/* Controls Section (mobile responsive) */}
-      {/* Controls Section (mobile responsive) */}
-      <FilterBar
-        workspaces={workspaces}
-        workspaceId={workspaceId}
-        onWorkspaceChange={setWorkspaceId}
-        projects={projects}
-        projectIds={projectIds}
-        onProjectsChange={setProjectIds}
-        dateRange={dateRange}
-        defaultDateRange={defaultDateRange}
-        onDateRangeChange={(val) => setDateRange(val)}
-        onRefresh={refreshAllReferenceData}
-        refreshing={refreshing}
-        onManageTags={() => setBulkDeleteTagsDialogOpen(true)}
-        onManageTasks={() => setBulkDeleteTasksDialogOpen(true)}
-      />
-
-      {/* Table Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div className="px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Time Entries</h2>
-            <Button
-              type="button"
-              variant={selectionMode ? "default" : "outline"}
-              onClick={() => {
-                setSelectionMode(!selectionMode)
-                if (selectionMode) {
-                  setSelectedIds(new Set())
-                }
-              }}
-              className="h-8 text-xs px-3 cursor-pointer font-medium"
-            >
-              {selectionMode ? 'Cancel Selection' : 'Select Entries'}
-            </Button>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-            <Button onClick={addNewRow} type="button" variant="outline" className="h-9 cursor-pointer flex-1 sm:flex-none">
-              <span className="hidden sm:inline">+ Add New Entry</span>
-              <span className="sm:hidden">+ Add</span>
-            </Button>
-            <Button onClick={() => setBulkDialogOpen(true)} type="button" variant="outline" className="h-9 cursor-pointer flex-1 sm:flex-none">
-              <span className="hidden sm:inline">📁 Bulk Upload</span>
-              <span className="sm:hidden">📁</span>
-            </Button>
-            <MagicButton />
-          </div>
+    <main className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-20">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="sticky top-4 z-30 mb-6 transition-all duration-200">
+          <FilterBar
+            workspaces={workspaces}
+            workspaceId={workspaceId}
+            onWorkspaceChange={setWorkspaceId}
+            projects={projects}
+            projectIds={projectIds}
+            onProjectsChange={(ids) => {
+              setProjectIds(ids)
+              // Reset filtered state when filters change if needed
+            }}
+            dateRange={dateRange}
+            defaultDateRange={defaultDateRange}
+            onDateRangeChange={setDateRange}
+            onRefresh={refreshAllReferenceData}
+            refreshing={refreshing}
+            onManageTags={() => setBulkDeleteTagsDialogOpen(true)}
+            onManageTasks={() => setBulkDeleteTasksDialogOpen(true)}
+          />
         </div>
-        <div className="entries-table-wrapper overflow-x-auto relative">
-          {loading ? (
-            <div className="p-8">
-              <Skeleton className="h-32 w-full" />
-            </div>
-          ) : (
 
-              Array.isArray(timeEntries) && timeEntries.length > 0 ? (
+        {projectIds.length === 0 ? (
+          <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+            <div className="text-4xl mb-4">👈</div>
+            <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">Select a project to begin</h3>
+            <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto">Choose one or more projects from the filter bar above to load time entries.</p>
+          </div>
+        ) : (
+          <>
+            {/* Actions & Stats Row */}
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-4">
+              <div className="flex items-center gap-2">
+                <Button onClick={addNewRow} className="shadow-sm bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700">
+                  <span className="mr-2 text-blue-600">+</span> Add Entry
+                </Button>
+                  <Button onClick={() => setBulkDialogOpen(true)} className="shadow-sm bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700">
+                    Import CSV
+                  </Button>
+                  <MagicButton />
+                </div>
+                <div className="text-sm text-slate-500 dark:text-slate-400 font-medium">
+                  {loading ? (
+                    <span className="flex items-center gap-2 text-blue-600">
+                      <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" /> Loading entries...
+                    </span>
+                  ) : (
+                    <span>{timeEntries.length} entries loaded</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Table Container */}
+              <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden relative min-h-[400px]">
+                {loading && (
+                  <div className="absolute inset-0 z-50 bg-white/50 dark:bg-slate-900/50 backdrop-blur-[1px] flex items-center justify-center">
+                    <div className="bg-white dark:bg-slate-800 p-4 rounded-full shadow-xl border border-slate-100 dark:border-slate-700">
+                      <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full" />
+                    </div>
+                  </div>
+                )}
+
                 <TimeEntryTable
                   timeEntries={timeEntries}
                   projects={projects}
@@ -886,49 +893,29 @@ export default function AppPage() {
                   onToggleCreateTaskUI={toggleCreateTaskUI}
                   onSetCreateTaskName={setCreateTaskName}
                 />
-            ) : (
-              <div className="text-center text-muted-foreground py-8">
-                <div className="flex flex-col items-center justify-center gap-2 py-6">
-                  <span className="text-4xl text-blue-400 mb-2" role="img" aria-label="Magnifying glass">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor"><circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" fill="none"/><line x1="16.65" y1="16.65" x2="21" y2="21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
-                  </span>
-                  <span className="font-medium text-lg">No time entries found</span>
-                  <span className="text-sm text-center max-w-xs">
-                    You don&apos;t have any entries for this period.<br />
-                    Click the &quot;<span className="font-semibold">+ New Entry</span>&quot; button to create your first entry, or try choosing another project or date range.
-                  </span>
-                </div>
               </div>
-            )
-          )}
-        </div>
+
+              {/* Bulk Actions Floating Bar */}
+              <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+                <BulkActions
+                  selectedCount={selectedIds.size}
+                  onDelete={handleBulkDeleteSelected}
+                  onSaveAll={handleBulkSave}
+                  hasModified={modifiedRows.size > 0}
+                  onToggleSelectionMode={() => {
+                    setSelectionMode(!selectionMode)
+                    if (selectionMode) setSelectedIds(new Set())
+                  }}
+                  selectionMode={selectionMode}
+                />
+            </div>
+
+              {/* Help Section */}
+              <HelpSection open={helpOpen} onToggle={() => setHelpOpen(!helpOpen)} />
+          </>
+        )}
       </div>
 
-      {/* Bulk Actions */}
-      <BulkActions
-        timeEntries={timeEntries}
-        selectedCount={selectedIds.size}
-        savingCount={savingRows.size}
-        modifiedCount={modifiedRows.size}
-        onBulkDelete={handleBulkDeleteSelected}
-        onBulkSave={handleBulkSave}
-      />
-
-      {/* Editor Instructions */}
-      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4 mt-4">
-        <h3 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2">How to use the editor:</h3>
-        <ul className="text-xs text-blue-800 dark:text-blue-200 space-y-1">
-          <li>• <strong>Click on any field</strong> to edit it inline (description, time, project/task, tags)</li>
-          <li>• <strong>Time editing:</strong> Click on start/end times or use the calendar icon to open date pickers</li>
-          <li>• <strong>Project/Task:</strong> Click to select from dropdowns or create new tasks</li>
-          <li>• <strong>Tags:</strong> Click to select existing tags or create new ones</li>
-          <li>• <strong>Save:</strong> Click the green save button (✓) to save individual changes</li>
-          <li>• <strong>Bulk actions:</strong> Select multiple entries and use bulk save/delete</li>
-          <li>• <strong>Billable toggle:</strong> Click the $ icon on the left of each row</li>
-        </ul>
-      </div>
-
-      {/* Bulk Upload Dialog */}
       <BulkUploadDialog
         open={bulkDialogOpen || bulkOpen}
         onClose={() => { setBulkDialogOpen(false); closeBulk(); }}
@@ -993,6 +980,6 @@ export default function AppPage() {
           {toast.message}
         </Toast>
       )}
-    </div>
+    </main>
   )
 }
