@@ -54,7 +54,7 @@ export default function AppNavLayout({ children }: { children: React.ReactNode }
   return (
     <div className={"min-h-screen flex flex-col bg-background text-foreground " + (theme === 'dark' ? 'dark' : '')}>
       {/* Top navbar */}
-      <header className="w-full flex items-center justify-between px-6 py-4 border-b border-border bg-card shadow-sm">
+      <header className="w-full flex lg:hidden items-center justify-between px-6 py-4 border-b border-border bg-card shadow-sm">
         <Link href="/">
           <div className="flex items-center">
             <Logo className="text-primary dark:text-white p-4 w-1/2 h-auto" title={APP_NAME} />

@@ -6,7 +6,11 @@ import { Button } from "../../components/ui/button"
 import { BulkUploadDialog } from "../../components/BulkUploadDialog"
 import { BulkDeleteTagsDialog } from "../../components/BulkDeleteTagsDialog"
 import { BulkDeleteTasksDialog } from "../../components/BulkDeleteTasksDialog"
-import { FilterBar } from "../../components/editor/FilterBar"
+import SettingsDialog from "../../components/SettingsDialog"
+import LogsDialog from "../../components/LogsDialog"
+import { EditorHeader } from "../../components/editor/EditorHeader"
+import { EditorToolbar } from "../../components/editor/EditorToolbar"
+import { FloatingActions } from "../../components/editor/FloatingActions"
 import { BulkActions } from "../../components/editor/BulkActions"
 import { HelpSection } from "../../components/editor/HelpSection"
 import { Toast } from "../../components/ui/toast"
@@ -15,7 +19,6 @@ import { fetchProxy } from "../../lib/client-api"
 import { TimeEntryTable } from "../../components/editor/TimeEntryTable"
 import { Task, TimeEntry } from "../../lib/store"
 import { getLast30DaysRange, toUtcIso, toLocalNaive, normalizeDate } from "../../lib/dateUtils"
-import MagicButton from "@/components/MagicButton"
 
 export const dynamic = 'force-dynamic'
 
@@ -45,6 +48,8 @@ export default function AppPage() {
   const closeBulk = useClockifyStore(state => state.closeBulkUpload)
   const [bulkDeleteTagsDialogOpen, setBulkDeleteTagsDialogOpen] = useState(false)
   const [bulkDeleteTasksDialogOpen, setBulkDeleteTasksDialogOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [logsOpen, setLogsOpen] = useState(false)
   const [modifiedRows, setModifiedRows] = useState<Set<string>>(new Set())
   const [toast, setToast] = useState<{ type: "success" | "error"; message: string } | null>(null)
   const [tags, setTags] = useState<{ id: string; name: string }[]>([])
@@ -806,48 +811,55 @@ export default function AppPage() {
   // dateRange is initialized from localStorage in the mount effect above
 
   return (
-    <main className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-20">
-      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="sticky top-4 z-30 mb-6 transition-all duration-200">
-          <FilterBar
-            workspaces={workspaces}
-            workspaceId={workspaceId}
-            onWorkspaceChange={setWorkspaceId}
-            projects={projects}
-            projectIds={projectIds}
-            onProjectsChange={(ids) => {
-              setProjectIds(ids)
-              // Reset filtered state when filters change if needed
-            }}
-            dateRange={dateRange}
-            defaultDateRange={defaultDateRange}
-            onDateRangeChange={setDateRange}
-            onRefresh={refreshAllReferenceData}
-            refreshing={refreshing}
-            onManageTags={() => setBulkDeleteTagsDialogOpen(true)}
-            onManageTasks={() => setBulkDeleteTasksDialogOpen(true)}
-          />
-        </div>
+    <>
+      {/* Header */}
+      <EditorHeader
+        workspaces={workspaces}
+        workspaceId={workspaceId}
+        onWorkspaceChange={setWorkspaceId}
+        projects={projects}
+        projectIds={projectIds}
+        onProjectsChange={(ids) => {
+          setProjectIds(ids)
+        }}
+        dateRange={dateRange}
+        defaultDateRange={defaultDateRange}
+        onDateRangeChange={setDateRange}
+        onRefresh={refreshAllReferenceData}
+        refreshing={refreshing}
+        onManageTags={() => setBulkDeleteTagsDialogOpen(true)}
+        onManageTasks={() => setBulkDeleteTasksDialogOpen(true)}
+      />
 
-        {projectIds.length === 0 ? (
-          <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
-            <div className="text-4xl mb-4">👈</div>
-            <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">Select a project to begin</h3>
-            <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto">Choose one or more projects from the filter bar above to load time entries.</p>
-          </div>
-        ) : (
-          <>
-            {/* Actions & Stats Row */}
-            <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mb-4">
-              <div className="flex items-center gap-2">
-                <Button onClick={addNewRow} className="shadow-sm bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700">
-                  <span className="mr-2 text-blue-600">+</span> Add Entry
-                </Button>
-                  <Button onClick={() => setBulkDialogOpen(true)} className="shadow-sm bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700">
-                    Import CSV
-                  </Button>
-                  <MagicButton />
-                </div>
+      {/* Desktop Toolbar (Left Sidebar) */}
+      <EditorToolbar 
+        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenLogs={() => setLogsOpen(true)}
+      />
+
+      {/* Settings and Logs Dialogs */}
+      <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <LogsDialog open={logsOpen} onClose={() => setLogsOpen(false)} />
+
+      {/* Floating Action Buttons */}
+      <FloatingActions
+        onAddEntry={addNewRow}
+        onImportCSV={() => setBulkDialogOpen(true)}
+      />
+
+      {/* Main Content - lg:pl-14 accounts for desktop sidebar */}
+      <main className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-20 pt-[88px] md:pt-14 lg:pl-14">
+        <div className="max-w-[1800px] mx-auto px-6 py-6">
+          {projectIds.length === 0 ? (
+            <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
+              <div className="text-4xl mb-4">☝️</div>
+              <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">Select a project to begin</h3>
+              <p className="text-slate-500 dark:text-slate-400 max-w-md mx-auto">Choose one or more projects from the header above to load time entries.</p>
+            </div>
+          ) : (
+            <>
+                {/* Stats Row */}
+                <div className="flex justify-between items-center mb-4">
                 <div className="text-sm text-slate-500 dark:text-slate-400 font-medium">
                   {loading ? (
                     <span className="flex items-center gap-2 text-blue-600">
@@ -908,14 +920,16 @@ export default function AppPage() {
                   }}
                   selectionMode={selectionMode}
                 />
-            </div>
+                </div>
 
               {/* Help Section */}
               <HelpSection open={helpOpen} onToggle={() => setHelpOpen(!helpOpen)} />
-          </>
-        )}
-      </div>
+            </>
+          )}
+        </div>
+      </main>
 
+      {/* Dialogs */}
       <BulkUploadDialog
         open={bulkDialogOpen || bulkOpen}
         onClose={() => { setBulkDialogOpen(false); closeBulk(); }}
@@ -974,12 +988,13 @@ export default function AppPage() {
           fetchEntries();
         }}
       />
+
       {/* Toast */}
       {toast && (
         <Toast open={!!toast} onClose={() => setToast(null)} duration={4000} className={toast.type === "success" ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}>
           {toast.message}
         </Toast>
       )}
-    </main>
+    </>
   )
 }
