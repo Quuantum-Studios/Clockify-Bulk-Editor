@@ -41,6 +41,7 @@ export function EditorHeader({
   onManageTasks
 }: EditorHeaderProps) {
   const [showDatePicker, setShowDatePicker] = useState(false)
+  const [showProjectPicker, setShowProjectPicker] = useState(false)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
   const [theme, setTheme] = useState("light")
   const [mounted, setMounted] = useState(false)
@@ -83,9 +84,23 @@ export function EditorHeader({
         {/* Main Header Row */}
         <div className="h-14 max-w-[1920px] mx-auto px-4 flex items-center gap-3">
           {/* Logo */}
-          <Link href="/" className="flex-shrink-0">
-            <Logo className="h-6 w-auto text-gray-900 dark:text-white" />
-          </Link>
+          {/* Exit Button & Logo */}
+          <div className="flex items-center gap-2">
+            <Link href="/">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 w-8 p-0 cursor-pointer text-slate-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
+                title="Exit Editor"
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </Link>
+            <Link href="/" className="flex-shrink-0">
+              <Logo className="h-6 w-auto text-gray-900 dark:text-white" />
+            </Link>
+          </div>
 
           <div className="hidden md:block w-px h-6 bg-slate-200 dark:bg-slate-700"></div>
 
@@ -134,14 +149,14 @@ export function EditorHeader({
             </div>
           </div>
 
-          {/* Actions - Only on tablet, hidden on desktop (actions in sidebar) */}
-          <div className="hidden md:flex lg:hidden items-center gap-1">
+          {/* Actions - Visible on Desktop and Tablet */}
+          <div className="hidden md:flex items-center gap-1">
             <Button 
               onClick={onRefresh} 
               type="button" 
               variant="ghost" 
               size="sm"
-              className="h-8 w-8 p-0 cursor-pointer text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800" 
+              className="h-8 w-8 p-0 cursor-pointer text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
               title="Refresh data" 
               disabled={refreshing}
             >
@@ -175,20 +190,7 @@ export function EditorHeader({
               <ListTodo className="h-4 w-4" />
             </Button>
 
-            <div className="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-1"></div>
-
-            {/* Exit Button */}
-            <Link href="/">
-              <Button 
-                type="button" 
-                variant="ghost" 
-                size="sm"
-                className="h-8 w-8 p-0 cursor-pointer text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950"
-                title="Exit to home"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </Link>
+            {/* Removed Exit Button from here */}
           </div>
 
           {/* Mobile Menu Button */}
@@ -214,14 +216,16 @@ export function EditorHeader({
           </Select>
 
           <div className="min-w-[140px]">
-            <ProjectSelector
-              selectedProjectIds={projectIds}
-              availableProjects={projects}
-              onChange={onProjectsChange}
-              placeholder="Projects..."
-              className="h-8 w-full text-xs"
-              onSelectAll={() => onProjectsChange(projects.map(p => p.id))}
-            />
+            <button
+              type="button"
+              onClick={() => setShowProjectPicker(true)}
+              className="h-8 w-full px-3 border rounded-md bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-xs text-left cursor-pointer whitespace-nowrap overflow-hidden text-ellipsis flex items-center justify-between"
+            >
+              <span className="truncate">
+                {projectIds.length > 0 ? `${projectIds.length} selected` : 'Projects...'}
+              </span>
+              <span className="ml-1 opacity-50">▼</span>
+            </button>
           </div>
 
           <button
@@ -230,6 +234,39 @@ export function EditorHeader({
             className="h-8 px-2 border rounded-md bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-xs cursor-pointer whitespace-nowrap"
           >
             📅 Date
+          </button>
+        </div>
+
+        {/* Mobile Actions Toolbar */}
+        <div className="md:hidden px-4 py-2 border-t border-slate-100 dark:border-slate-800 flex gap-2">
+          <button
+            onClick={onRefresh}
+            disabled={refreshing}
+            className="flex-1 flex items-center justify-center gap-2 h-9 px-3 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer disabled:opacity-50 border border-slate-200 dark:border-slate-700"
+          >
+            {refreshing ? (
+              <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <RotateCcw className="h-4 w-4" />
+            )}
+            <span className="text-xs font-medium">Refresh</span>
+          </button>
+
+          <button
+            onClick={onManageTags}
+            className="flex-1 flex items-center justify-center gap-2 h-9 px-3 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer border border-slate-200 dark:border-slate-700"
+          >
+            <Tag className="h-4 w-4" />
+            <span className="text-xs font-medium">Tags</span>
+          </button>
+
+          <button
+            onClick={onManageTasks}
+            disabled={projectIds.length === 0}
+            className="flex-1 flex items-center justify-center gap-2 h-9 px-3 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer disabled:opacity-50 border border-slate-200 dark:border-slate-700"
+          >
+            <ListTodo className="h-4 w-4" />
+            <span className="text-xs font-medium">Tasks</span>
           </button>
         </div>
       </header>
@@ -246,33 +283,7 @@ export function EditorHeader({
               </button>
             </div>
 
-            <button
-              onClick={() => { onRefresh(); setShowMobileMenu(false); }}
-              disabled={refreshing}
-              className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-            >
-              <RotateCcw className="h-4 w-4" />
-              <span>Refresh</span>
-            </button>
 
-            <button
-              onClick={() => { onManageTags(); setShowMobileMenu(false); }}
-              className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-            >
-              <Tag className="h-4 w-4" />
-              <span>Manage Tags</span>
-            </button>
-
-            <button
-              onClick={() => { onManageTasks(); setShowMobileMenu(false); }}
-              disabled={projectIds.length === 0}
-              className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer disabled:opacity-50"
-            >
-              <ListTodo className="h-4 w-4" />
-              <span>Manage Tasks</span>
-            </button>
-
-            <div className="border-t border-slate-200 dark:border-slate-700 my-2" />
 
             <button
               className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
@@ -302,6 +313,57 @@ export function EditorHeader({
               <X className="h-4 w-4" />
               <span>Exit Editor</span>
             </Link>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Date Picker Overlay */}
+      {showDatePicker && (
+        <div className="md:hidden fixed inset-0 z-[100] flex items-end sm:items-center justify-center pointer-events-none">
+          <div className="absolute inset-0 bg-black/50 pointer-events-auto" onClick={() => setShowDatePicker(false)} />
+          <div className="relative bg-white dark:bg-slate-900 w-full sm:w-auto p-4 rounded-t-xl sm:rounded-xl shadow-xl pointer-events-auto animate-in slide-in-from-bottom-10 mb-0 pb-8 border-t border-slate-200 dark:border-slate-800">
+            <div className="flex justify-between items-center mb-4">
+              <span className="font-semibold text-slate-900 dark:text-white">Select Dates</span>
+              <button onClick={() => setShowDatePicker(false)} className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="flex justify-center">
+              <DateRangePicker value={dateRange || defaultDateRange} onChange={val => { onDateRangeChange(val); setShowDatePicker(false); }} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Project Picker Overlay */}
+      {showProjectPicker && (
+        <div className="md:hidden fixed inset-0 z-[100] flex items-end sm:items-center justify-center pointer-events-none">
+          <div className="absolute inset-0 bg-black/50 pointer-events-auto" onClick={() => setShowProjectPicker(false)} />
+          <div className="relative bg-white dark:bg-slate-900 w-full sm:w-[400px] p-4 rounded-t-xl sm:rounded-xl shadow-xl pointer-events-auto animate-in slide-in-from-bottom-10 mb-0 pb-8 border-t border-slate-200 dark:border-slate-800 max-h-[85vh] flex flex-col">
+            <div className="flex justify-between items-center mb-4 shrink-0">
+              <span className="font-semibold text-slate-900 dark:text-white">
+                Select Projects ({projectIds.length})
+              </span>
+              <button
+                onClick={() => setShowProjectPicker(false)}
+                className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-hidden">
+              <ProjectSelector
+                mode="inline"
+                selectedProjectIds={projectIds}
+                availableProjects={projects}
+                onChange={onProjectsChange}
+                onSelectAll={() => onProjectsChange(projects.map(p => p.id))}
+                className="h-full"
+              />
+            </div>
+            <div className="mt-4 pt-2 border-t border-slate-100 dark:border-slate-800 shrink-0">
+              <Button onClick={() => setShowProjectPicker(false)} className="w-full">
+                Done
+              </Button>
+            </div>
           </div>
         </div>
       )}

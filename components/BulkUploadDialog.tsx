@@ -453,7 +453,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
           })()
           return (
             <div key={title} className="flex items-center gap-3">
-              <div className={"flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium " + (completed ? 'bg-green-600 text-white' : active ? 'bg-primary text-white' : 'bg-muted text-muted-foreground')}>
+              <div className={"flex items-center justify-center min-w-8 w-8 h-8 rounded-full text-sm font-medium " + (completed ? 'bg-green-600 text-white' : active ? 'bg-primary text-white' : 'bg-muted text-muted-foreground')}>
                 {completed ? '✓' : idx}
               </div>
               <div className="hidden md:block text-sm " aria-current={active ? 'step' : undefined}>
@@ -487,16 +487,16 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
 
     if (step > 1) {
       left.push(
-        <Button key="back" onClick={() => {
+        <Button key="back" variant="outline" onClick={() => {
           if (step === 2) setStep(1)
           if (step === 3) { setTaskCheck({}); setStep(2) }
           if (step === 4) setStep(3)
           if (step === 5) setStep(4)
-        }} className="cursor-pointer">Back</Button>
+        }} className="cursor-pointer w-full sm:w-auto order-2 sm:order-none">Back</Button>
       )
     } else {
       left.push(
-        <Button key="cancel" variant="secondary" onClick={onClose} className="cursor-pointer">Cancel</Button>
+        <Button key="cancel" variant="outline" onClick={onClose} className="cursor-pointer w-full sm:w-auto order-2 sm:order-none">Cancel</Button>
       )
     }
 
@@ -516,14 +516,14 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
               clearAutoTimer()
             }
           }}
-          className="cursor-pointer"
+          className="cursor-pointer w-full sm:w-auto"
         >
           <Zap className="w-4 h-4 mr-1" />
           Auto Process
         </Button>
       )
       right.push(
-        <Button ref={step1PrimaryRef} key="next" onClick={async () => { try { await verifyProjects(); setStep(2) } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } }} disabled={rows.length === 0 || missingHeaders.length > 0} className="cursor-pointer">
+        <Button ref={step1PrimaryRef} key="next" onClick={async () => { try { await verifyProjects(); setStep(2) } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } }} disabled={rows.length === 0 || missingHeaders.length > 0} className="cursor-pointer w-full sm:w-auto">
           {verifyingProjects ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : (autoRunning && autoCountdown !== null ? `Next in ${autoCountdown}s` : 'Next: Verify Projects')}
         </Button>
       )
@@ -531,7 +531,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
 
     if (step === 2) {
       right.push(
-        <Button key="reverify" onClick={reverifyProjects} className="cursor-pointer">
+        <Button key="reverify" variant="outline" onClick={reverifyProjects} className="cursor-pointer w-full sm:w-auto">
           {verifyingProjects ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Reverify'}
         </Button>
       )
@@ -545,7 +545,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
             }
             setStep(3)
           } catch (e) { setToast({ type: 'error', message: (e as Error).message }) }
-        }} className="cursor-pointer">
+        }} className="cursor-pointer w-full sm:w-auto">
           {verifyingAllTasks ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : (autoRunning && autoCountdown !== null ? `Next in ${autoCountdown}s` : 'Next: Verify Tasks')}
         </Button>
       )
@@ -553,7 +553,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
 
     if (step === 3) {
       right.push(
-        <Button key="reverifyTasks" onClick={refreshAllTasks} className="cursor-pointer">
+        <Button key="reverifyTasks" variant="outline" onClick={refreshAllTasks} className="cursor-pointer w-full sm:w-auto">
           {verifyingAllTasks ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Reverify'}
         </Button>
       )
@@ -573,7 +573,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
           } finally { 
             setCreatingTasks(false) 
           } 
-        }} className="cursor-pointer">
+        }} className="cursor-pointer w-full sm:w-auto">
           {creatingTasks ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : (autoRunning && autoCountdown !== null ? `Next in ${autoCountdown}s` : (anyMissingTasks ? 'Create & Proceed' : 'Next: Verify Tags'))}
         </Button>
       )
@@ -581,7 +581,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
 
     if (step === 4) {
       right.push(
-        <Button key="reverifyTags" onClick={async () => { try { await verifyTags(); } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } }} className="cursor-pointer">
+        <Button key="reverifyTags" variant="outline" onClick={async () => { try { await verifyTags(); } catch (e) { setToast({ type: 'error', message: (e as Error).message }) } }} className="cursor-pointer w-full sm:w-auto">
           {verifyingTags ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : 'Reverify'}
         </Button>
       )
@@ -600,7 +600,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
           } finally { 
             setCreatingTags(false) 
           } 
-        }} className="cursor-pointer">
+        }} className="cursor-pointer w-full sm:w-auto">
           {creatingTags ? <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : (autoRunning && autoCountdown !== null ? `Next in ${autoCountdown}s` : (hasMissingTags ? 'Create & Proceed' : 'Next: Preview'))}
         </Button>
       )
@@ -608,7 +608,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
 
     if (step === 5) {
       right.push(
-        <Button ref={step5PrimaryRef} key="populate" onClick={handleUpload} className="cursor-pointer">
+        <Button ref={step5PrimaryRef} key="populate" onClick={handleUpload} className="cursor-pointer w-full sm:w-auto">
           {uploading ? 'Uploading...' : (autoRunning && autoCountdown !== null ? `Proceed in ${autoCountdown}s` : (typeof onPopulate === 'function' ? 'Populate to Dashboard' : 'Proceed to Upload'))}
         </Button>
       )
@@ -616,16 +616,16 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
 
     if (autoRunning) {
       right.push(
-        <Button key="stopAuto" variant="secondary" onClick={() => { setAutoRunning(false); setAutoCountdown(null); clearAutoTimer() }} className="cursor-pointer">
+        <Button key="stopAuto" variant="secondary" onClick={() => { setAutoRunning(false); setAutoCountdown(null); clearAutoTimer() }} className="cursor-pointer w-full sm:w-auto">
           Stop
         </Button>
       )
     }
 
     return (
-      <div className="flex w-full items-center justify-between gap-2">
-        <div className="flex gap-2">{left}</div>
-        <div className="flex gap-2">{right}</div>
+      <div className="flex flex-col-reverse sm:flex-row w-full items-center justify-between gap-3 sm:gap-2">
+        <div className="flex flex-col-reverse sm:flex-row w-full sm:w-auto gap-2">{left}</div>
+        <div className="flex flex-col-reverse sm:flex-row w-full sm:w-auto gap-2">{right}</div>
       </div>
     )
   }
@@ -633,10 +633,19 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
   return (
     <Sheet onClick={onClose}>
       <div
-        className="bg-background rounded-lg w-[98vw] max-w-4xl flex flex-col gap-4 p-6 shadow-xl relative"
+        className="bg-background rounded-lg w-[98vw] max-w-4xl flex flex-col gap-4 p-4 md:p-6 shadow-xl relative max-h-[95vh] overflow-y-auto"
         onClick={e => e.stopPropagation()}
       >
-        <div className="grid grid-cols-1 md:grid-cols-[1fr,auto] md:items-start gap-6 bg-white dark:bg-gray-900 rounded-lg shadow-sm px-4 py-3 border border-gray-200 dark:border-gray-700">
+        <button
+          onClick={onClose}
+          className="absolute top-2 right-2 md:top-4 md:right-4 p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-full transition-colors z-10"
+          aria-label="Close"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+        <div className="grid grid-cols-1 md:grid-cols-[1fr,auto] md:items-start gap-4 md:gap-6 bg-white dark:bg-gray-900 rounded-lg shadow-sm px-4 py-3 border border-gray-200 dark:border-gray-700">
           <div className="flex-1 min-w-0 md:pr-2">
             <h2 className="text-2xl font-bold text-primary mb-0.5 flex items-center gap-2 leading-tight">
               <svg className="w-5 h-5 text-blue-500 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -820,7 +829,7 @@ export function BulkUploadDialog({ open, onClose, workspaceId, apiKey, userId, o
             {toast.message}
           </Toast>
         )}
-        <div className="sticky bottom-0 left-0 right-0 -mx-6 mt-4 border-t bg-background/80 backdrop-blur supports-backdrop-filter:bg-background/60">
+        <div className="sticky bottom-0 left-0 right-0 -mx-4 md:-mx-6 mt-4 border-t bg-background/80 backdrop-blur supports-backdrop-filter:bg-background/60">
           <div className="p-4">
             {renderStepControls()}
           </div>

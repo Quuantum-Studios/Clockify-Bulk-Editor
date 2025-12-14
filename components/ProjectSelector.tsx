@@ -22,14 +22,16 @@ export function ProjectSelector({
   onChange, 
   placeholder = "Select project",
   className = "",
-  onSelectAll
-}: ProjectSelectorProps) {
-  const [isOpen, setIsOpen] = useState(false)
+  onSelectAll,
+  mode = "dropdown" // 'dropdown' | 'inline'
+}: ProjectSelectorProps & { mode?: "dropdown" | "inline" }) {
+  const [isOpen, setIsOpen] = useState(mode === "inline")
   const [searchTerm, setSearchTerm] = useState("")
   const dropdownRef = useRef<HTMLDivElement>(null)
 
-  // Close dropdown when clicking outside
+  // Close dropdown when clicking outside (only in dropdown mode)
   useEffect(() => {
+    if (mode === "inline") return
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false)
@@ -39,7 +41,12 @@ export function ProjectSelector({
 
     document.addEventListener("mousedown", handleClickOutside)
     return () => document.removeEventListener("mousedown", handleClickOutside)
-  }, [])
+  }, [mode])
+
+  // In inline mode, it's always open
+  useEffect(() => {
+    if (mode === "inline") setIsOpen(true)
+  }, [mode])
 
   const handleProjectToggle = (projectId: string) => {
     if (projectId === "__all__") {
@@ -65,6 +72,60 @@ export function ProjectSelector({
   ).filter(Boolean) as Project[]
 
   const isAllSelected = selectedProjectIds.length === availableProjects.length && availableProjects.length > 0
+
+  if (mode === "inline") {
+    return (
+      <div className={`w-full ${className}`}>
+        {/* Search input */}
+        <div className="mb-2">
+          <Input
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search projects..."
+            className="text-sm"
+            autoFocus={false}
+          />
+        </div>
+
+        {/* List Container */}
+        <div className="max-h-[60vh] overflow-y-auto border rounded-md divide-y divide-gray-100 dark:divide-gray-800">
+          {/* All projects option */}
+          {onSelectAll && (
+            <button
+              type="button"
+              onClick={() => handleProjectToggle("__all__")}
+              className={`w-full text-left px-3 py-3 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center justify-between cursor-pointer ${isAllSelected ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
+            >
+              <span className="font-medium">All projects</span>
+              {isAllSelected && <span className="text-blue-600 dark:text-blue-400">✓</span>}
+            </button>
+          )}
+
+          {/* Available projects */}
+          {filteredProjects.length > 0 ? (
+            filteredProjects.map(project => {
+              const isSelected = selectedProjectIds.includes(project.id)
+              return (
+                <button
+                  key={project.id}
+                  type="button"
+                  onClick={() => handleProjectToggle(project.id)}
+                  className={`w-full text-left px-3 py-3 text-sm hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center justify-between cursor-pointer ${isSelected ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
+                >
+                  <span>{project.name}</span>
+                  {isSelected && <span className="text-blue-600 dark:text-blue-400">✓</span>}
+                </button>
+              )
+            })
+          ) : (
+            <div className="p-4 text-center text-sm text-gray-500">
+              No projects found
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className={`relative ${className}`} ref={dropdownRef} style={{ overflow: "visible" }}>

@@ -1,27 +1,17 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Settings, FileText, Sun, Moon, RotateCcw, Tag, ListTodo } from "lucide-react"
+import { Settings, FileText, Sun, Moon } from "lucide-react"
 import { useClockifyStore } from "../../lib/store"
 
 interface EditorToolbarProps {
   onOpenSettings: () => void
   onOpenLogs: () => void
-  onRefresh: () => void
-  refreshing: boolean
-  onManageTags: () => void
-  onManageTasks: () => void
-  tasksDisabled: boolean
 }
 
 export function EditorToolbar({ 
   onOpenSettings, 
   onOpenLogs,
-  onRefresh,
-  refreshing,
-  onManageTags,
-  onManageTasks,
-  tasksDisabled
 }: EditorToolbarProps) {
   const [theme, setTheme] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -44,37 +34,7 @@ export function EditorToolbar({
 
   return (
     <aside className="hidden lg:flex fixed left-0 top-14 bottom-0 w-14 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex-col items-center py-4 gap-1 z-40">
-      {/* Top Actions */}
-      <button
-        onClick={onRefresh}
-        disabled={refreshing}
-        className="w-10 h-10 flex items-center justify-center rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer disabled:opacity-50"
-        title="Refresh data"
-      >
-        {refreshing ? (
-          <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-        ) : (
-          <RotateCcw className="w-4 h-4" />
-        )}
-      </button>
-
-      <button
-        onClick={onManageTags}
-        className="w-10 h-10 flex items-center justify-center rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
-        title="Manage Tags"
-      >
-        <Tag className="w-4 h-4" />
-      </button>
-
-      <button
-        onClick={onManageTasks}
-        disabled={tasksDisabled}
-        className="w-10 h-10 flex items-center justify-center rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer disabled:opacity-50"
-        title="Manage Tasks"
-      >
-        <ListTodo className="w-4 h-4" />
-      </button>
-
+      {/* Top Actions removed */}
       <div className="flex-1" />
 
       {/* Bottom Actions */}

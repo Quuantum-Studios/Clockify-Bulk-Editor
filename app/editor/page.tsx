@@ -17,6 +17,7 @@ import { Toast } from "../../components/ui/toast"
 import { capture, identify, AnalyticsEvents } from "../../lib/analytics"
 import { fetchProxy } from "../../lib/client-api"
 import { TimeEntryTable } from "../../components/editor/TimeEntryTable"
+import { TimeEntryList } from "../../components/editor/TimeEntryList"
 import { Task, TimeEntry } from "../../lib/store"
 import { getLast30DaysRange, toUtcIso, toLocalNaive, normalizeDate } from "../../lib/dateUtils"
 
@@ -881,43 +882,70 @@ export default function AppPage() {
                   </div>
                 )}
 
-                <TimeEntryTable
-                  timeEntries={timeEntries}
-                  projects={projects}
-                  tasks={tasks}
-                  tags={tags}
-                  editing={editing}
-                  modifiedRows={modifiedRows}
-                  savingRows={savingRows}
-                  selectionMode={selectionMode}
-                  selectedIds={selectedIds}
-                  createTaskState={createTaskState}
-                  onSelectAll={toggleSelectAll}
-                  onSelectOne={toggleSelectOne}
-                  onEdit={handleEdit}
-                  onSaveRow={handleSaveRow}
-                  onDeleteRow={handleDeleteRow}
-                  onUndoEdits={undoEdits}
-                  onRemoveRow={removeRow}
-                  onCreateTag={handleCreateTag}
-                  onFetchTasksForProject={fetchTasksForProject}
-                  onCreateTask={createTaskForEntry}
-                  onToggleCreateTaskUI={toggleCreateTaskUI}
-                  onSetCreateTaskName={setCreateTaskName}
-                />
+                  {/* Time Entry List (Mobile/Tablet) */}
+                  <div className="md:hidden">
+                    <TimeEntryList
+                      timeEntries={timeEntries}
+                      projects={projects}
+                      tasks={tasks}
+                      tags={tags}
+                      editing={editing}
+                      modifiedRows={modifiedRows}
+                      savingRows={savingRows}
+                      selectionMode={selectionMode}
+                      selectedIds={selectedIds}
+                      createTaskState={createTaskState}
+                      onSelectOne={toggleSelectOne}
+                      onEdit={handleEdit}
+                      onSaveRow={handleSaveRow}
+                      onDeleteRow={handleDeleteRow}
+                      onUndoEdits={undoEdits}
+                      onRemoveRow={removeRow}
+                      onCreateTag={handleCreateTag}
+                      onFetchTasksForProject={fetchTasksForProject}
+                      onCreateTask={createTaskForEntry}
+                      onToggleCreateTaskUI={toggleCreateTaskUI}
+                      onSetCreateTaskName={setCreateTaskName}
+                    />
+                  </div>
+
+                  {/* Time Entry Table (Desktop) */}
+                  <div className="hidden md:block overflow-x-auto pb-24">
+                    <TimeEntryTable
+                      timeEntries={timeEntries}
+                      projects={projects}
+                      tasks={tasks}
+                      tags={tags}
+                      editing={editing}
+                      modifiedRows={modifiedRows}
+                      savingRows={savingRows}
+                      selectionMode={selectionMode}
+                      selectedIds={selectedIds}
+                      createTaskState={createTaskState}
+                      onSelectAll={toggleSelectAll}
+                      onSelectOne={toggleSelectOne}
+                      onEdit={handleEdit}
+                      onSaveRow={handleSaveRow}
+                      onDeleteRow={handleDeleteRow}
+                      onUndoEdits={undoEdits}
+                      onRemoveRow={removeRow}
+                      onCreateTag={handleCreateTag}
+                      onFetchTasksForProject={fetchTasksForProject}
+                      onCreateTask={createTaskForEntry}
+                      onToggleCreateTaskUI={toggleCreateTaskUI}
+                      onSetCreateTaskName={setCreateTaskName}
+                    />
+                  </div>
               </div>
 
               {/* Bulk Actions Floating Bar */}
-              <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
                 <BulkActions
                   selectedCount={selectedIds.size}
                   onDelete={handleBulkDeleteSelected}
                   onSaveAll={handleBulkSave}
                   hasModified={modifiedRows.size > 0}
-                  onToggleSelectionMode={() => {
-                    setSelectionMode(!selectionMode)
-                    if (selectionMode) setSelectedIds(new Set())
-                  }}
+                    onToggleSelectionMode={() => setSelectionMode(!selectionMode)}
                   selectionMode={selectionMode}
                 />
                 </div>

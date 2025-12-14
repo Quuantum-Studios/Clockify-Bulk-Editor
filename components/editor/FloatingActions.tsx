@@ -11,56 +11,58 @@ interface FloatingActionsProps {
 
 export function FloatingActions({ onAddEntry, onImportCSV }: FloatingActionsProps) {
   const [voiceOpen, setVoiceOpen] = useState(false)
-  const [expanded, setExpanded] = useState(false)
+  const [isOpen, setIsOpen] = useState(false)
 
   return (
     <>
       <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
-        {/* Secondary actions - shown when expanded or always on desktop */}
-        <div className={`flex flex-col items-end gap-3 transition-all duration-300 ${expanded ? 'opacity-100 translate-y-0' : 'sm:opacity-100 sm:translate-y-0 opacity-0 translate-y-4 pointer-events-none sm:pointer-events-auto'}`}>
-          
+        {/* Speed Dial Actions */}
+        <div className={`flex flex-col items-end gap-3 transition-all duration-300 origin-bottom ${isOpen ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-90 translate-y-10 pointer-events-none'}`}>
+
+          {/* Add Entry Manually */}
+          <button
+            onClick={() => { onAddEntry(); setIsOpen(false); }}
+            className="group flex items-center gap-2 h-10 pr-4 pl-3 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-lg hover:shadow-xl transition-all"
+            title="Add Entry Manually"
+          >
+            <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center">
+              <Plus className="w-5 h-5" />
+            </div>
+            <span className="font-medium text-sm text-slate-700 dark:text-slate-200">Add Entry</span>
+          </button>
+
           {/* Magic Upload */}
           <button
-            onClick={() => setVoiceOpen(true)}
-            className="group relative flex items-center gap-2 h-12 pl-4 pr-5 rounded-full bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-lg shadow-purple-500/25 hover:shadow-xl hover:shadow-purple-500/40 transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer overflow-hidden"
+            onClick={() => { setVoiceOpen(true); setIsOpen(false); }}
+            className="group flex items-center gap-2 h-10 pr-4 pl-3 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-lg hover:shadow-xl transition-all"
             title="Magic Upload"
           >
-            {/* Shimmer effect */}
-            <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-            <Sparkles className="w-5 h-5 relative z-10 group-hover:rotate-12 transition-transform" />
-            <span className="relative z-10 font-medium text-sm whitespace-nowrap">Magic Upload</span>
+            <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <span className="font-medium text-sm text-slate-700 dark:text-slate-200">Magic Upload</span>
           </button>
 
           {/* Import CSV */}
           <button
-            onClick={onImportCSV}
-            className="group flex items-center gap-2 h-12 pl-4 pr-5 rounded-full bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-500/25 hover:shadow-xl hover:shadow-emerald-500/40 transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
+            onClick={() => { onImportCSV(); setIsOpen(false); }}
+            className="group flex items-center gap-2 h-10 pr-4 pl-3 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-lg hover:shadow-xl transition-all"
             title="Import CSV"
           >
-            <FileSpreadsheet className="w-5 h-5 group-hover:scale-110 transition-transform" />
-            <span className="font-medium text-sm whitespace-nowrap">Import CSV</span>
+            <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
+              <FileSpreadsheet className="w-5 h-5" />
+            </div>
+            <span className="font-medium text-sm text-slate-700 dark:text-slate-200">Import CSV</span>
           </button>
         </div>
 
-        {/* Primary FAB - Add Entry */}
+        {/* Main Toggle Button */}
         <button
-          onClick={onAddEntry}
-          onMouseEnter={() => setExpanded(true)}
-          onMouseLeave={() => setExpanded(false)}
-          className="group relative w-14 h-14 flex items-center justify-center rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/50 transition-all duration-300 hover:scale-110 active:scale-95 cursor-pointer"
-          title="Add Entry"
+          onClick={() => setIsOpen(!isOpen)}
+          className={`group relative w-14 h-14 flex items-center justify-center rounded-full text-white shadow-lg shadow-blue-500/30 hover:shadow-xl hover:shadow-blue-500/50 transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer z-50 ${isOpen ? 'bg-slate-700 rotate-45' : 'bg-blue-600'}`}
+          title={isOpen ? "Close Menu" : "Add New"}
         >
-          {/* Pulse ring */}
-          <span className="absolute inset-0 rounded-full bg-blue-500 animate-ping opacity-20" />
-          <Plus className="w-7 h-7 relative z-10 group-hover:rotate-90 transition-transform duration-300" />
-        </button>
-
-        {/* Mobile expand button */}
-        <button
-          onClick={() => setExpanded(!expanded)}
-          className="sm:hidden absolute -top-2 -left-2 w-6 h-6 rounded-full bg-slate-800 dark:bg-slate-700 text-white text-xs flex items-center justify-center shadow-lg"
-        >
-          {expanded ? '×' : '⋯'}
+          <Plus className="w-7 h-7" />
         </button>
       </div>
 
