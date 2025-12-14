@@ -54,58 +54,8 @@ export default function AppNavLayout({ children }: { children: React.ReactNode }
   return (
     <div className={"min-h-screen flex flex-col bg-background text-foreground " + (theme === 'dark' ? 'dark' : '')}>
       {/* Top navbar */}
-      <header className="w-full flex lg:hidden items-center justify-between px-6 py-4 border-b border-border bg-card shadow-sm">
-        <Link href="/">
-          <div className="flex items-center">
-            <Logo className="text-primary dark:text-white p-4 w-1/2 h-auto" title={APP_NAME} />
-          </div>
-          {/* <div className="font-bold text-xl text-primary">{APP_NAME}</div> */}
-        </Link>
-        <div className="flex items-center gap-3">
-          {userProfile && (
-            <div className="flex items-center gap-2 px-3 py-1 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800">
-              {userProfile.profilePicture && (
-                <Image
-                  src={userProfile.profilePicture}
-                  alt={userProfile.name}
-                  width={24}
-                  height={24}
-                  className="w-6 h-6 rounded-full"
-                  priority
-                />
-              )}
-              <div className="text-sm">
-                <div className="font-medium">{userProfile.name}</div>
-                <div className="text-xs text-gray-500 dark:text-gray-400">{userProfile.email}</div>
-              </div>
-            </div>
-          )}
-          <button
-            className="p-2 rounded-lg border border-gray-300 bg-white dark:bg-gray-800 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-            aria-label="Toggle dark mode"
-            onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
-          >
-            {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
-          <button
-            className="p-2 rounded-lg border border-gray-300 bg-white dark:bg-gray-800 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-            aria-label="View Logs"
-            onClick={() => setLogsOpen(true)}
-          >
-            <FileText size={18} />
-          </button>
-          <button
-            className="p-2 rounded-lg border border-gray-300 bg-white dark:bg-gray-800 dark:text-white hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-            aria-label="Settings"
-            onClick={() => {
-              userOpenedSettings.current = true
-              setSettingsOpen(true)
-            }}
-          >
-            <Settings size={18} />
-          </button>
-        </div>
-      </header>
+      {/* Top navbar removed (handled by page specific headers) */}
+
       {/* Main content */}
       <main className="flex-1 p-6">
         {children}

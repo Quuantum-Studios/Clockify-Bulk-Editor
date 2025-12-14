@@ -1,6 +1,5 @@
 "use client"
 import { useEffect, useState, useRef, useCallback, useMemo } from "react"
-import Link from "next/link"
 import { useClockifyStore } from "../../lib/store"
 import { Button } from "../../components/ui/button"
 import { BulkUploadDialog } from "../../components/BulkUploadDialog"
@@ -20,6 +19,7 @@ import { TimeEntryTable } from "../../components/editor/TimeEntryTable"
 import { TimeEntryList } from "../../components/editor/TimeEntryList"
 import { Task, TimeEntry } from "../../lib/store"
 import { getLast30DaysRange, toUtcIso, toLocalNaive, normalizeDate } from "../../lib/dateUtils"
+import { RotateCcw } from "lucide-react"
 
 export const dynamic = 'force-dynamic'
 
@@ -830,6 +830,9 @@ export default function AppPage() {
         refreshing={refreshing}
         onManageTags={() => setBulkDeleteTagsDialogOpen(true)}
         onManageTasks={() => setBulkDeleteTasksDialogOpen(true)}
+        onAddEntry={addNewRow}
+        onOpenSettings={() => setSettingsOpen(true)}
+        onImportCSV={() => setBulkDialogOpen(true)}
       />
 
       {/* Desktop Toolbar (Left Sidebar) */}
@@ -843,14 +846,16 @@ export default function AppPage() {
       <LogsDialog open={logsOpen} onClose={() => setLogsOpen(false)} />
 
       {/* Floating Action Buttons */}
-      <FloatingActions
-        onAddEntry={addNewRow}
-        onImportCSV={() => setBulkDialogOpen(true)}
-      />
+      <div className="hidden md:block">
+        <FloatingActions
+          onAddEntry={addNewRow}
+          onImportCSV={() => setBulkDialogOpen(true)}
+        />
+      </div>
 
       {/* Main Content - lg:pl-14 accounts for desktop sidebar */}
-      <main className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-20 pt-[88px] md:pt-14 lg:pl-14">
-        <div className="max-w-[1800px] mx-auto px-6 py-6">
+      <main className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-20 pt-[72px] md:pt-14 lg:pl-14">
+        <div className="max-w-[1800px] mx-auto px-4 py-4 md:px-6 md:py-6">
           {projectIds.length === 0 ? (
             <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm">
               <div className="text-4xl mb-4">☝️</div>
@@ -870,12 +875,25 @@ export default function AppPage() {
                     <span>{timeEntries.length} entries loaded</span>
                   )}
                 </div>
+                  {/* Mobile Refresh Button */}
+                  <div className="md:hidden">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={refreshAllReferenceData}
+                      disabled={refreshing}
+                      className="h-8 gap-2 text-slate-500 hover:text-blue-600 px-2"
+                    >
+                      <span className="text-xs font-medium">Refresh</span>
+                      <RotateCcw className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+                    </Button>
+                  </div>
               </div>
 
-              {/* Table Container */}
-              <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden relative min-h-[400px]">
+                {/* Table/List Container */}
+                <div className="relative min-h-[400px] md:bg-white md:dark:bg-slate-900 md:rounded-xl md:shadow-sm md:border md:border-slate-200 md:dark:border-slate-800 md:overflow-hidden">
                 {loading && (
-                  <div className="absolute inset-0 z-50 bg-white/50 dark:bg-slate-900/50 backdrop-blur-[1px] flex items-center justify-center">
+                    <div className="absolute inset-0 z-50 bg-white/50 dark:bg-slate-900/50 backdrop-blur-[1px] flex items-center justify-center rounded-xl">
                     <div className="bg-white dark:bg-slate-800 p-4 rounded-full shadow-xl border border-slate-100 dark:border-slate-700">
                       <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full" />
                     </div>
@@ -938,8 +956,8 @@ export default function AppPage() {
                   </div>
               </div>
 
-              {/* Bulk Actions Floating Bar */}
-                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50">
+                {/* Bulk Actions Floating Bar - pushed up on mobile to avoid nav collision */}
+                <div className="fixed bottom-24 md:bottom-6 left-1/2 -translate-x-1/2 z-50">
                 <BulkActions
                   selectedCount={selectedIds.size}
                   onDelete={handleBulkDeleteSelected}

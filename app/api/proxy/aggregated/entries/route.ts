@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
     
     // Deduplicate entries based on ID
     const uniqueEntries = Array.from(
-      new Map(allEntries.map((entry: any) => [entry.id, entry])).values()
+      new Map(allEntries.map((entry: { id: string } & Record<string, unknown>) => [entry.id, entry])).values()
     )
 
     return NextResponse.json(uniqueEntries)

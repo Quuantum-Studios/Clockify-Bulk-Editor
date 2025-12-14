@@ -6,7 +6,7 @@ import { Input } from "../ui/input"
 import { Select } from "../ui/select"
 import { TagSelector } from "../TagSelector"
 import { TimeEntry, Task } from "../../lib/store"
-import { Calendar, Save, RotateCcw, Trash2, XCircle, DollarSign, Clock } from "lucide-react"
+import { RotateCcw, Trash2, XCircle, DollarSign } from "lucide-react"
 
 interface TimeEntryCardProps {
   entry: TimeEntry
@@ -95,9 +95,9 @@ export function TimeEntryCard({
   let tagLabels: string[] = []
   if (editingEntry.tags) tagLabels = editingEntry.tags as string[]
   else if (entry.tags) tagLabels = entry.tags as string[]
-  else if ((entry as any).tagIds) tagLabels = ((entry as any).tagIds || []).map((id: string) => tags.find(t => t.id === id)?.name || id)
+  else if ((entry as TimeEntry & { tagIds?: string[] }).tagIds) tagLabels = ((entry as TimeEntry & { tagIds?: string[] }).tagIds || []).map((id: string) => tags.find(t => t.id === id)?.name || id)
 
-  const isNew = (entry as any)._isNew
+  const isNew = (entry as TimeEntry & { _isNew?: boolean })._isNew
 
   return (
     <div className={`
@@ -257,7 +257,7 @@ export function TimeEntryCard({
                     <XCircle className="w-4 h-4 mr-1" /> Remove
                   </Button>
                ) : (
-                  <Button variant="ghost" size="sm" onClick={onDelete} className="text-red-500 hover:text-red-600 hover:bg-red-50 h-8 px-2">
+                  <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onDelete(); }} className="text-red-500 hover:text-red-600 hover:bg-red-50 h-8 px-2">
                     <Trash2 className="w-4 h-4 mr-1" /> Delete
                   </Button>
                )}

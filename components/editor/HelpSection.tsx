@@ -62,7 +62,7 @@ export function HelpSection({ open, onToggle }: HelpSectionProps) {
               • <strong>Voice Upload:</strong> Use the Magic Upload button to add entries via voice commands
             </li>
             <li>
-              • <strong>CSV Import:</strong> Click "Import CSV" to bulk upload time entries from a CSV file
+              • <strong>CSV Import:</strong> Click &quot;Import CSV&quot; to bulk upload time entries from a CSV file
             </li>
           </ul>
         </div>

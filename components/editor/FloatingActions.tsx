@@ -11,7 +11,7 @@ interface FloatingActionsProps {
 
 export function FloatingActions({ onAddEntry, onImportCSV }: FloatingActionsProps) {
   const [voiceOpen, setVoiceOpen] = useState(false)
-  const [isOpen, setIsOpen] = useState(false)
+  const [isOpen, setIsOpen] = useState(true)
 
   return (
     <>

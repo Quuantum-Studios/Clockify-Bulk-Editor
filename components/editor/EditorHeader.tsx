@@ -7,7 +7,9 @@ import { Select } from "../ui/select"
 import { ProjectSelector } from "../ProjectSelector"
 import { DateRangePicker } from "../DateRangePicker"
 import Logo from "../Logo"
-import { X, Menu, RotateCcw, Tag, ListTodo, Sun, Moon, Settings, FileText } from "lucide-react"
+
+import { X, Menu, RotateCcw, Tag, ListTodo, Sun, Moon, Settings, FileText, Filter, Plus, Sparkles, FileSpreadsheet } from "lucide-react"
+import VoiceDialog from "../VoiceDialog"
 
 interface EditorHeaderProps {
   workspaces: { id: string; name: string }[]
@@ -23,6 +25,9 @@ interface EditorHeaderProps {
   refreshing: boolean
   onManageTags: () => void
   onManageTasks: () => void
+  onAddEntry: () => void
+  onOpenSettings: () => void
+  onImportCSV: () => void
 }
 
 export function EditorHeader({
@@ -38,11 +43,16 @@ export function EditorHeader({
   onRefresh,
   refreshing,
   onManageTags,
-  onManageTasks
+  onManageTasks,
+  onAddEntry,
+  onOpenSettings,
+  onImportCSV
 }: EditorHeaderProps) {
   const [showDatePicker, setShowDatePicker] = useState(false)
-  const [showProjectPicker, setShowProjectPicker] = useState(false)
+  const [showFilterDrawer, setShowFilterDrawer] = useState(false)
   const [showMobileMenu, setShowMobileMenu] = useState(false)
+  const [showAddMenu, setShowAddMenu] = useState(false)
+  const [voiceOpen, setVoiceOpen] = useState(false)
   const [theme, setTheme] = useState("light")
   const [mounted, setMounted] = useState(false)
 
@@ -84,7 +94,6 @@ export function EditorHeader({
         {/* Main Header Row */}
         <div className="h-14 max-w-[1920px] mx-auto px-4 flex items-center gap-3">
           {/* Logo */}
-          {/* Exit Button & Logo */}
           <div className="flex items-center gap-2">
             <Link href="/">
               <Button
@@ -104,7 +113,7 @@ export function EditorHeader({
 
           <div className="hidden md:block w-px h-6 bg-slate-200 dark:bg-slate-700"></div>
 
-          {/* Filters - Desktop */}
+          {/* Filters - Desktop Only */}
           <div className="hidden md:flex items-center gap-3 flex-1">
             <Select 
               value={workspaceId} 
@@ -149,7 +158,7 @@ export function EditorHeader({
             </div>
           </div>
 
-          {/* Actions - Visible on Desktop and Tablet */}
+          {/* Actions - Visible on Desktop */}
           <div className="hidden md:flex items-center gap-1">
             <Button 
               onClick={onRefresh} 
@@ -189,11 +198,9 @@ export function EditorHeader({
             >
               <ListTodo className="h-4 w-4" />
             </Button>
-
-            {/* Removed Exit Button from here */}
           </div>
 
-          {/* Mobile Menu Button */}
+          {/* Mobile Menu Button - Left aligned or Right aligned? Image shows Right aligned */}
           <button
             onClick={() => setShowMobileMenu(!showMobileMenu)}
             className="md:hidden ml-auto h-8 w-8 flex items-center justify-center rounded-md text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
@@ -201,77 +208,134 @@ export function EditorHeader({
             <Menu className="h-5 w-5" />
           </button>
         </div>
+      </header>
 
-        {/* Mobile Filters Row */}
-        <div className="md:hidden px-4 py-2 border-t border-slate-100 dark:border-slate-800 flex gap-2 overflow-x-auto">
-          <Select 
-            value={workspaceId} 
-            onChange={e => onWorkspaceChange(e.target.value)} 
-            className="h-8 min-w-[120px] text-xs cursor-pointer bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-md"
-          >
-            <option value="">Workspace</option>
-            {Array.isArray(workspaces) && workspaces.map((ws) => (
-              <option key={ws.id} value={ws.id}>{ws.name}</option>
-            ))}
-          </Select>
+      {/* Mobile Bottom Navbar */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 z-50 flex items-center justify-around px-2 pb-safe">
+        <button
+          onClick={() => setShowFilterDrawer(true)}
+          className="flex flex-col items-center gap-1 p-2 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400"
+        >
+          <div className={`p-1 rounded-md ${projectIds.length > 0 ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400' : ''}`}>
+            <Filter className="h-5 w-5" />
+          </div>
+          <span className="text-[10px] font-medium">Filter</span>
+        </button>
 
-          <div className="min-w-[140px]">
-            <button
-              type="button"
-              onClick={() => setShowProjectPicker(true)}
-              className="h-8 w-full px-3 border rounded-md bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-xs text-left cursor-pointer whitespace-nowrap overflow-hidden text-ellipsis flex items-center justify-between"
-            >
-              <span className="truncate">
-                {projectIds.length > 0 ? `${projectIds.length} selected` : 'Projects...'}
-              </span>
-              <span className="ml-1 opacity-50">▼</span>
+        <button
+          onClick={onManageTags}
+          className="flex flex-col items-center gap-1 p-2 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400"
+        >
+          <Tag className="h-5 w-5" />
+          <span className="text-[10px] font-medium">Tags</span>
+        </button>
+
+        <div className="relative flex flex-col items-center justify-center -mt-6">
+          {/* Action Menu */}
+          <div className={`absolute bottom-full mb-4 flex flex-col gap-3 items-center transition-all duration-300 ${showAddMenu ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-90 pointer-events-none'}`}>
+            <button onClick={() => { onAddEntry(); setShowAddMenu(false); }} className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-lg px-4 py-2.5 rounded-full whitespace-nowrap active:scale-95 transition-transform">
+              <div className="p-1 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"><Plus className="w-4 h-4" /></div>
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Add Entry</span>
+            </button>
+            <button onClick={() => { setVoiceOpen(true); setShowAddMenu(false); }} className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-lg px-4 py-2.5 rounded-full whitespace-nowrap active:scale-95 transition-transform">
+              <div className="p-1 rounded-full bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400"><Sparkles className="w-4 h-4" /></div>
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Magic Upload</span>
+            </button>
+            <button onClick={() => { onImportCSV(); setShowAddMenu(false); }} className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-lg px-4 py-2.5 rounded-full whitespace-nowrap active:scale-95 transition-transform">
+              <div className="p-1 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400"><FileSpreadsheet className="w-4 h-4" /></div>
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-200">Import CSV</span>
             </button>
           </div>
 
+          {/* Toggle Button */}
           <button
-            type="button"
-            onClick={() => setShowDatePicker(v => !v)}
-            className="h-8 px-2 border rounded-md bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-xs cursor-pointer whitespace-nowrap"
+            onClick={() => setShowAddMenu(!showAddMenu)}
+            className={`h-14 w-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-300 ${showAddMenu ? 'bg-slate-700 rotate-45' : 'bg-blue-600 hover:bg-blue-700 hover:scale-105'} text-white`}
           >
-            📅 Date
+            <Plus className="h-7 w-7" />
           </button>
         </div>
 
-        {/* Mobile Actions Toolbar */}
-        <div className="md:hidden px-4 py-2 border-t border-slate-100 dark:border-slate-800 flex gap-2">
-          <button
-            onClick={onRefresh}
-            disabled={refreshing}
-            className="flex-1 flex items-center justify-center gap-2 h-9 px-3 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer disabled:opacity-50 border border-slate-200 dark:border-slate-700"
-          >
-            {refreshing ? (
-              <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <RotateCcw className="h-4 w-4" />
-            )}
-            <span className="text-xs font-medium">Refresh</span>
-          </button>
+        <button
+          onClick={onManageTasks}
+          disabled={projectIds.length === 0}
+          className={`flex flex-col items-center gap-1 p-2 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 ${projectIds.length === 0 ? 'opacity-40 pointer-events-none' : ''}`}
+        >
+          <ListTodo className="h-5 w-5" />
+          <span className="text-[10px] font-medium">Tasks</span>
+        </button>
 
-          <button
-            onClick={onManageTags}
-            className="flex-1 flex items-center justify-center gap-2 h-9 px-3 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer border border-slate-200 dark:border-slate-700"
-          >
-            <Tag className="h-4 w-4" />
-            <span className="text-xs font-medium">Tags</span>
-          </button>
+        <button
+          onClick={onOpenSettings}
+          className="flex flex-col items-center gap-1 p-2 text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400"
+        >
+          <Settings className="h-5 w-5" />
+          <span className="text-[10px] font-medium">Settings</span>
+        </button>
+      </div>
 
-          <button
-            onClick={onManageTasks}
-            disabled={projectIds.length === 0}
-            className="flex-1 flex items-center justify-center gap-2 h-9 px-3 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer disabled:opacity-50 border border-slate-200 dark:border-slate-700"
-          >
-            <ListTodo className="h-4 w-4" />
-            <span className="text-xs font-medium">Tasks</span>
-          </button>
+      {/* Mobile Filter Drawer */}
+      {showFilterDrawer && (
+        <div className="md:hidden fixed inset-0 z-[100] flex items-end justify-center pointer-events-none">
+          <div className="absolute inset-0 bg-black/50 pointer-events-auto" onClick={() => setShowFilterDrawer(false)} />
+          <div className="relative bg-white dark:bg-slate-900 w-full p-4 rounded-t-xl shadow-xl pointer-events-auto animate-in slide-in-from-bottom-10 mb-0 pb-8 border-t border-slate-200 dark:border-slate-800 flex flex-col gap-4 max-h-[85vh] overflow-y-auto">
+            <div className="flex justify-between items-center shrink-0">
+              <span className="font-semibold text-lg text-slate-900 dark:text-white">Filters</span>
+              <button onClick={() => setShowFilterDrawer(false)} className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-slate-500 uppercase">Workspace</label>
+                <Select
+                  value={workspaceId}
+                  onChange={e => onWorkspaceChange(e.target.value)}
+                  className="w-full text-sm h-10 bg-slate-50 dark:bg-slate-800"
+                >
+                  <option value="">Select Workspace</option>
+                  {Array.isArray(workspaces) && workspaces.map((ws) => (
+                    <option key={ws.id} value={ws.id}>{ws.name}</option>
+                  ))}
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-slate-500 uppercase">Projects</label>
+                <div className="min-h-[40px]">
+                  <ProjectSelector
+                    selectedProjectIds={projectIds}
+                    availableProjects={projects}
+                    onChange={onProjectsChange}
+                    placeholder="Select Projects..."
+                    onSelectAll={() => onProjectsChange(projects.map(p => p.id))}
+                    className="w-full text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-slate-500 uppercase">Date Range</label>
+                <div className="flex justify-center bg-slate-50 dark:bg-slate-800 rounded-lg p-2 border border-slate-200 dark:border-slate-700">
+                  <DateRangePicker
+                    value={dateRange || defaultDateRange}
+                    onChange={val => onDateRangeChange(val)}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <Button onClick={() => setShowFilterDrawer(false)} className="w-full h-10">
+                Apply Filters
+              </Button>
+            </div>
+          </div>
         </div>
-      </header>
+      )}
 
-      {/* Mobile Menu Drawer */}
+      {/* Mobile Menu Drawer (Existing) */}
       {showMobileMenu && (
         <div className="md:hidden fixed inset-0 z-[100]">
           <div className="absolute inset-0 bg-black/50" onClick={() => setShowMobileMenu(false)} />
@@ -283,9 +347,8 @@ export function EditorHeader({
               </button>
             </div>
 
-
-
             <button
+              onClick={onOpenSettings}
               className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
             >
               <Settings className="h-4 w-4" />
@@ -316,57 +379,7 @@ export function EditorHeader({
           </div>
         </div>
       )}
-
-      {/* Mobile Date Picker Overlay */}
-      {showDatePicker && (
-        <div className="md:hidden fixed inset-0 z-[100] flex items-end sm:items-center justify-center pointer-events-none">
-          <div className="absolute inset-0 bg-black/50 pointer-events-auto" onClick={() => setShowDatePicker(false)} />
-          <div className="relative bg-white dark:bg-slate-900 w-full sm:w-auto p-4 rounded-t-xl sm:rounded-xl shadow-xl pointer-events-auto animate-in slide-in-from-bottom-10 mb-0 pb-8 border-t border-slate-200 dark:border-slate-800">
-            <div className="flex justify-between items-center mb-4">
-              <span className="font-semibold text-slate-900 dark:text-white">Select Dates</span>
-              <button onClick={() => setShowDatePicker(false)} className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"><X className="w-5 h-5" /></button>
-            </div>
-            <div className="flex justify-center">
-              <DateRangePicker value={dateRange || defaultDateRange} onChange={val => { onDateRangeChange(val); setShowDatePicker(false); }} />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Mobile Project Picker Overlay */}
-      {showProjectPicker && (
-        <div className="md:hidden fixed inset-0 z-[100] flex items-end sm:items-center justify-center pointer-events-none">
-          <div className="absolute inset-0 bg-black/50 pointer-events-auto" onClick={() => setShowProjectPicker(false)} />
-          <div className="relative bg-white dark:bg-slate-900 w-full sm:w-[400px] p-4 rounded-t-xl sm:rounded-xl shadow-xl pointer-events-auto animate-in slide-in-from-bottom-10 mb-0 pb-8 border-t border-slate-200 dark:border-slate-800 max-h-[85vh] flex flex-col">
-            <div className="flex justify-between items-center mb-4 shrink-0">
-              <span className="font-semibold text-slate-900 dark:text-white">
-                Select Projects ({projectIds.length})
-              </span>
-              <button
-                onClick={() => setShowProjectPicker(false)}
-                className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <ProjectSelector
-                mode="inline"
-                selectedProjectIds={projectIds}
-                availableProjects={projects}
-                onChange={onProjectsChange}
-                onSelectAll={() => onProjectsChange(projects.map(p => p.id))}
-                className="h-full"
-              />
-            </div>
-            <div className="mt-4 pt-2 border-t border-slate-100 dark:border-slate-800 shrink-0">
-              <Button onClick={() => setShowProjectPicker(false)} className="w-full">
-                Done
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <VoiceDialog open={voiceOpen} onOpenChange={setVoiceOpen} />
     </>
   )
 }
