@@ -50,7 +50,7 @@ export const metadata: Metadata = {
     locale: 'en_US',
     images: [
       {
-        url: "/bulkifyai-og-banner.png",
+        url: `${SITE_URL}/bulkifyai-og-banner.png`,
         width: 1200,
         height: 630,
         alt: APP_NAME,
@@ -63,7 +63,12 @@ export const metadata: Metadata = {
     creator: TWITTER_HANDLE,
     title: APP_NAME + " — Bulk edit, upload, and clean Clockify faster",
     description: "Bulk edit, upload, and clean up time entries, tags, tasks, and projects—no signup needed. 100% free for a limited time.",
-    images: ["/bulkifyai-og-banner.png"],
+    images: [
+      {
+        url: `${SITE_URL}/bulkifyai-og-banner.png`,
+        alt: `${APP_NAME} - Bulk edit, upload, and clean Clockify time entries faster`,
+      },
+    ],
   },
   icons: {
     icon: [
@@ -115,6 +120,9 @@ export default function RootLayout({
         {process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION && (
           <meta name="msvalidate.01" content={process.env.NEXT_PUBLIC_BING_SITE_VERIFICATION} />
         )}
+        {/* Twitter Card Attribution - Added manually as Next.js metadata API doesn't render these */}
+        <meta name="twitter:site" content={TWITTER_HANDLE} />
+        <meta name="twitter:creator" content={TWITTER_HANDLE} />
         {(process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'test') && (
           <>
             {/* Sentry Lazy Loader - 0KB until error occurs */}

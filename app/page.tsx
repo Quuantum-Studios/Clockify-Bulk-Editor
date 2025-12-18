@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     type: 'website',
     images: [
       {
-        url: "/bulkifyai-og-banner.png",
+        url: `${SITE_URL}/bulkifyai-og-banner.png`,
         width: 1200,
         height: 630,
         alt: APP_NAME,
@@ -26,7 +26,12 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: "BulkifyAI — Bulk edit, upload, and clean Clockify faster",
     description: "Manage Clockify at scale. Bulk edit time entries, upload CSVs, and clean up your workspace in seconds. 100% free and secure.",
-    images: ["/bulkifyai-og-banner.png"],
+    images: [
+      {
+        url: `${SITE_URL}/bulkifyai-og-banner.png`,
+        alt: "BulkifyAI - Bulk edit, upload, and clean Clockify time entries faster",
+      },
+    ],
   },
 };
 
