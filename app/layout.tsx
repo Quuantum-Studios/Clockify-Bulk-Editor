@@ -77,6 +77,9 @@ export const metadata: Metadata = {
   appleWebApp: {
     title: APP_NAME,
   },
+  other: {
+    "og:logo": `${SITE_URL}/icon.png`,
+  },
 };
 
 export const viewport: Viewport = {

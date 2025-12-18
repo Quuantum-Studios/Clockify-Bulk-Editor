@@ -307,23 +307,7 @@ export default function AppPage() {
       .then((uniqueEntries) => {
         // Transform entries: convert tagIds to tags (tag names) and taskId to taskName
         const transformedEntries = uniqueEntries.map((entry: Record<string, unknown>) => {
-          const transformed: TimeEntry = { ...entry } as TimeEntry
-          // Convert tagIds to tags (tag names)
-          if ((entry.tagIds as string[] | undefined) && Array.isArray(entry.tagIds)) {
-            transformed.tags = (entry.tagIds as string[]).map((id: string) => {
-              const tag = tags.find(t => t.id === id)
-              return tag ? tag.name : id
-            }).filter(Boolean) as string[]
-          }
-          // Convert taskId to taskName
-          if (entry.taskId && !entry.taskName && entry.projectId) {
-            const projectTasks = (tasks[entry.projectId as string] || []) as Task[]
-            const task = projectTasks.find(t => t.id === entry.taskId)
-            if (task) {
-              transformed.taskName = task.name
-            }
-          }
-          return transformed
+          return { ...entry } as TimeEntry
         })
         setTimeEntries(transformedEntries)
         setSelectedIds(new Set())
