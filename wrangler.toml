@@ -5,7 +5,7 @@ compatibility_flags = ["nodejs_compat"]
 
 # Production environment (default for CI/CD)
 [env.production]
-name = "bulkifyai"
+name = "clockify-manager"
 zone_id = "eab53d86a300310824b21c6693437a91"
 workers_dev = false
 routes = [
