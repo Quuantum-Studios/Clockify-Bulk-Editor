@@ -1,6 +1,7 @@
 "use client"
 import { useState, useRef, useEffect } from "react"
 import { Input } from "./ui/input"
+import { Tooltip } from "./ui/tooltip"
 
 interface Project {
   id: string
@@ -136,9 +137,17 @@ export function ProjectSelector({
       >
         <div className="flex items-center flex-1 min-w-0">
           {selectedProjectsData.length > 0 ? (
-            <span className="text-sm text-gray-700 dark:text-gray-200">
-              {selectedProjectsData.length} {selectedProjectsData.length === 1 ? 'project' : 'projects'} selected
-            </span>
+            <Tooltip content={
+              <div className="flex flex-col gap-1 max-w-[300px] max-h-[200px] overflow-auto py-1">
+                {selectedProjectsData.map(p => (
+                  <div key={p.id} className="text-[10px] truncate">{p.name}</div>
+                ))}
+              </div>
+            }>
+              <span className="text-sm text-gray-700 dark:text-gray-200 group">
+                {selectedProjectsData.length} {selectedProjectsData.length === 1 ? 'project' : 'projects'} selected
+              </span>
+            </Tooltip>
           ) : (
             <span className="text-muted-foreground">{placeholder}</span>
           )}

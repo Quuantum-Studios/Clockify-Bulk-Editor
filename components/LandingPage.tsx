@@ -15,8 +15,18 @@ import {
   CheckCheck,
   Zap,
   Tag,
-  Lock
+  Lock,
+  Mail,
+  Twitter,
+  ExternalLink
 } from "lucide-react"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog"
+import { Tooltip } from "./ui/tooltip"
 import Image from "next/image"
 import Logo from "./Logo"
 import Link from "next/link"
@@ -28,6 +38,7 @@ const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || "BulkifyAI"
 export default function LandingPage() {
   const [theme, setTheme] = useState("light")
   const [mounted, setMounted] = useState(false)
+  const [isContactOpen, setIsContactOpen] = useState(false)
   const sectionsRef = useRef<(HTMLElement | null)[]>([])
 
   useEffect(() => {
@@ -97,6 +108,7 @@ export default function LandingPage() {
             <div className="hidden md:block">
               <div className="flex items-baseline space-x-6">
                 <a href="#features" className="text-sm font-medium text-gray-600 hover:text-primary dark:text-gray-300 dark:hover:text-white transition-colors">Features</a>
+                <a href="#pricing" className="text-sm font-medium text-gray-600 hover:text-primary dark:text-gray-300 dark:hover:text-white transition-colors">Pricing</a>
                 <a href="#how-it-works" className="text-sm font-medium text-gray-600 hover:text-primary dark:text-gray-300 dark:hover:text-white transition-colors">How it Works</a>
                 <a href="#faq" className="text-sm font-medium text-gray-600 hover:text-primary dark:text-gray-300 dark:hover:text-white transition-colors">FAQ</a>
               </div>
@@ -433,8 +445,81 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* 9. Pricing */}
+      <section id="pricing" className="py-24 bg-white dark:bg-slate-950 scroll-animate" ref={(el) => { sectionsRef.current[7] = el }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center max-w-2xl mx-auto mb-16">
+            <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-4">Simple, Transparent Pricing</h2>
+            <p className="text-slate-600 dark:text-slate-400">Choose the plan that fits your team&apos;s scale.</p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            {/* Free Plan */}
+            <div className="relative p-8 rounded-2xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex flex-col hover:border-primary/50 transition-colors">
+              <div className="mb-6">
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Free Plan</h3>
+                <div className="flex items-baseline gap-1">
+                  <span className="text-4xl font-bold text-slate-900 dark:text-white">$0</span>
+                  <span className="text-slate-500 dark:text-slate-400">/forever</span>
+                </div>
+              </div>
+              <ul className="space-y-4 mb-8 flex-1">
+                {[
+                  "Unlimited bulk edits",
+                  "CSV bulk imports",
+                  "AI cleanup (beta)",
+                  "Local security",
+                  "Community support"
+                ].map((item) => (
+                  <li key={item} className="flex items-center gap-3 text-slate-700 dark:text-slate-300 text-sm">
+                    <CheckCheck className="w-4 h-4 text-green-500 shrink-0" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <Link href="/editor">
+                <Button className="w-full h-12 bg-slate-900 dark:bg-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 transition-all font-semibold">
+                  Get Started for Free
+                </Button>
+              </Link>
+            </div>
+
+            {/* Enterprise Plan */}
+            <div className="relative p-8 rounded-2xl bg-white dark:bg-slate-900 border-2 border-primary/20 dark:border-primary/30 flex flex-col shadow-xl hover:border-primary/50 transition-colors">
+              <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary text-white text-[10px] font-bold uppercase tracking-wider py-1 px-4 rounded-full">
+                Most Popular for Teams
+              </div>
+              <div className="mb-6">
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Enterprise Plan</h3>
+                <div className="text-3xl font-bold text-slate-900 dark:text-white">Custom</div>
+              </div>
+              <ul className="space-y-4 mb-8 flex-1">
+                {[
+                  "Priority API handling",
+                  "Advanced data validation",
+                  "Dedicated support channel",
+                  "Custom bulk workflows",
+                  "Workspace administration tools"
+                ].map((item) => (
+                  <li key={item} className="flex items-center gap-3 text-slate-700 dark:text-slate-300 text-sm">
+                    <CheckCheck className="w-4 h-4 text-primary shrink-0" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <Button
+                onClick={() => setIsContactOpen(true)}
+                className="w-full h-12 bg-primary hover:bg-primary/90 text-white shadow-lg hover:shadow-primary/20 transition-all font-semibold"
+              >
+                Contact for Enterprise
+              </Button>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* 9. FAQ */}
-      <section id="faq" className="py-24 bg-slate-50 dark:bg-slate-900/50 scroll-animate" ref={(el) => { sectionsRef.current[7] = el }}>
+      <section id="faq" className="py-24 bg-slate-50 dark:bg-slate-900/50 scroll-animate" ref={(el) => { sectionsRef.current[8] = el }}>
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-3xl font-bold text-center text-slate-900 dark:text-white mb-12">FAQ</h2>
           <div className="space-y-6">
@@ -484,11 +569,79 @@ export default function LandingPage() {
             <div className="flex gap-6">
               <Link href="/privacy" className="hover:text-white transition">Privacy</Link>
               <Link href="/terms" className="hover:text-white transition">Terms</Link>
-              <a href="mailto:support@bulkify.ai" className="hover:text-white transition">Contact</a>
+              <a href="#pricing" className="hover:text-white transition">Pricing</a>
+              <button onClick={() => setIsContactOpen(true)} className="hover:text-white transition">Contact</button>
             </div>
           </div>
         </div>
       </footer>
+      {/* Enterprise Contact Dialog */}
+      <Dialog open={isContactOpen} onOpenChange={setIsContactOpen}>
+        <DialogContent className="max-w-md p-0 overflow-hidden border-none bg-transparent">
+          <div className="bg-white dark:bg-slate-950 rounded-2xl overflow-hidden shadow-2xl">
+            <div className="h-32 bg-primary relative overflow-hidden">
+              <div className="absolute inset-0 opacity-20">
+                <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_center,_white_1px,_transparent_1px)] bg-[length:24px_24px]" />
+              </div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Sparkles className="text-white w-12 h-12" />
+              </div>
+            </div>
+
+            <div className="p-8">
+              <DialogHeader className="mb-6">
+                <DialogTitle className="text-2xl font-bold text-center w-full text-slate-900 dark:text-white">
+                  Let&apos;s scale together
+                </DialogTitle>
+                <p className="text-center text-slate-500 dark:text-slate-400 mt-2">
+                  Choose your preferred way to reach out to our team.
+                </p>
+              </DialogHeader>
+
+              <div className="space-y-4">
+                <a
+                  href="mailto:contact.bulkifyai@quuantum.com"
+                  className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-primary/50 hover:bg-primary/5 dark:hover:bg-primary/10 transition-all group"
+                >
+                  <div className="w-12 h-12 rounded-full bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                    <Mail className="w-6 h-6" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-bold text-slate-900 dark:text-white">Email Us</div>
+                    <div className="text-sm text-slate-500 dark:text-slate-400">contact.bulkifyai@quuantum.com</div>
+                  </div>
+                  <ExternalLink className="w-4 h-4 text-slate-300 group-hover:text-primary" />
+                </a>
+
+                <a
+                  href="https://x.com/TheDhYadav"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-4 p-4 rounded-xl border border-slate-200 dark:border-slate-800 hover:border-[#1DA1F2]/50 hover:bg-[#1DA1F2]/5 dark:hover:bg-[#1DA1F2]/10 transition-all group"
+                >
+                  <div className="w-12 h-12 rounded-full bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-[#1DA1F2] group-hover:scale-110 transition-transform">
+                    <Twitter className="w-6 h-6" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="font-bold text-slate-900 dark:text-white">Twitter / X</div>
+                    <div className="text-sm text-slate-500 dark:text-slate-400">@TheDhYadav</div>
+                  </div>
+                  <ExternalLink className="w-4 h-4 text-slate-300 group-hover:text-[#1DA1F2]" />
+                </a>
+              </div>
+
+              <div className="mt-8 text-center">
+                <button
+                  onClick={() => setIsContactOpen(false)}
+                  className="text-sm font-medium text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors"
+                >
+                  Maybe later
+                </button>
+              </div>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

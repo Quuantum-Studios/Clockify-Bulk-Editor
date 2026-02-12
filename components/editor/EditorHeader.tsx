@@ -133,7 +133,13 @@ export function EditorHeader({
                 onChange={onProjectsChange}
                 placeholder="Projects..."
                 className="h-8 w-full text-sm"
-                onSelectAll={() => onProjectsChange(projects.map(p => p.id))}
+                onSelectAll={() => {
+                  if (projectIds.length === projects.length && projects.length > 0) {
+                    onProjectsChange([])
+                  } else {
+                    onProjectsChange(projects.map(p => p.id))
+                  }
+                }}
               />
             </div>
 
